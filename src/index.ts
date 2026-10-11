@@ -1,10 +1,63 @@
-import { World } from '@iwsdk/core';
+import { AssetManager, World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
+import { ArchRuntime } from './game/runtime.js';
+import { HandSystem } from './systems/hands.js';
+import { GrabSnapSystem } from './systems/grab-snap.js';
+import { CenteringSystem } from './systems/centering.js';
+import { StaticsSystem } from './systems/statics.js';
+import { CollapseSystem } from './systems/collapse.js';
+import { PerfEndSystem, PerfStartSystem, StoneRenderSystem } from './systems/render.js';
+import { SurfaceSystem } from './systems/surface.js';
+import { AutotestSystem } from './systems/autotest.js';
 
 // The XR session, its optional features and the scene all come from iwsdk.config.json.
 // Only `local-floor` (falling back to `local`) is used as the reference space; every
 // other WebXR feature is optional so the experience starts on any Quest setup.
-World.create(
-  document.getElementById('scene-container') as HTMLDivElement,
-  projectOptions,
-);
+
+const params = new URLSearchParams(location.search);
+
+// Same-origin only: the input layer would otherwise fetch controller and hand models from a CDN.
+// In passthrough the player sees their real hands and controllers, so no model is loaded at all.
+const loadGLTF = AssetManager.loadGLTF.bind(AssetManager);
+AssetManager.loadGLTF = (url: string, key?: string) =>
+  /^https?:\/\//.test(url) && !url.startsWith(location.origin)
+    ? Promise.reject(new Error(`remote asset blocked: ${url}`))
+    : loadGLTF(url, key);
+
+async function main(): Promise<void> {
+  // ?emulator=1: install IWER (Meta's WebXR emulator) so a desktop browser offers an XR session.
+  // Loaded on demand, so it never ships in the normal first load.
+  if (params.get('emulator') === '1') {
+    const { XRDevice, metaQuest3 } = await import('iwer');
+    const device = new XRDevice(metaQuest3);
+    // Chromium exposes its own navigator.xr even without a headset; replace it with the emulator.
+    device.installRuntime({ forceInstall: true });
+    device.position.set(0, 1.15, 0.05);
+  }
+
+  // iwsdk.config.json enables physics so the build keeps Havok, but it is not needed until the
+  // first stone goes down: CollapseSystem registers it then, and Havok's WASM loads only at that point.
+  const world = await World.create(document.getElementById('scene-container') as HTMLDivElement, {
+    ...projectOptions,
+    features: { ...projectOptions.features, physics: false },
+  });
+
+  const arch = new ArchRuntime(world);
+  world.globals.arch = arch;
+  world
+    .registerSystem(PerfStartSystem, { priority: -100 })
+    .registerSystem(HandSystem, { priority: 0 })
+    .registerSystem(AutotestSystem, { priority: 1 })
+    .registerSystem(SurfaceSystem, { priority: 5 })
+    .registerSystem(GrabSnapSystem, { priority: 10 })
+    .registerSystem(CenteringSystem, { priority: 11 })
+    .registerSystem(StaticsSystem, { priority: 12 })
+    .registerSystem(CollapseSystem, { priority: 13 })
+    .registerSystem(StoneRenderSystem, { priority: 20 })
+    .registerSystem(PerfEndSystem, { priority: 1000 });
+
+  const autotest = params.get('autotest')?.split(';')[0]?.split(':')[0] ?? null;
+  arch.load(ArchRuntime.levelById(autotest ?? params.get('level')));
+}
+
+void main();

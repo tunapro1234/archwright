@@ -46,25 +46,23 @@
       "camera": {
         "position": [
           0,
-          1.15,
-          -0.1
+          1.08,
+          0.0
         ],
         "lookAt": [
           0,
-          0.78,
-          -0.5
+          0.79,
+          -0.4
         ]
       }
     },
     "features": {
       "locomotion": false,
-      "grabbing": true,
+      "grabbing": false,
       "physics": true,
       "sceneUnderstanding": true,
-      "environmentRaycast": true,
-      "spatialUI": {
-        "kit": "horizon"
-      }
+      "environmentRaycast": false,
+      "spatialUI": false
     }
   },
   "dev": {
