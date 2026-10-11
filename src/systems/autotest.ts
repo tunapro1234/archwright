@@ -2,8 +2,13 @@
 // seats the level's solution (hold) or its trap (collapse) stone by stone, then pulls the centering.
 // It goes through the same placement and strike code as a hand, but it is not a hand simulation.
 // Several runs can be chained with ';', e.g. ?autotest=w1-1:hold;w1-1:collapse.
+// With &shots=1 it also holds at six key frames (tray, keystone, pulling, held, collapse-mid,
+// collapsed), naming each in window.__archwright.shot until the test clears it. Slow software
+// rendering would otherwise rush past the short moments between two screenshots.
 import { createSystem } from '@iwsdk/core';
 import { ArchRuntime } from '../game/runtime.js';
+import { strikePull } from '../scene/layout.js';
+import { SILENCE } from './statics.js';
 import type { Step } from '../game/arch-state.js';
 
 export interface AutotestRun { level: string; outcome: 'hold' | 'collapse' }
@@ -21,6 +26,9 @@ const STEP = 0.6;
 const MOVE = 0.45;
 const BEFORE_PULL = 0.8;
 const BETWEEN_RUNS = 3.5;
+const HELD_SHOT = SILENCE + 1.0;         // the thread has faded in
+const MID_SHOT = SILENCE + 0.35;         // the stones are falling
+const COLLAPSED_SHOT = SILENCE + 4.0;    // everything has come to rest
 
 export class AutotestSystem extends createSystem({}) {
   private runs: AutotestRun[] = [];
@@ -28,15 +36,31 @@ export class AutotestSystem extends createSystem({}) {
   private steps: Step[] = [];
   private next = 0;
   private timer = START_DELAY;
-  private phase: 'place' | 'pull' | 'verdict' | 'done' = 'place';
+  private phase: 'place' | 'pull' | 'verdict' | 'settle' | 'done' = 'place';
+  private settled = 0;
+  private shots = false;
+  private taken = new Set<string>();
+  private resumePull = false;
 
   init(): void {
-    this.runs = parseAutotest(new URLSearchParams(location.search).get('autotest'));
+    const params = new URLSearchParams(location.search);
+    this.runs = parseAutotest(params.get('autotest'));
+    this.shots = params.get('shots') === '1';
+  }
+
+  /** Hold for a key frame (once per name). True when the autotest should wait this frame. */
+  private shot(arch: ArchRuntime, name: string): boolean {
+    if (!this.shots || this.taken.has(name)) return false;
+    this.taken.add(name);
+    arch.hook.shot = name;
+    return true;
   }
 
   update(delta: number): void {
     const arch = this.globals.arch as ArchRuntime | undefined;
     if (!arch?.state || this.run >= this.runs.length) return;
+    if (arch.hook.shot) return;
+    if (this.resumePull) { this.resumePull = false; arch.centering.auto = true; }
     this.timer -= delta;
     if (this.timer > 0) return;
     if (this.phase === 'place' && this.steps.length === 0) {
@@ -49,6 +73,7 @@ export class AutotestSystem extends createSystem({}) {
     }
     switch (this.phase) {
       case 'place': {
+        if (this.next === 0 && this.shot(arch, 'tray')) return;
         const s = this.steps[this.next++];
         const v = arch.stoneById(s.stone);
         if (!v || arch.place(v, s.side, MOVE, 0.07)) console.warn(`autotest: could not place ${s.stone} on the ${s.side}`);
@@ -57,18 +82,37 @@ export class AutotestSystem extends createSystem({}) {
         break;
       }
       case 'pull':
+        if (arch.stones.some(v => v.mode === 'tween')) break; // let the keystone land first
+        if (this.shot(arch, 'keystone')) return;
         arch.centering.auto = true;
         this.phase = 'verdict';
         this.timer = 0;
         break;
       case 'verdict':
+        if (!arch.centering.struck && arch.centering.pull > strikePull(arch.def.depth) / 2 && this.shot(arch, 'pulling')) {
+          arch.centering.auto = false;
+          this.resumePull = true;
+          return;
+        }
         if (arch.hook.state === 'held' || arch.hook.state === 'collapsed') {
+          this.phase = 'settle';
+          this.settled = 0;
+        }
+        break;
+      case 'settle': {
+        this.settled += delta;
+        const t = this.settled;
+        if (arch.hook.state === 'held' && t >= HELD_SHOT && this.shot(arch, 'held')) return;
+        if (arch.hook.state === 'collapsed' && t >= MID_SHOT && this.shot(arch, 'collapse-mid')) return;
+        if (arch.hook.state === 'collapsed' && t >= COLLAPSED_SHOT && this.shot(arch, 'collapsed')) return;
+        if (t >= (this.shots ? COLLAPSED_SHOT + 0.5 : BETWEEN_RUNS)) {
           this.run++;
           this.steps = [];
           this.phase = this.run < this.runs.length ? 'place' : 'done';
-          this.timer = BETWEEN_RUNS;
+          this.timer = this.shots ? 0.5 : 0;
         }
         break;
+      }
     }
   }
 }

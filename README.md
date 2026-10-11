@@ -52,8 +52,8 @@ URL parameters, for development and tests:
 (fps, JS ms per frame, draw calls, triangles, physics bodies). The `?autotest` mode goes through the same placement and strike
 code as a hand, but it is not a hand simulation.
 
-`node scripts/record-video.mjs out.webm 20` records the emulator page playing `w1-1:hold;w1-1:collapse` at a fixed 30 fps,
-using Playwright's fake clock so the clip plays at true speed on any machine.
+`node scripts/key-frames.mjs <dir>` opens the emulator page with `&shots=1`, which makes the autotest hold at six moments
+(tray, keystone seated, centering pulled, arch held, collapse half way, collapse at rest) and saves a screenshot of each.
 
 ## How the solver works
 

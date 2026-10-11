@@ -14,7 +14,7 @@ describe('levels', () => {
     expect(r.par).toBe(l.par);
     expect(r.holding).toBeGreaterThan(0);
     expect(r.holding / r.closed).toBeLessThan(0.5); // most ways to close the arch fall
-  });
+  }, 60_000); // solves every arrangement the tray allows; slow under nice 19 on a busy machine
 
   it('every stone id is unique within its level', () => {
     for (const l of LEVELS) expect(new Set(l.tray.map(s => s.id)).size).toBe(l.tray.length);

@@ -22,6 +22,8 @@ export interface Hook {
   state: HookState;
   level: string;
   perf: { fps: number; frameMs: number; drawCalls: number; triangles: number; bodies: number };
+  /** ?autotest with &shots=1 only: name of the key frame the autotest is holding for; clear it to go on. */
+  shot?: string;
 }
 
 export type StoneMode = 'tray' | 'held' | 'tween' | 'placed' | 'dynamic';
