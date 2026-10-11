@@ -1,0 +1,42 @@
+{
+  "name": "archwright",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "iwsdk dev restart --open --foreground",
+    "dev:runtime": "vite",
+    "dev:down": "iwsdk dev down",
+    "dev:status": "iwsdk dev status",
+    "typecheck": "tsc --noEmit",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@iwsdk/core": "1.0.1",
+    "@pmndrs/uikit": "^1.0.74",
+    "@pmndrs/uikit-horizon": "^1.0.74",
+    "@pmndrs/uikit-lucide": "^1.0.74",
+    "three": "npm:super-three@0.181.0"
+  },
+  "devDependencies": {
+    "@iwsdk/cli": "1.0.1",
+    "@iwsdk/vite-plugin-dev": "1.0.1",
+    "@types/three": "^0.181.0",
+    "playwright": "1.61.1",
+    "tsx": "4.23.15",
+    "typescript": "^5.5.0",
+    "vite": "^7.1.4",
+    "vitest": "5.0.3"
+  },
+  "overrides": {
+    "sharp": "0.35.4",
+    "three": "npm:super-three@0.181.0"
+  },
+  "engines": {
+    "node": ">=20.19.0 <21.0.0-0 || >=22.12.0 <23.0.0-0 || >=24.0.0"
+  },
+  "description": "Hands-first mixed reality masonry arch puzzle for Meta Quest (WebXR).",
+  "license": "MIT"
+}
