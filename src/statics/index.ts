@@ -8,8 +8,8 @@
 // strictly, non-associative sliding can make it slightly optimistic (Gilbert et al. 2006).
 import { lpMax } from './lp.js';
 
-export { semicircularArch, pointedArch } from './arches.js';
-export type { PointedArchParams } from './arches.js';
+export { semicircularArch, pointedArch, ringArch } from './arches.js';
+export type { PointedArchParams, RingArchParams, RingPiece } from './arches.js';
 
 export type Vec2 = { x: number; y: number };             // metre, x yatay, y yukarı
 export interface Block { vertices: Vec2[]; density?: number } // dışbükey çokgen, CCW; density kg/m^3 (vars. 2200)

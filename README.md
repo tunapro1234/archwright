@@ -16,6 +16,7 @@ npm install
 npm run dev        # IWSDK dev server + managed browser with the IWER XR emulator
 npm test           # unit tests (Vitest)
 npm run typecheck  # TypeScript strict
+npm run level-check  # solve every level: solution, trap and how many arrangements hold
 npm run build      # static site in dist/, built for the /archwright/ sub-path
 npm run preview    # serve dist/ at http://127.0.0.1:4173/archwright/
 ```
@@ -33,6 +34,10 @@ fix such a line, and every joint condition is linear in them, so the question be
 about a millisecond. The solver also picks the line farthest from the joint edges and reports which joints are closest to
 opening; when the arch fails, those are the joints where the collapse hinges. As a check it reproduces Heyman's
 classic result that a semicircular arch needs a ring at least about 0.107 of its radius thick.
+
+Levels are checked the same way. A level is a centering, a number of courses and a tray of stones (sandstone, light tuff,
+heavy basalt; thick, thin or wide). `npm run level-check` closes the arch in every way the tray allows, solves each one, and
+confirms that the intended solution holds, that a tempting wrong arrangement falls, and that most arrangements fall.
 
 Source: J. Heyman, *The Stone Skeleton: Structural Engineering of Masonry Architecture*, Cambridge University Press, 1995.
 
