@@ -27,10 +27,16 @@ export interface Pose2 { x: number; y: number; z: number; angle: number; tilt: n
 /**
  * Outline of `stone` in its own frame: x along the arch, y radially outwards, origin at the
  * centroid. The same outline serves the tray (angle 0: the stone stands like a keystone) and every
- * slot of a semicircular ring, where all stones of one kind are congruent.
+ * slot it can take: stones of one kind are congruent anywhere on either half, even on a pointed
+ * centering. Only a keystone differs there, since it straddles the point, so it is drawn for the crown.
  */
 export function stoneOutline(geo: GameState['geometry'], stone: StoneDef): Vec2[] {
-  return toLocal(blockAt(geo, stone, 0)).outline;
+  return toLocal(blockAt(geo, stone, stone.keystone ? crownSlot(geo, stone) : 0)).outline;
+}
+
+/** Geometry batches: stones with one key share one outline (colour comes per instance). */
+export function shapeKey(s: StoneDef): string {
+  return `${s.t}|${s.units}|${s.keystone ? 'k' : ''}`;
 }
 
 /** Pose of `stone` seated at course `slot`, in the site frame. */
@@ -108,10 +114,30 @@ export function intrados(span: number, rise: number, segments: number): Vec2[] {
   return arch.joints.map(j => ({ ...j[0] }));
 }
 
+/**
+ * The centering's top as built: the intrados curve, except under the crown course, where the
+ * keystone's flat underside lies. On a pointed centering the curve's point would stick through it.
+ */
+export function centeringTop(geo: GameState['geometry'], segments: number): Vec2[] {
+  const curve = intrados(geo.span, geo.rise, segments);
+  if (geo.units % 2 === 0) return curve;
+  const edge = intrados(geo.span, geo.rise, geo.units)[(geo.units - 1) / 2]; // left corner of the crown course
+  const ex = Math.abs(edge.x);
+  return [
+    ...curve.filter(p => p.x < -ex - 1e-9),
+    { x: -ex, y: edge.y }, { x: ex, y: edge.y },
+    ...curve.filter(p => p.x > ex + 1e-9),
+  ];
+}
+
 /** Pull distance at which the centering clears the stones and the arch is struck. */
 export const strikePull = (depth: number): number => depth + CENTERING.strikeExtra;
 
 // --- helpers ---------------------------------------------------------------------------------
+
+// A keystone fills the gap the two halves leave, and neither half may pass the crown: with one
+// course to fill that gap is the middle one (wider keystones are taken as centred too).
+const crownSlot = (geo: GameState['geometry'], stone: StoneDef) => Math.floor((geo.units - stone.units) / 2);
 
 function blockAt(geo: GameState['geometry'], stone: StoneDef, slot: number): Vec2[] {
   const pieces = [];

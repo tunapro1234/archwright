@@ -1,4 +1,4 @@
-// World 1 (Roman, semicircular centering). Each level is a few design choices (span, courses, which
+// World 1 (Roman, semicircular centering) and world 2 (pointed centering). Each level is a few design choices (span, courses, which
 // stones are on offer); every block, joint and weight is generated from them by ringArch, and the
 // solver checks the solution and the trap (tests and `npm run level-check`).
 import type { LevelDef, Material, StoneDef, Step } from '../game/arch-state.js';
@@ -138,5 +138,82 @@ export const LEVELS: LevelDef[] = [
     solution: { left: ['basalt', 'sandstone', 'wide'], right: ['basalt', 'sandstone', 'wide'], key: 'keystone' },
     // Laid at the feet like a foundation, they let the arch close in as few stones and it just fails.
     trap: { left: ['wide', 'basalt', 'sandstone'], right: ['wide', 'basalt', 'sandstone'], key: 'keystone' },
+  }),
+  // World 2: pointed centerings (rise > span/2). The two-centred curve leans the thrust inwards, so
+  // stones too slim for a semicircle can stand; where the heavy and the wide ones go still decides it.
+  level({
+    id: 'w2-1',
+    span: 0.3,
+    rise: 0.21,
+    stones: 7,
+    tray: {
+      sandstone: { material: 'sandstone', t: SLIM, count: 6 },
+      tuff: { material: 'tuff', t: THIN, count: 2 },
+      keystone: { material: 'sandstone', t: SLIM, keystone: true, count: 1 },
+    },
+    // Slim stones that fall on a semicircle stand on a pointed centering.
+    solution: { left: ['sandstone', 'sandstone', 'sandstone'], right: ['sandstone', 'sandstone', 'sandstone'], key: 'keystone' },
+    // Even here the thinnest stones cannot take the springing.
+    trap: { left: ['tuff', 'sandstone', 'sandstone'], right: ['tuff', 'sandstone', 'sandstone'], key: 'keystone' },
+  }),
+  level({
+    id: 'w2-2',
+    span: 0.3,
+    rise: 0.27,
+    stones: 9,
+    tray: {
+      tuff: { material: 'tuff', t: THIN, count: 8 },
+      basalt: { material: 'basalt', t: THIN, count: 2 },
+      keystone: { material: 'tuff', t: THIN, keystone: true, count: 1 },
+    },
+    // A tall pointed arch stands on the thinnest, lightest stones.
+    solution: { left: ['basalt', 'tuff', 'tuff', 'tuff'], right: ['basalt', 'tuff', 'tuff', 'tuff'], key: 'keystone' },
+    // Weight up by the point pushes its two halves apart.
+    trap: { left: ['tuff', 'tuff', 'tuff', 'basalt'], right: ['tuff', 'tuff', 'tuff', 'basalt'], key: 'keystone' },
+  }),
+  level({
+    id: 'w2-3',
+    span: 0.34,
+    rise: 0.19,
+    stones: 9,
+    tray: {
+      sandstone: { material: 'sandstone', t: MEDIUM, count: 4 },
+      tuff: { material: 'tuff', t: SLIM, count: 6 },
+      keystone: { material: 'tuff', t: SLIM, keystone: true, count: 1 },
+    },
+    // Barely pointed: it behaves almost like a semicircle, so the thicker stones go to the feet.
+    solution: { left: ['sandstone', 'sandstone', 'tuff', 'tuff'], right: ['sandstone', 'sandstone', 'tuff', 'tuff'], key: 'keystone' },
+    trap: { left: ['tuff', 'tuff', 'sandstone', 'sandstone'], right: ['tuff', 'tuff', 'sandstone', 'sandstone'], key: 'keystone' },
+  }),
+  level({
+    id: 'w2-4',
+    span: 0.32,
+    rise: 0.24,
+    stones: 9,
+    tray: {
+      basalt: { material: 'basalt', t: THIN, count: 2 },
+      sandstone: { material: 'sandstone', t: SLIM, count: 2 },
+      tuff: { material: 'tuff', t: THIN, count: 6 },
+      keystone: { material: 'tuff', t: THIN, keystone: true, count: 1 },
+    },
+    // Four heavy stones and six light ones: the heavy ones low on each side, the light ones up to the point.
+    solution: { left: ['sandstone', 'basalt', 'tuff', 'tuff'], right: ['sandstone', 'basalt', 'tuff', 'tuff'], key: 'keystone' },
+    trap: { left: ['tuff', 'tuff', 'sandstone', 'basalt'], right: ['tuff', 'tuff', 'sandstone', 'basalt'], key: 'keystone' },
+  }),
+  level({
+    id: 'w2-5',
+    span: 0.32,
+    rise: 0.22,
+    stones: 9,
+    tray: {
+      wide: { material: 'sandstone', t: SLIM, units: 2, count: 2 },
+      sandstone: { material: 'sandstone', t: SLIM, count: 4 },
+      tuff: { material: 'tuff', t: THIN, count: 4 },
+      keystone: { material: 'sandstone', t: SLIM, keystone: true, count: 1 },
+    },
+    // Wide wedges save stones on the springing, where a pointed arch is steep and heavy.
+    solution: { left: ['wide', 'sandstone', 'tuff'], right: ['wide', 'sandstone', 'tuff'], key: 'keystone' },
+    // Up by the point their weight bends the arch open.
+    trap: { left: ['tuff', 'sandstone', 'wide'], right: ['tuff', 'sandstone', 'wide'], key: 'keystone' },
   }),
 ];

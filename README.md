@@ -5,7 +5,7 @@ your table. You pinch wedge stones from a tray and seat them on its two open end
 the wooden centering out from under it by hand. The verdict is not scripted: a small rigid-block statics solver decides whether
 the arch carries itself or collapses across your desk. No controllers are needed at any point.
 
-> Status: work in progress. The first vertical slice is playable end to end in the emulator: five levels, stones snap to the
+> Status: work in progress. The first vertical slice is playable end to end in the emulator: ten levels, stones snap to the
 > arch, the centering is pulled, the solver judges, and a failed arch falls apart under Havok physics. Hand interaction has not
 > yet been tested on a headset.
 
@@ -56,7 +56,7 @@ URL parameters, for development and tests:
 
 | Parameter | Effect |
 |---|---|
-| `?level=w1-2` | start on another level (`w1-1` to `w1-5`) |
+| `?level=w1-2` | start on another level (`w1-1` to `w1-5`, pointed arches `w2-1` to `w2-5`) |
 | `?emulator=1` | install IWER, Meta's WebXR emulator, so a desktop browser can run an XR session |
 | `?surface=lap` | force a surface in an XR session: `mesh`, `plane`, `pick`, `lap` or `atelier` |
 | `?autotest=w1-1:hold` | place the level's solution (`hold`) or its trap (`collapse`) by program and pull the centering; runs can be chained with `;` |

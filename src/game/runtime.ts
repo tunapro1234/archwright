@@ -10,7 +10,7 @@ import {
 import type { SolveResult } from '../statics/index.js';
 import { LEVELS } from '../levels/index.js';
 import {
-  abutments, ABUTMENT_HEIGHT, BOARD, facePose, intrados, stoneOutline, trayPoses, type Pose2,
+  abutments, ABUTMENT_HEIGHT, BOARD, centeringTop, facePose, shapeKey, stoneOutline, trayPoses, type Pose2,
 } from '../scene/layout.js';
 import {
   abutmentMaterial, blobShadow, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, prism, stoneMaterial,
@@ -137,7 +137,7 @@ export class ArchRuntime {
     }
     this.woodMat.transparent = false;
     this.woodMat.opacity = 1;
-    const cm = centeringMesh(intrados(def.span, def.rise, 32), def.depth, this.woodMat);
+    const cm = centeringMesh(centeringTop(this.state.geometry, 32), def.depth, this.woodMat);
     cm.position.set(0, ABUTMENT_HEIGHT, 0);
     add(cm);
     this.centering = { mesh: cm, handle: cm.getObjectByName('centering-handle')!, pull: 0, struck: false, auto: false };
@@ -149,7 +149,7 @@ export class ArchRuntime {
     const geos: Mesh['geometry'][] = [];
     const geo = this.state.geometry;
     def.tray.forEach(s => {
-      const key = `${s.t}|${s.units}`;
+      const key = shapeKey(s);
       if (!shapes.has(key)) {
         shapes.set(key, geos.length);
         geos.push(prism(stoneOutline(geo, s), def.depth));
@@ -166,7 +166,7 @@ export class ArchRuntime {
       return { mesh, count: 0 };
     });
     def.tray.forEach((s, i) => {
-      const b = shapes.get(`${s.t}|${s.units}`)!;
+      const b = shapes.get(shapeKey(s))!;
       const batch = this.batches[b];
       const mesh = new Mesh(batch.mesh.geometry, this.proxyMat);
       mesh.name = `stone-${s.id}`;

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../src/levels/index.js';
 import { buildArch, createLevel, placeStone, ringOrder } from '../src/game/arch-state.js';
 import {
-  abutments, ABUTMENT_HEIGHT, BOARD, CENTERING, slotPose, stoneKind, stoneOutline, strikePull, trayPoses,
+  abutments, ABUTMENT_HEIGHT, BOARD, CENTERING, centeringTop, slotPose, stoneKind, stoneOutline, strikePull, trayPoses,
 } from '../src/scene/layout.js';
 
 describe.each(LEVELS.map(l => [l.id, l] as const))('layout %s', (_, def) => {
@@ -57,6 +57,21 @@ describe.each(LEVELS.map(l => [l.id, l] as const))('layout %s', (_, def) => {
         expect(d).toBeLessThan(1e-9);
       }
     });
+  });
+
+  it('the centering carries the keystone flat and never pokes through it (pointed or round)', () => {
+    let s = s0;
+    for (const step of def.solution) s = placeStone(s, step.stone, step.side);
+    const key = ringOrder(s).find(p => p.stone.keystone)!;
+    const under = buildArch(s).blocks[ringOrder(s).indexOf(key)].vertices.slice(0, 2); // inner edge
+    const top = centeringTop(s.geometry, 32);
+    for (const p of top) {
+      if (p.x < under[0].x - 1e-9 || p.x > under[1].x + 1e-9) continue;
+      const y = under[0].y + ((p.x - under[0].x) / (under[1].x - under[0].x)) * (under[1].y - under[0].y);
+      expect(p.y).toBeLessThanOrEqual(y + 1e-9);
+    }
+    expect(top[0].x).toBeCloseTo(-def.span / 2, 12);
+    expect(top[top.length - 1].x).toBeCloseTo(def.span / 2, 12);
   });
 
   it('abutments carry the springings and fit on the board', () => {
