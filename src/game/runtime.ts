@@ -21,7 +21,8 @@ import {
 import { MATERIAL_COLOR } from '../scene/meshes.js';
 import { COLORS, onRepaint } from '../scene/palette.js';
 import type { SurfaceKind } from '../scene/surface-chain.js';
-import { playReject, playTick } from '../audio/synth.js';
+import { playReject, playStone } from '../audio/synth.js';
+import { stoneNote } from '../audio/music.js';
 
 export type HookState = 'loading' | 'ready' | 'building' | 'held' | 'collapsed';
 export interface Hook {
@@ -283,7 +284,7 @@ export class ArchRuntime {
     this.state = next;
     v.heldBy = undefined;
     this.tweenTo(v, pose, duration, lift, 'placed');
-    playTick();
+    playStone(stoneNote(next, next.placed[next.placed.length - 1]), duration);
     if (this.hook.state === 'ready') this.hook.state = 'building';
     return undefined;
   }

@@ -1,9 +1,23 @@
-// Placeholder sound, synthesised with WebAudio (no files, nothing to license). The AudioContext
-// is only created after a user gesture or an XR session start, so a page that nobody touched
-// (autotest, headless checks) stays silent and logs nothing.
+// Every sound in the game, synthesised with WebAudio: no recordings, no files, nothing to license.
+// What to play is decided in music.ts (pure data); this file only renders it. The AudioContext is
+// only created after a user gesture or an XR session start, so a page that nobody touched
+// (autotest, headless checks) stays silent and logs nothing. A hidden tab is silent too.
+import { CUE_MAX_VOICES, type Cue } from './music.js';
 
 let ctx: AudioContext | undefined;
 let noise: AudioBuffer | undefined;
+let hidden = false;
+const MAX_NODES = 2 * CUE_MAX_VOICES; // sources sounding at once, whatever asked for them
+let ends: number[] = [];                // when each sounding source stops
+
+/** Room for one more source at `at`? (A full house drops the new one, never cuts an old one.) */
+function voice(c: AudioContext, at: number, dur: number): boolean {
+  const now = c.currentTime;
+  ends = ends.filter(e => e > now);
+  if (ends.length >= MAX_NODES) return false;
+  ends.push(at + dur);
+  return true;
+}
 
 /** Call from a user gesture (pointer/key) or when an XR session starts. */
 export function unlockAudio(): void {
@@ -20,18 +34,32 @@ export function unlockAudio(): void {
       d[i] = ((x >>> 0) / 0xffffffff) * 2 - 1;
     }
   }
-  if (ctx.state === 'suspended') void ctx.resume();
+  if (ctx.state === 'suspended' && !hidden) void ctx.resume();
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    hidden = document.visibilityState === 'hidden';
+    if (!ctx) return;
+    if (hidden) void ctx.suspend();
+    else void ctx.resume();
+  });
 }
 
 function ready(): AudioContext | undefined {
   return ctx && ctx.state === 'running' ? ctx : undefined;
 }
 
-function burst(c: AudioContext, at: number, dur: number, gain: number, type: BiquadFilterType, freq: number, q = 1) {
+function burst(c: AudioContext, at: number, dur: number, gain: number, type: BiquadFilterType, freq: number, q = 1, sweep = 1) {
+  if (!voice(c, at, dur)) return;
   const src = c.createBufferSource();
   src.buffer = noise!;
   const f = c.createBiquadFilter();
   f.type = type; f.frequency.value = freq; f.Q.value = q;
+  if (sweep !== 1) {
+    f.frequency.setValueAtTime(freq, at);
+    f.frequency.exponentialRampToValueAtTime(freq * sweep, at + dur);
+  }
   const g = c.createGain();
   g.gain.setValueAtTime(gain, at);
   g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
@@ -39,9 +67,14 @@ function burst(c: AudioContext, at: number, dur: number, gain: number, type: Biq
   src.start(at, (at * 7.3) % 0.9, dur + 0.05);
 }
 
-function tone(c: AudioContext, at: number, freq: number, dur: number, gain: number, attack = 0.004, type: OscillatorType = 'sine') {
+function tone(c: AudioContext, at: number, freq: number, dur: number, gain: number, attack = 0.004, type: OscillatorType = 'sine', glide = 1) {
+  if (!voice(c, at, dur)) return;
   const o = c.createOscillator();
   o.type = type; o.frequency.value = freq;
+  if (glide !== 1) {
+    o.frequency.setValueAtTime(freq, at);
+    o.frequency.exponentialRampToValueAtTime(freq * glide, at + dur);
+  }
   const g = c.createGain();
   g.gain.setValueAtTime(0.0001, at);
   g.gain.exponentialRampToValueAtTime(gain, at + attack);
@@ -73,18 +106,62 @@ export function playScrape(): void {
   burst(c, c.currentTime, 0.35, 0.12, 'bandpass', 900, 0.7);
 }
 
-/** The arch holds: a low, slow chord. */
-export function playHold(): void {
+/**
+ * A stone seats and rings its note (music.stoneNote): a struck stone bar, its fundamental with the
+ * two inharmonic overtones of a free bar (2.76 and 5.40 times), the high ones dying first.
+ */
+export function playStone(hz: number, at = 0): void {
   const c = ready(); if (!c) return;
-  const t = c.currentTime;
-  for (const [f, g] of [[110, 0.22], [164.8, 0.16], [220, 0.1]] as const) tone(c, t, f, 2.4, g, 0.25);
+  const t = c.currentTime + at;
+  burst(c, t, 0.03, 0.35, 'bandpass', Math.min(6000, hz * 3), 3);
+  tone(c, t, hz, 0.9, 0.3, 0.003);
+  tone(c, t, hz * 2.76, 0.32, 0.1, 0.002);
+  tone(c, t, hz * 5.4, 0.12, 0.05, 0.002);
 }
 
-/** The arch fails: layered cracks over a rumble. */
-export function playCollapse(): void {
+/** The arch holds: its stones' notes (music.archChord) rung once each, low to high, then together. */
+export function playChord(notes: readonly number[]): void {
   const c = ready(); if (!c) return;
+  const distinct = [...new Set(notes)].sort((a, b) => a - b);
   const t = c.currentTime;
-  const cracks = [0, 0.07, 0.11, 0.2, 0.26, 0.38, 0.5, 0.71];
-  cracks.forEach((dt, i) => burst(c, t + dt, 0.05 + (i % 3) * 0.02, 0.6 - i * 0.05, 'highpass', 1800 + (i % 4) * 600));
-  burst(c, t + 0.05, 1.4, 0.45, 'lowpass', 140, 0.8);
+  distinct.forEach((hz, i) => {
+    const at = t + 0.09 * i;
+    tone(c, at, hz, 2.8 - 0.09 * i, 0.22 / Math.sqrt(distinct.length), 0.004);
+    tone(c, at, hz * 2.76, 0.4, 0.05, 0.002);
+  });
+}
+
+/** A score from music.collapseCue or music.strikeCue, scheduled from now. */
+export function playCue(cue: readonly Cue[]): void {
+  const c = ready(); if (!c) return;
+  const t0 = c.currentTime;
+  for (const e of cue) {
+    const at = t0 + e.t, hz = e.hz ?? 1000;
+    switch (e.layer) {
+      case 'crack': burst(c, at, e.dur, e.gain, 'highpass', hz, 0.8); break;
+      case 'slide': burst(c, at, e.dur, e.gain, 'bandpass', hz, 1.2, 0.55); break;
+      case 'impact':
+        tone(c, at, hz * 1.5, e.dur, e.gain * 0.6, 0.002, 'sine', 0.66);
+        burst(c, at, e.dur * 0.6, e.gain * 0.5, 'lowpass', hz * 5, 0.7);
+        break;
+      case 'pebble': tone(c, at, hz, e.dur, e.gain, 0.001, 'triangle', 0.9); break;
+      case 'creak': {
+        // Timber under load: a buzzy tone through a narrow band, sliding up a little.
+        if (!voice(c, at, e.dur)) break;
+        const o = c.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(hz * 0.97, at);
+        o.frequency.linearRampToValueAtTime(hz * 1.04, at + e.dur);
+        const f = c.createBiquadFilter();
+        f.type = 'bandpass'; f.frequency.value = hz * 4; f.Q.value = 5;
+        const g = c.createGain();
+        g.gain.setValueAtTime(0.0001, at);
+        g.gain.exponentialRampToValueAtTime(e.gain, at + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + e.dur);
+        o.connect(f).connect(g).connect(c.destination);
+        o.start(at); o.stop(at + e.dur + 0.05);
+        break;
+      }
+    }
+  }
 }

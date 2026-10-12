@@ -5,7 +5,8 @@ import type { ArchRuntime } from '../game/runtime.js';
 import { strike } from '../game/arch-state.js';
 import { ABUTMENT_HEIGHT } from '../scene/layout.js';
 import { thrustTube } from '../scene/models.js';
-import { playCollapse, playHold } from '../audio/synth.js';
+import { playChord, playCue } from '../audio/synth.js';
+import { archChord, collapseCue, strikeCue } from '../audio/music.js';
 
 export const SILENCE = 0.6; // s between the strike and the verdict being heard and seen
 
@@ -25,6 +26,7 @@ export class StaticsSystem extends createSystem({}) {
       arch.hook.state = result.stands ? 'held' : 'collapsed';
       this.pending = SILENCE;
       this.glow = 0;
+      playCue(strikeCue(result.stands));
       if (result.stands && result.thrustLine.length > 1) {
         const pts = result.thrustLine.map(p => ({ x: p.x, y: p.y + ABUTMENT_HEIGHT }));
         arch.thrustLine = thrustTube(pts, arch.def.depth / 2 + 0.003);
@@ -35,8 +37,11 @@ export class StaticsSystem extends createSystem({}) {
     if (this.pending >= 0) {
       this.pending -= delta;
       if (this.pending < 0 && arch.result) {
-        if (arch.result.stands) playHold();
-        else { playCollapse(); arch.collapseRequested = true; }
+        if (arch.result.stands) playChord(archChord(arch.state));
+        else {
+          playCue(collapseCue(arch.state.placed.length, seedOf(arch.state.level)));
+          arch.collapseRequested = true;
+        }
       }
     }
     if (arch.thrustLine && this.pending < 0 && this.glow < 1) {
@@ -44,4 +49,11 @@ export class StaticsSystem extends createSystem({}) {
       ((arch.thrustLine as Mesh).material as MeshBasicMaterial).opacity = 0.95 * this.glow;
     }
   }
+}
+
+/** The same level always falls to the same sound (FNV-1a of its id). */
+function seedOf(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 0x01000193);
+  return h >>> 0;
 }

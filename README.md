@@ -97,6 +97,22 @@ The gaze pick (a ray against a sphere round each target, nearest hit within 1.5 
 tests. The gaze and one-hand modes have not been tried on a headset yet, nor with players who need them; we have no
 user-study numbers to report.
 
+## Sound
+
+The arch is a lithophone, a set of tuned stones. Each stone rings one note when it lands, picked by where it sits in the ring:
+the stones at the feet are low, each course nearer the crown is higher, and the keystone is the highest, C6. The two sides are
+mirrors, so the same course on the left and on the right is the same note. The notes come from a C major pentatonic scale
+(C3 to C6, equal temperament, A4 = 440 Hz). A pentatonic scale has no semitone and no tritone, so whichever stones you place,
+in whatever order, they never clash. When the centering comes out, its timber creaks and the creak rises as the stones take the
+load. A held arch rings every one of its stones, low to high, as one chord. A failing one cracks first, then the stones grind on
+their joints, each one thuds as it lands, and pebbles skitter after them; this score lasts at most 3.5 s and never has more
+than 16 sounds at once. The same arch always falls with the same sound: the score is drawn from a seed (the level's id) and the number of stones.
+
+What to play is plain data (`src/audio/music.ts`, with unit tests); `src/audio/synth.ts` only plays it with the Web Audio API.
+Every sound is synthesised in code: a stone is a sine with the two overtones of a struck bar (2.76 and 5.40 times the
+fundamental), the rest is filtered noise and short tones. There are no recordings, of stone, wood or anything else. Sound only
+starts after a click, a key, a pinch or the start of an XR session, and it stops while the tab is hidden.
+
 ## How to run
 
 Requirements: Node.js 22.12+ (see `.nvmrc`).
@@ -180,7 +196,8 @@ Source: J. Heyman, *The Stone Skeleton: Structural Engineering of Masonry Archit
 - `src/statics/`: the solver and arch geometry (pure TypeScript, no dependencies, tested in Node).
 - `src/game/arch-state.ts`: the rules (which stone may go where, when the arch is closed, the strike). No three.js.
 - `src/levels/`: level definitions, each generated from geometry and checked with the solver.
-- `src/scene/`, `src/audio/`: procedural meshes and synthesised sounds. There are no model, texture or sound files.
+- `src/scene/`, `src/audio/`: procedural meshes and synthesised sounds (`music.ts` decides the notes and the collapse score,
+  `synth.ts` plays them). There are no model, texture or sound files.
 - `src/systems/`: ECS systems (an ECS, entity-component system, keeps data in components and behaviour in systems that run every
   frame): hand tracking and pinch, grab and snap, the centering, the strike, the collapse, the surface finder, the desktop mouse
   mode, the accessibility panel and gaze mode, rendering. The mouse mode picks through IWSDK's canvas pointer events on `RayInteractable` entities, not a raycaster of
