@@ -20,7 +20,8 @@ import {
 } from '../game/museum.js';
 import { LEVELS } from '../levels/index.js';
 import { stoneOutline } from '../scene/layout.js';
-import { museumMaterial, museumPiece, prism, recolorMuseumPiece } from '../scene/models.js';
+import { engraving, museumMaterial, museumPiece, prism, recolorMuseumPiece } from '../scene/models.js';
+import { monumentOf, plaqueText } from '../levels/monuments.js';
 import { onRepaint } from '../scene/palette.js';
 
 export const RESTORE_WAIT = 3; // s a saved anchor has to come back at session start
@@ -148,6 +149,13 @@ export class MuseumSystem extends createSystem({}) {
     }));
     const mesh = museumPiece([...parts, ...stones], this.material!);
     mesh.name = `museum-${piece.id}`;
+    // A monument's plinth carries its plaque too, cut into the block's front face.
+    const monument = monumentOf(piece.levelId);
+    if (piece.id.startsWith('monument:') && monument) {
+      const text = engraving(plaqueText(monument), PLINTH.size * 0.94, H * 0.7);
+      text.position.set(0, H / 2, PLINTH.size / 2 + 0.0005);
+      mesh.add(text);
+    }
     return mesh;
   }
 

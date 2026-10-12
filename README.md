@@ -78,7 +78,8 @@ The copy is your own arch: the save keeps, with your best stone count on each le
 stone's place in the tray and its side, a few bytes). A save from before that was kept, or one that no longer fits the
 level, shows the level's reference solution instead. Plinths stand in a row 7 cm behind the board, from its back corners outwards, left
 and right in turn, 10 cm apart; a new one never moves the others. Each plinth is one mesh (block, piers and stones welded
-together, colours per vertex), so a full museum of eight costs eight draw calls.
+together, colours per vertex), so a full museum of eight costs eight draw calls. A solved monument level (below) gets its own
+plinth, in level order right after its world's, with its plaque cut into the block's front (one more draw call).
 
 In a mixed reality session where the headset grants anchors (an optional WebXR feature; Archwright never requires it), each
 plinth is also tied to a persistent anchor once the board is in place and the first stone is down, and the anchor's handle
@@ -86,6 +87,22 @@ is saved (`archwright.museum.v1`). Next time, the saved anchors are restored and
 room, wherever the board goes. An anchor that is not back within 3 s is deleted and its plinth returns to the row beside the
 board. Without anchors, and in the browser, the plinths simply follow the board. The anchor path has not been run on a
 headset yet.
+
+## Monuments
+
+Worlds 1 and 2 each end with a level shaped after a real bridge. A small stone plaque lies on the desk in front of the board,
+and the monument's museum plinth carries the same two lines:
+
+| Level | Plaque | Arch in the game | Sources |
+|---|---|---|---|
+| after w1-5 | Ponte di Tiberio · Rimini · AD 14–21<br>semicircular arches · longest span ≈ 10.6 m | semicircle, 9 courses | [Wikipedia: Ponte di Tiberio (Rimini)](https://en.wikipedia.org/wiki/Ponte_di_Tiberio_(Rimini)) |
+| after w2-5 | Malabadi Bridge · Silvan, Diyarbakır · c. 1147–1154<br>pointed arch · span ≈ 38.6 m | pointed, rise/span 0.67, 11 courses | [TDV İslâm Ansiklopedisi: Köprü](https://islamansiklopedisi.org.tr/kopru), [Wikipedia: Malabadi Bridge](https://en.wikipedia.org/wiki/Malabadi_Bridge) |
+
+The spans are approx. values taken from the sources above (the Tiberio figure is its longest of five arches). Nothing else
+about either bridge is claimed: no height, and the game scale is not the real scale. Each level keeps the board's size, about
+a third of a metre across, and only the arch's shape follows the bridge. Malabadi's rise-to-span ratio in the game is a design
+choice, not the bridge's real proportion. Both levels are solver-checked like the others: the reference solution holds, the
+trap closes the arch and falls. The data and plaque text live in `src/levels/monuments.ts`.
 
 ## Accessibility
 

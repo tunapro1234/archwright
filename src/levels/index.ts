@@ -1,5 +1,6 @@
 // World 1 (Roman, semicircular centering), world 2 (pointed centering) and world 3 (loads: a
-// tower, a bell or a cart stands on the finished arch). Each level is a few design choices (span, courses, which
+// tower, a bell or a cart stands on the finished arch). Worlds 1 and 2 each end with a monument level
+// (m-tiberio, m-malabadi: src/levels/monuments.ts). Each level is a few design choices (span, courses, which
 // stones are on offer); every block, joint and weight is generated from them by ringArch, and the
 // solver checks the solution and the trap (tests and `npm run level-check`).
 import type { LevelDef, Load, Material, StoneDef, Step } from '../game/arch-state.js';
@@ -143,6 +144,23 @@ export const LEVELS: LevelDef[] = [
     // Laid at the feet like a foundation, they let the arch close in as few stones and it just fails.
     trap: { left: ['wide', 'basalt', 'sandstone'], right: ['wide', 'basalt', 'sandstone'], key: 'keystone' },
   }),
+  // Monument: Ponte di Tiberio, Rimini (src/levels/monuments.ts). A wide semicircle at the end of
+  // world 1 that asks for all of it at once: the heaviest stones at the feet, medium ones above, the
+  // slim ones up to the keystone.
+  level({
+    id: 'm-tiberio',
+    span: 0.34,
+    stones: 9,
+    tray: {
+      basalt: { material: 'basalt', t: THICK, count: 2 },
+      sandstone: { material: 'sandstone', t: MEDIUM, count: 4 },
+      tuff: { material: 'tuff', t: SLIM, count: 5 },
+      keystone: { material: 'sandstone', t: MEDIUM, keystone: true, count: 1 },
+    },
+    solution: { left: ['basalt', 'sandstone', 'tuff', 'tuff'], right: ['basalt', 'sandstone', 'tuff', 'tuff'], key: 'keystone' },
+    // Built the other way up, heavy towards the crown, it closes and falls.
+    trap: { left: ['tuff', 'tuff', 'sandstone', 'basalt'], right: ['tuff', 'tuff', 'sandstone', 'basalt'], key: 'keystone' },
+  }),
   // World 2: pointed centerings (rise > span/2). The two-centred curve leans the thrust inwards, so
   // stones too slim for a semicircle can stand; where the heavy and the wide ones go still decides it.
   level({
@@ -220,7 +238,25 @@ export const LEVELS: LevelDef[] = [
     // Up by the point their weight bends the arch open.
     trap: { left: ['tuff', 'sandstone', 'wide'], right: ['tuff', 'sandstone', 'wide'], key: 'keystone' },
   }),
-// World 3: loads. Each one stands on the stone that covers its course and goes to the solver as a
+  // Monument: Malabadi Bridge, Silvan (src/levels/monuments.ts). One tall pointed span at the end of
+  // world 2 (rise/span 0.67 here: a design choice, not the bridge's real proportion).
+  level({
+    id: 'm-malabadi',
+    span: 0.36,
+    rise: 0.24,
+    stones: 11,
+    tray: {
+      wide: { material: 'sandstone', t: SLIM, units: 2, count: 2 },
+      sandstone: { material: 'sandstone', t: SLIM, count: 4 },
+      tuff: { material: 'tuff', t: THIN, count: 6 },
+      keystone: { material: 'tuff', t: THIN, keystone: true, count: 1 },
+    },
+    // The wide wedges carry the steep springings, and save stones there.
+    solution: { left: ['wide', 'sandstone', 'tuff', 'tuff'], right: ['wide', 'sandstone', 'tuff', 'tuff'], key: 'keystone' },
+    // Up by the point their weight pushes the two halves apart.
+    trap: { left: ['tuff', 'tuff', 'sandstone', 'wide'], right: ['tuff', 'tuff', 'sandstone', 'wide'], key: 'keystone' },
+  }),
+  // World 3: loads. Each one stands on the stone that covers its course and goes to the solver as a
   // point load on that stone's back. Every trap here holds with nothing on it; the load brings it down.
   // A stone weighs about 0.2 to 0.4 kg at this scale, so a 0.3 to 0.7 kg load is a lot.
   level({

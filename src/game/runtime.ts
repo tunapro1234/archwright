@@ -12,10 +12,10 @@ import { LEVELS } from '../levels/index.js';
 import { dailyDate, dailyLevel, localDateISO } from './daily.js';
 import type { A11ySettings } from './a11y.js';
 import {
-  abutments, ABUTMENT_HEIGHT, ashlarBlocks, BOARD, centeringTop, facePose, loadRest, shapeKey, stoneOutline, trayPoses, type Pose2,
+  abutments, ABUTMENT_HEIGHT, ashlarBlocks, BOARD, centeringTop, PLAQUE, facePose, loadRest, shapeKey, stoneOutline, trayPoses, type Pose2,
 } from '../scene/layout.js';
 import {
-  abutmentMaterial, ashlarMaterial, ashlarMesh, blobShadow, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, loadMaterials, loadMesh, prism, stoneMaterial,
+  abutmentMaterial, ashlarMaterial, ashlarMesh, blobShadow, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, loadMaterials, loadMesh, plaqueMesh, prism, stoneMaterial,
   woodMaterial,
 } from '../scene/models.js';
 import { MATERIAL_COLOR } from '../scene/meshes.js';
@@ -23,6 +23,7 @@ import { COLORS, onRepaint } from '../scene/palette.js';
 import type { SurfaceKind } from '../scene/surface-chain.js';
 import { playReject, playStone } from '../audio/synth.js';
 import { stoneNote } from '../audio/music.js';
+import { monumentOf, plaqueText } from '../levels/monuments.js';
 
 export type HookState = 'loading' | 'ready' | 'building' | 'held' | 'collapsed';
 export interface Hook {
@@ -191,6 +192,9 @@ export class ArchRuntime {
     cm.position.set(0, ABUTMENT_HEIGHT, 0);
     add(cm);
     this.centering = { mesh: cm, handle: cm.getObjectByName('centering-handle')!, pull: 0, struck: false, auto: false };
+    // A monument level: its plaque on the desk in front of the board (src/levels/monuments.ts).
+    const monument = monumentOf(def.id);
+    if (monument) add(plaqueMesh(plaqueText(monument), this.abutmentMat)).position.set(PLAQUE.x, 0, PLAQUE.z);
 
     // One InstancedMesh per stone shape, all sharing the stone material; colour per instance.
     const homes = trayPoses(def);

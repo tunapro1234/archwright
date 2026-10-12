@@ -1,13 +1,13 @@
 // Procedural meshes and materials. Everything is built in code: no texture files, models or fonts.
 import {
   BackSide, BoxGeometry, BufferGeometry, CapsuleGeometry, Quaternion, CanvasTexture, CatmullRomCurve3, Color, DataTexture, ExtrudeGeometry,
-  Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, NoColorSpace, RepeatWrapping, RGBAFormat,
+  Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, PlaneGeometry, MeshStandardMaterial, NoColorSpace, RepeatWrapping, RGBAFormat,
   ConeGeometry, CylinderGeometry, InstancedMesh, LatheGeometry, RingGeometry, Shape, SRGBColorSpace, TorusGeometry, TubeGeometry, Vector2,
   Vector3,
 } from '@iwsdk/core';
 import type { Vec2 } from '../statics/index.js';
 import type { LoadKind, Material } from '../game/arch-state.js';
-import { A11Y_ICONS, A11Y_PANEL, a11yIconSpot, ABUTMENT_HEIGHT, BOARD, CENTERING, MARKER, TABLET } from './layout.js';
+import { A11Y_ICONS, A11Y_PANEL, a11yIconSpot, ABUTMENT_HEIGHT, BOARD, CENTERING, MARKER, PLAQUE, TABLET } from './layout.js';
 import { COLORS, paint, type PaletteKey } from './palette.js';
 import { MATERIAL_COLOR } from './meshes.js';
 
@@ -716,4 +716,57 @@ export function ghostHand(): { group: Group; material: MeshBasicMaterial; index:
 export function setGhostHandOpen(h: { index: Group; thumb: Group }, open: number): void {
   h.index.rotation.set(0.45 * open, 0, 0);
   h.thumb.rotation.set(0, 0.55 * open, -0.15 * open);
+}
+
+/**
+ * Two engraved lines on a `width` × `height` (m) face: dark letters on a transparent canvas, drawn
+ * in x-y facing +z, to lie on a stone face. Plain system serif, nothing fetched.
+ */
+export function engraving(lines: readonly string[], width: number, height: number): Mesh {
+  const px = 2048;
+  const c = document.createElement('canvas');
+  c.width = px;
+  c.height = Math.round((px * height) / width);
+  const g = c.getContext('2d')!;
+  const rows = lines.length;
+  const size = Math.min(c.height / (rows + 0.9), 64);
+  g.font = `${Math.round(size)}px Georgia, 'Times New Roman', serif`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  // Cut letters: a light lower lip under a dark groove.
+  lines.forEach((line, i) => {
+    const y = c.height / 2 + (i - (rows - 1) / 2) * size * 1.25;
+    g.fillStyle = 'rgba(255,248,235,0.45)';
+    g.fillText(line, c.width / 2, y + 2, c.width * 0.94);
+    g.fillStyle = 'rgba(40,30,22,0.92)';
+    g.fillText(line, c.width / 2, y, c.width * 0.94);
+  });
+  const tex = new CanvasTexture(c);
+  tex.colorSpace = SRGBColorSpace;
+  tex.anisotropy = 4;
+  const m = new Mesh(new PlaneGeometry(width, height), new MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+  m.name = 'engraving';
+  m.renderOrder = 2;
+  return m;
+}
+
+/**
+ * A monument level's plaque: a low stone wedge (PLAQUE) with the two lines of plaqueText cut into
+ * its sloped top. Origin at the middle of its foot. Two draw calls.
+ */
+export function plaqueMesh(lines: readonly string[], stone: MeshStandardMaterial): Group {
+  const { width: w, depth: d, height: h, lean } = PLAQUE;
+  const group = new Group();
+  group.name = 'monument-plaque';
+  const rise = d * Math.tan(lean);
+  const slab = new Mesh(prism([
+    { x: -d / 2, y: 0 }, { x: d / 2, y: 0 }, { x: d / 2, y: h }, { x: -d / 2, y: h + rise },
+  ], w, 0.002).rotateY(-Math.PI / 2), stone);
+  slab.name = 'monument-plaque-slab';
+  group.add(slab);
+  const text = engraving(lines, w * 0.94, (d / Math.cos(lean)) * 0.8);
+  text.position.y = h + rise / 2 + 0.0006;
+  text.rotation.x = lean - Math.PI / 2;
+  group.add(text);
+  return group;
 }

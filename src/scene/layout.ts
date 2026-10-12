@@ -180,13 +180,25 @@ export function along(path: Vec2[], t: number, out: Vec2 = { x: 0, y: 0 }): Vec2
   return out;
 }
 
-/** Level markers: small stones in a column beside the board, one column per world (w1 left, w2 right, ...). */
+/**
+ * The world a level's marker column belongs to: its id prefix ('w1'), and for a monument level
+ * ('m-…') the world it closes, the one before it in `ids`.
+ */
+export function markerWorld(ids: string[], i: number): string {
+  for (let j = i; j >= 0; j--) if (!ids[j].startsWith('m-')) return ids[j].split('-')[0];
+  return ids[i].split('-')[0];
+}
+
+/**
+ * Level markers: small stones in a column beside the board, one column per world (w1 left, w2
+ * right, ...). A monument level's marker ends the column of the world it closes.
+ */
 export const MARKER = { size: 0.02, gap: 0.05, edge: 0.03, column: 0.045, z0: -0.02 };
 export function markerSpots(ids: string[]): { id: string; x: number; z: number }[] {
   const worlds: string[] = [];
   const row = new Map<string, number>();
-  return ids.map(id => {
-    const w = id.split('-')[0];
+  return ids.map((id, i) => {
+    const w = markerWorld(ids, i);
     if (!worlds.includes(w)) worlds.push(w);
     const k = worlds.indexOf(w);
     const n = row.get(w) ?? 0;
@@ -199,7 +211,7 @@ export function markerSpots(ids: string[]): { id: string; x: number; z: number }
 
 /** Marker of Today's Span: a round stone in the next free marker column, level with the first row. */
 export function dailySpot(ids: string[]): { x: number; z: number } {
-  const k = new Set(ids.map(id => id.split('-')[0])).size;
+  const k = new Set(ids.map((_, i) => markerWorld(ids, i))).size;
   const side = k % 2 === 0 ? -1 : 1;
   return { x: side * (BOARD.width / 2 + MARKER.edge + Math.floor(k / 2) * MARKER.column), z: MARKER.z0 };
 }
@@ -215,13 +227,19 @@ export const TABLET = { x: 0.13, z: 0.095, width: 0.085, height: 0.045, thicknes
  * the marker columns, lying with its top tilted towards the player. Three icons in a row along x,
  * no text: gaze (an eye), one hand (a hand), high contrast (a half-filled disc).
  */
-export const A11Y_PANEL = { x: -0.285, z: 0.25, width: 0.072, depth: 0.03, height: 0.01, lean: 0.3, icon: 0.0075, pitch: 0.023 };
+export const A11Y_PANEL = { x: -0.285, z: 0.27, width: 0.072, depth: 0.03, height: 0.01, lean: 0.3, icon: 0.0075, pitch: 0.023 };
 export const A11Y_ICONS = ['gaze', 'oneHand', 'highContrast'] as const;
 
 /** Centre of icon `i` (A11Y_ICONS order), in the frame of the panel's sloped top face. */
 export function a11yIconSpot(i: number): { x: number; y: number; z: number } {
   return { x: (i - 1) * A11Y_PANEL.pitch, y: 0, z: 0 };
 }
+
+/**
+ * A monument level's plaque (src/levels/monuments.ts): a low stone slab on the desk just in front of
+ * the board's front edge, centred, its top sloping up away from the player so it faces them.
+ */
+export const PLAQUE = { x: 0, z: BOARD.zMax + 0.032, width: 0.17, depth: 0.036, height: 0.008, lean: 0.35 };
 
 /** Pull distance at which the centering clears the stones and the arch is struck. */
 export const strikePull = (depth: number): number => depth + CENTERING.strikeExtra;
@@ -302,6 +320,9 @@ export function viewPoints(def: LevelDef, ids: string[]): { x: number; y: number
     const o = stoneOutline(geo, def.tray[i]);
     for (const v of o) out.push({ x: p.x + v.x, y: def.depth, z: p.z - v.y });
   });
+  if (def.id.startsWith('m-')) { // the plaque of a monument level
+    for (const k of [-1, 1]) out.push({ x: PLAQUE.x + (k * PLAQUE.width) / 2, y: PLAQUE.height, z: PLAQUE.z + PLAQUE.depth / 2 });
+  }
   const handle = { y: 0.022, z: def.depth * 0.46 + CENTERING.handleDepth };
   for (const pull of [0, CENTERING.maxPull]) out.push({ x: 0, y: handle.y, z: handle.z + pull });
   return out;

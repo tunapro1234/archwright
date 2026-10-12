@@ -1,5 +1,5 @@
-// The desk museum: every world the player has finished earns a plinth behind the board, with a
-// small copy of that world's last arch on it. Pure functions over plain data (no three.js, no
+// The desk museum: every world the player has finished, and every monument level, earns a plinth
+// behind the board, with a small copy of that world's last arch (or the monument's arch) on it. Pure functions over plain data (no three.js, no
 // WebXR): which plinths there are, where they stand, what stands on them, and the saved anchor
 // handles that keep them in the same place in the room from one XR session to the next. Nothing
 // here throws: a corrupt progress or save reads as an empty museum.
@@ -18,36 +18,40 @@ const ROW = { behind: 0.07, x0: 0.19, pitch: 0.1 };
 const COPY_WIDTH = 0.062;
 
 export interface Piece {
-  id: string;      // 'world:w1'
-  levelId: string; // the world's last level, whose arch stands on the plinth
+  id: string;      // 'world:w1', or 'monument:m-tiberio'
+  levelId: string; // the world's last level (or the monument's level), whose arch stands on the plinth
   stones: number;  // the player's best stone count on that level
   slot: number;    // 0.. in world order
   arch?: string;   // the player's arrangement on that level (progress encodeArch), when the save has it
 }
 
-/** Worlds in LEVELS order, each with its level ids. */
-function worlds(): { world: string; ids: string[] }[] {
-  const out: { world: string; ids: string[] }[] = [];
+/** Museum entries in LEVELS order: each world (with its level ids), and each monument level on its own. */
+function entries(): { id: string; ids: string[] }[] {
+  const out: { id: string; ids: string[] }[] = [];
   for (const l of LEVELS) {
+    if (l.id.startsWith('m-')) { out.push({ id: `monument:${l.id}`, ids: [l.id] }); continue; }
     const w = l.id.split('-')[0];
     if (!/^w\d+$/.test(w)) continue;
-    let e = out.find(o => o.world === w);
-    if (!e) out.push((e = { world: w, ids: [] }));
+    let e = out.find(o => o.id === `world:${w}`);
+    if (!e) out.push((e = { id: `world:${w}`, ids: [] }));
     e.ids.push(l.id);
   }
   return out;
 }
 
-/** A plinth for each world whose every level is solved, in world order (not the order they were finished). */
+/**
+ * A plinth for each world whose every level is solved, and for each solved monument, in LEVELS
+ * order (not the order they were finished). Progress is linear, so a plinth's slot never changes.
+ */
 export function museumPieces(p: Progress): Piece[] {
   const solved = p && typeof p.solved === 'object' && p.solved ? p.solved : {};
   const out: Piece[] = [];
-  for (const { world, ids } of worlds()) {
+  for (const { id, ids } of entries()) {
     if (out.length >= MAX_PLINTHS) break;
-    if (!ids.every(id => solved[id])) continue;
+    if (!ids.every(i => solved[i])) continue;
     const levelId = ids[ids.length - 1];
     const { stones, arch } = solved[levelId];
-    out.push({ id: `world:${world}`, levelId, stones, slot: out.length, ...(typeof arch === 'string' && arch ? { arch } : {}) });
+    out.push({ id, levelId, stones, slot: out.length, ...(typeof arch === 'string' && arch ? { arch } : {}) });
   }
   return out;
 }
@@ -105,7 +109,7 @@ export function loadHandles(storage: ProgressStorage | null): AnchorHandles {
     const h = (raw as { handles?: unknown } | null)?.handles;
     if (!h || typeof h !== 'object' || Array.isArray(h)) return {};
     const out: AnchorHandles = {};
-    for (const [k, v] of Object.entries(h)) if (/^world:w\d+$/.test(k) && typeof v === 'string' && v) out[k] = v;
+    for (const [k, v] of Object.entries(h)) if (/^(world:w\d+|monument:m-[a-z]+)$/.test(k) && typeof v === 'string' && v) out[k] = v;
     return out;
   } catch {
     return {};
