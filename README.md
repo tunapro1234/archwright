@@ -60,6 +60,21 @@ your hand's ray over real surfaces and you pinch to pick a spot on your desk; a 
 a picked spot gives way if a real desk is detected before the first stone goes down; after that the board stays put. In an
 opaque VR session (no passthrough) you sit in the atelier, a plain virtual room with a wooden desk.
 
+## The desk museum
+
+Finish every level of a world and a stone plinth appears behind the board, with a small copy of that world's last arch on it.
+The copy is the level's reference solution (an arrangement the solver says holds), not the one you built: the save keeps
+only your best stone count per level. Plinths stand in a row 7 cm behind the board, from its back corners outwards, left
+and right in turn, 10 cm apart; a new one never moves the others. Each plinth is one mesh (block, piers and stones welded
+together, colours per vertex), so a full museum of eight costs eight draw calls.
+
+In a mixed reality session where the headset grants anchors (an optional WebXR feature; Archwright never requires it), each
+plinth is also tied to a persistent anchor once the board is in place and the first stone is down, and the anchor's handle
+is saved (`archwright.museum.v1`). Next time, the saved anchors are restored and the plinths stand where they stood in your
+room, wherever the board goes. An anchor that is not back within 3 s is deleted and its plinth returns to the row beside the
+board. Without anchors, and in the browser, the plinths simply follow the board. The anchor path has not been run on a
+headset yet.
+
 ## Accessibility
 
 Three settings, each switched by an icon on a small stone panel off the board's front left corner (no text: an eye, a hand, a
@@ -200,7 +215,7 @@ Source: J. Heyman, *The Stone Skeleton: Structural Engineering of Masonry Archit
   `synth.ts` plays them). There are no model, texture or sound files.
 - `src/systems/`: ECS systems (an ECS, entity-component system, keeps data in components and behaviour in systems that run every
   frame): hand tracking and pinch, grab and snap, the centering, the strike, the collapse, the surface finder, the desktop mouse
-  mode, the accessibility panel and gaze mode, rendering. The mouse mode picks through IWSDK's canvas pointer events on `RayInteractable` entities, not a raycaster of
+  mode, the accessibility panel and gaze mode, the desk museum, rendering. The mouse mode picks through IWSDK's canvas pointer events on `RayInteractable` entities, not a raycaster of
   its own.
 
 Every stone is drawn by one instanced mesh per stone shape with a single material, and shadows are a soft blob under the board,

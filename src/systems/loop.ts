@@ -58,6 +58,8 @@ export interface LoopPicker {
    * for the gaze mode: `fn` gets an id, the world centre (reused, copy it) and a pick radius.
    */
   forEachSpot(fn: (id: string, at: Vector3, radius: number) => void): void;
+  /** The progress as saved (a new object after every win; the museum watches it). */
+  progress(): Progress;
 }
 
 export class GameLoopSystem extends createSystem({}) {
@@ -109,6 +111,7 @@ export class GameLoopSystem extends createSystem({}) {
       tabletAt: out => (this.tablet?.group.visible ? this.tabletFace(out) : null),
       dailyAt: out => (this.rebuild ? this.daily.getWorldPosition(out) : null),
       forEachSpot: fn => this.forEachSpot(fn),
+      progress: () => this.progress,
     };
     this.globals.loop = picker;
     onRepaint(() => { this.repainted = true; });

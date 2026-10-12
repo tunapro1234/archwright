@@ -10,6 +10,7 @@ import { PerfEndSystem, PerfStartSystem, StoneRenderSystem } from './systems/ren
 import { SurfaceSystem } from './systems/surface.js';
 import { AutotestSystem } from './systems/autotest.js';
 import { GameLoopSystem } from './systems/loop.js';
+import { MuseumSystem } from './systems/museum.js';
 import { DesktopSystem } from './systems/desktop.js';
 import { LoadSystem } from './systems/loads.js';
 import { A11ySystem } from './systems/a11y.js';
@@ -86,6 +87,7 @@ async function main(): Promise<void> {
     .registerSystem(StaticsSystem, { priority: 12 })
     .registerSystem(CollapseSystem, { priority: 13 })
     .registerSystem(GameLoopSystem, { priority: 14 })
+    .registerSystem(MuseumSystem, { priority: 15 })
     .registerSystem(StoneRenderSystem, { priority: 20 })
     .registerSystem(LoadSystem, { priority: 21 })
     .registerSystem(PerfEndSystem, { priority: 1000 });

@@ -551,3 +551,45 @@ export function loadMesh(kind: LoadKind, kg: number, mats: Record<LoadKind, Mesh
 export function loadMaterials(): Record<LoadKind, MeshStandardMaterial> {
   return { tower: flatMaterial('abutment'), bell: flatMaterial('bronze'), cart: woodMaterial('centering', 2) };
 }
+
+/**
+ * A museum plinth with its copy (src/game/museum.ts), as one mesh: one draw call however many
+ * stones. Each part is welded in with its palette colour as a vertex colour, so `material` is a
+ * clone of the stone material with vertex colours on. recolorMuseumPiece() follows a palette change.
+ */
+export function museumPiece(parts: { geo: BufferGeometry; key: PaletteKey }[], material: MeshStandardMaterial): Mesh {
+  const keys: { key: PaletteKey; start: number; count: number }[] = [];
+  let start = 0;
+  for (const p of parts) {
+    const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
+    if (g !== p.geo) { p.geo.dispose(); p.geo = g; }
+    const count = g.getAttribute('position').count;
+    keys.push({ key: p.key, start, count });
+    start += count;
+  }
+  const geo = weld(parts.map(p => p.geo));
+  geo.setAttribute('color', new Float32BufferAttribute(new Float32Array(start * 3), 3));
+  const m = new Mesh(geo, material);
+  m.name = 'museum-piece';
+  m.userData.colorKeys = keys;
+  recolorMuseumPiece(m);
+  return m;
+}
+
+export function recolorMuseumPiece(m: Mesh): void {
+  const attr = m.geometry.getAttribute('color') as Float32BufferAttribute;
+  const c = new Color();
+  for (const { key, start, count } of m.userData.colorKeys as { key: PaletteKey; start: number; count: number }[]) {
+    c.setHex(COLORS[key]);
+    for (let i = start; i < start + count; i++) attr.setXYZ(i, c.r, c.g, c.b);
+  }
+  attr.needsUpdate = true;
+}
+
+/** The museum's material: the tooled stone, coloured per vertex. */
+export function museumMaterial(stone: MeshStandardMaterial): MeshStandardMaterial {
+  const m = stone.clone();
+  m.color.setHex(0xffffff);
+  m.vertexColors = true;
+  return m;
+}

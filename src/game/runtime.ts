@@ -46,6 +46,8 @@ export interface Hook {
   a11y?: A11ySettings;
   /** The XR session: the mode it was requested in (null outside XR) and its enabled features. */
   xr?: { mode: 'immersive-ar' | 'immersive-vr' | null; features: string[] };
+  /** The desk museum (src/systems/museum.ts): plinth ids shown, and how many follow an XR anchor. */
+  museum?: { plinths: string[]; anchored: number };
 }
 
 /** A load of world 3 in the scene; LoadSystem moves it (src/systems/loads.ts). */
@@ -112,7 +114,7 @@ export class ArchRuntime {
   bodies = 0;
   private armed = false;
   private levelEntities: Entity[] = [];
-  private readonly stoneMat = stoneMaterial();
+  readonly stoneMat = stoneMaterial();
   readonly abutmentMat = abutmentMaterial(this.stoneMat);
   private readonly woodMat = woodMaterial();
   private readonly loadMats = loadMaterials();
