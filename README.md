@@ -23,6 +23,14 @@ the arch carries itself or collapses across your desk. No controllers are needed
 - If the arch stands, its line of thrust (the path the load takes through the stones) lights up as a cyan thread. If it does
   not, it opens at the joints the solver named and falls.
 
+**The first minute has no text.** On the first level a pale ghost hand pinches the first stone of the solution out of the
+tray and seats a see-through copy of it on its open end, with a soft touch sound as the fingers meet (the real stones do not
+move). If your hands are in view and you have not picked anything up 12 s later, it shows the move again, three times at most;
+your first grab ends it for good, and hands resting out of view do not count as waiting. Once an arch is closed, bringing a hand
+near the centering's handle makes the centering glow warm, until you strike your first arch. The desktop mode shows the same
+hand, and the glow follows the mouse. The lesson's progress is kept in this browser (`archwright.onboard.v1`); the rules are
+pure functions in `src/game/onboarding.ts`.
+
 The tray groups stones by kind. The three stones differ in colour and in lightness, so they also tell apart in greyscale or
 with colour blindness: muted ochre sandstone (mid), pale tuff (light), dark basalt (dark). Every stone has chamfered edges and chisel
 marks; the centering is red-brown planked timber with grain. The arch springs from two piers of cut limestone, two courses

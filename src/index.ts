@@ -15,6 +15,7 @@ import { DesktopSystem } from './systems/desktop.js';
 import { LoadSystem } from './systems/loads.js';
 import { A11ySystem } from './systems/a11y.js';
 import { GazeSystem } from './systems/gaze.js';
+import { OnboardSystem } from './systems/onboard.js';
 import { browserStorage, loadProgress } from './game/progress.js';
 import { isForeign, modelFile, PROFILES_DIR, profileModel } from './net/local-assets.js';
 
@@ -114,6 +115,7 @@ async function main(): Promise<void> {
     .registerSystem(StaticsSystem, { priority: 12 })
     .registerSystem(CollapseSystem, { priority: 13 })
     .registerSystem(GameLoopSystem, { priority: 14 })
+    .registerSystem(OnboardSystem, { priority: 14.5 })
     .registerSystem(MuseumSystem, { priority: 15 })
     .registerSystem(StoneRenderSystem, { priority: 20 })
     .registerSystem(LoadSystem, { priority: 21 })

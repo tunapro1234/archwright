@@ -49,6 +49,8 @@ export interface Hook {
   xr?: { mode: 'immersive-ar' | 'immersive-vr' | null; features: string[]; inputs: string[] };
   /** The desk museum (src/systems/museum.ts): plinth ids shown, and how many follow an XR anchor. */
   museum?: { plinths: string[]; anchored: number };
+  /** The wordless first minute (src/systems/onboard.ts): the cue in force and how often the ghost hand has played. */
+  onboard?: { cue: 'ghost-grab' | 'glow-centering' | 'none'; ghostShown: number };
 }
 
 /** A load of world 3 in the scene; LoadSystem moves it (src/systems/loads.ts). */

@@ -165,3 +165,11 @@ export function playCue(cue: readonly Cue[]): void {
     }
   }
 }
+
+/** The ghost hand's fingers meet on a stone: a soft, low wooden touch (quieter than a real seat). */
+export function playGhostPinch(): void {
+  const c = ready(); if (!c) return;
+  const t = c.currentTime;
+  burst(c, t, 0.08, 0.08, 'bandpass', 700, 2);
+  tone(c, t, 392, 0.35, 0.08, 0.02);
+}

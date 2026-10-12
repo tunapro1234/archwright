@@ -1,6 +1,6 @@
 // Procedural meshes and materials. Everything is built in code: no texture files, models or fonts.
 import {
-  BackSide, BoxGeometry, BufferGeometry, CanvasTexture, CatmullRomCurve3, Color, DataTexture, ExtrudeGeometry,
+  BackSide, BoxGeometry, BufferGeometry, CapsuleGeometry, Quaternion, CanvasTexture, CatmullRomCurve3, Color, DataTexture, ExtrudeGeometry,
   Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, NoColorSpace, RepeatWrapping, RGBAFormat,
   ConeGeometry, CylinderGeometry, InstancedMesh, LatheGeometry, RingGeometry, Shape, SRGBColorSpace, TorusGeometry, TubeGeometry, Vector2,
   Vector3,
@@ -655,4 +655,65 @@ export function museumMaterial(stone: MeshStandardMaterial): MeshStandardMateria
   m.color.setHex(0xffffff);
   m.vertexColors = true;
   return m;
+}
+
+/**
+ * The teaching hand of the first minute (src/systems/onboard.ts): a pale, see-through right hand,
+ * palm down, fingers towards the arch (-z), its pinch point (thumb tip on index tip) at the origin.
+ * Three meshes on one material: palm with the three curled fingers, and the index finger and thumb
+ * on pivots at their knuckles, which open by rotating (`setGhostHandOpen`). Real hand scale.
+ */
+export function ghostHand(): { group: Group; material: MeshBasicMaterial; index: Group; thumb: Group } {
+  const material = new MeshBasicMaterial({ color: 0xf4efe6, transparent: true, opacity: 0, depthWrite: false });
+  const group = new Group();
+  group.name = 'ghost-hand';
+  group.visible = false;
+  const up = new Vector3(0, 1, 0);
+  const q = new Quaternion();
+  // A capsule from `a` to `b` (radius r), as non-indexed positions.
+  const bone = (a: Vector3, b: Vector3, r: number): BufferGeometry => {
+    const d = b.clone().sub(a);
+    const g = new CapsuleGeometry(r, Math.max(0.001, d.length() - 2 * r), 3, 8).toNonIndexed();
+    g.applyQuaternion(q.setFromUnitVectors(up, d.normalize()));
+    const m = a.clone().add(b).multiplyScalar(0.5);
+    g.translate(m.x, m.y, m.z);
+    return g;
+  };
+  const merge = (parts: BufferGeometry[]): BufferGeometry => {
+    const out: number[] = [];
+    for (const p of parts) { const a = p.getAttribute('position').array; for (let i = 0; i < a.length; i++) out.push(a[i]); }
+    const g = new BufferGeometry();
+    g.setAttribute('position', new Float32BufferAttribute(out, 3));
+    return g;
+  };
+  const palm = new BoxGeometry(0.075, 0.024, 0.085, 1, 1, 1).toNonIndexed();
+  palm.rotateX(-0.25);
+  palm.translate(0.012, 0.05, 0.105);
+  // Middle, ring and little fingers curled under the palm.
+  const curled = [0.004, 0.024, 0.042].map((x, i) =>
+    bone(new Vector3(x, 0.045, 0.062), new Vector3(x + 0.002, 0.012 + 0.004 * i, 0.05 + 0.004 * i), 0.0085 - 0.0008 * i));
+  const body = new Mesh(merge([palm, ...curled]), material);
+  body.name = 'ghost-hand-palm';
+  group.add(body);
+  // Index and thumb: knuckle at the pivot, tip on the origin when closed.
+  const finger = (name: string, knuckle: Vector3, r: number): Group => {
+    const pivot = new Group();
+    pivot.name = name;
+    pivot.position.copy(knuckle);
+    const m = new Mesh(bone(new Vector3(), knuckle.clone().negate(), r), material);
+    m.name = `${name}-bone`;
+    pivot.add(m);
+    group.add(pivot);
+    return pivot;
+  };
+  const index = finger('ghost-hand-index', new Vector3(-0.012, 0.047, 0.058), 0.0085);
+  const thumb = finger('ghost-hand-thumb', new Vector3(-0.042, 0.03, 0.052), 0.0095);
+  for (const m of [body, ...index.children, ...thumb.children] as Mesh[]) m.renderOrder = 5;
+  return { group, material, index, thumb };
+}
+
+/** Open the ghost hand's pinch: 0 thumb on index, 1 about 5 cm apart. */
+export function setGhostHandOpen(h: { index: Group; thumb: Group }, open: number): void {
+  h.index.rotation.set(0.45 * open, 0, 0);
+  h.thumb.rotation.set(0, 0.55 * open, -0.15 * open);
 }
