@@ -91,8 +91,9 @@ export class SurfaceSystem extends createSystem({
     if (session !== this.session) this.startSession(arch, session);
     if (!session) return;
     this.elapsed += delta;
-    // The board only moves before the first stone goes down.
-    if (arch.state.placed.length > 0) { this.hideRings(); return; }
+    // Once placed in this session, the board only moves before the first stone goes down. A level
+    // already under way when the session starts still needs a place: it moves with all its stones.
+    if (this.placed !== null && arch.state.placed.length > 0) { this.hideRings(); return; }
     this.player.head.getWorldPosition(this.head);
     if (this.head.lengthSq() === 0) return; // no viewer pose yet
 
@@ -107,7 +108,7 @@ export class SurfaceSystem extends createSystem({
     i.force = this.force;
     i.picked = this.hasPicked ? this.picked : undefined;
 
-    const picking = this.placed === null && (this.force === 'pick' || chooseSurface(i).kind === 'pick');
+    const picking = this.placed === null && arch.state.placed.length === 0 && (this.force === 'pick' || chooseSurface(i).kind === 'pick');
     if (picking) this.updateHits(session); else this.hideRings();
     if (picking) {
       const hands = this.globals.hands as Record<Side, HandState> | undefined;
@@ -138,9 +139,10 @@ export class SurfaceSystem extends createSystem({
     this.input_.inXR = !!session;
     if (session) {
       unlockAudio();
-      // Until a surface is chosen: the real room in passthrough (even if the board can no longer move).
+      // Until a surface is chosen: the real room in passthrough, and no board (nor a stone to grab).
       this.desk.visible = false;
       this.atelier.visible = false;
+      arch.setShown(false);
       this.scene.background = session.environmentBlendMode === 'opaque' ? this.background : null;
       return;
     }

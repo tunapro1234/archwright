@@ -1,7 +1,8 @@
 // ?autotest=<level>:<hold|collapse> plays a level by program, for tests and the video only: it
 // seats the level's solution (hold) or its trap (collapse) stone by stone, then pulls the centering.
 // It goes through the same placement and strike code as a hand, but it is not a hand simulation.
-// Several runs can be chained with ';', e.g. ?autotest=w1-1:hold;w1-1:collapse.
+// Several runs can be chained with ';', e.g. ?autotest=w1-1:hold;w1-1:collapse. In XR (?autoxr) it
+// waits for the session and for the board to stand on its surface.
 // With &shots=1 it also holds at seven key frames (tray, ghost, keystone, pulling, held,
 // collapse-mid, collapsed), naming each in window.__archwright.shot until the test clears it. Slow
 // software rendering would otherwise rush past the short moments between two screenshots. For
@@ -42,11 +43,14 @@ export class AutotestSystem extends createSystem({}) {
   private shots = false;
   private taken = new Set<string>();
   private resumePull = false;
+  /** ?autoxr: the page enters XR by itself, so the run waits for that session. */
+  private awaitXR = false;
 
   init(): void {
     const params = new URLSearchParams(location.search);
     this.runs = parseAutotest(params.get('autotest'));
     this.shots = params.get('shots') === '1';
+    this.awaitXR = params.get('emulator') === '1' && !!params.get('autoxr');
   }
 
   /** Hold for a key frame (once per name). True when the autotest should wait this frame. */
@@ -61,6 +65,8 @@ export class AutotestSystem extends createSystem({}) {
     const arch = this.globals.arch as ArchRuntime | undefined;
     if (!arch?.state || this.run >= this.runs.length) return;
     if (arch.hook.shot) return;
+    // In XR the board is hidden until SurfaceSystem has found it a surface; nothing goes down before.
+    if ((this.awaitXR && !this.renderer.xr.isPresenting) || !arch.shown) return;
     if (this.resumePull) { this.resumePull = false; arch.centering.auto = true; }
     this.timer -= delta;
     if (this.timer > 0) return;

@@ -64,6 +64,7 @@ URL parameters, for development and tests:
 |---|---|
 | `?level=w1-2` | start on another level (`w1-1` to `w1-5`, pointed arches `w2-1` to `w2-5`) |
 | `?emulator=1` | install IWER, Meta's WebXR emulator, so a desktop browser can run an XR session |
+| `?emulator=1&autoxr=ar` | with the emulator only: the page requests the XR session itself (`ar` or `vr`), no click; ignored on a real headset |
 | `?surface=lap` | force a surface in an XR session: `mesh`, `plane`, `pick`, `lap` or `atelier` |
 | `?autotest=w1-1:hold` | place the level's solution (`hold`) or its trap (`collapse`) by program and pull the centering; runs can be chained with `;` |
 
@@ -73,6 +74,9 @@ stands on (`surface`: `desk` outside XR, else `mesh`, `plane`, `pick`, `lap` or 
 code as a hand, but it is not a hand simulation. For desktop-mode tests the hook also has `placed` (stones seated),
 `debug.solution` (the level's solution as steps) and `project(target)`, which gives a stone id, `'face:left'`, `'face:right'` or
 `'lever'` as a point on the page in CSS pixels, so a test can click it with real mouse events.
+`xr` gives the session mode (`immersive-ar`, `immersive-vr`, or null outside XR) and its enabled WebXR features. The XR smoke
+test opens `?emulator=1&autoxr=ar&autotest=w1-1:hold` and `?emulator=1&autoxr=vr`: a real (emulated) session, the surface
+chain inside it, and in AR the autotest, which waits for the board to find its surface before the first stone goes down.
 
 `node scripts/key-frames.mjs <dir>` opens the emulator page with `&shots=1`, which makes the autotest hold at seven moments
 (tray, keystone held over its gap with the snap ghost, keystone seated, centering pulled, arch held, collapse half way, collapse at rest) and saves a screenshot of each.

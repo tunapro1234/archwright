@@ -35,6 +35,8 @@ export interface Hook {
   /** Where a target sits on the page, in CSS px: a stone id, 'face:left', 'face:right' or 'lever'. */
   project?: (target: string) => { x: number; y: number } | null;
   debug?: { solution: Step[] };
+  /** The XR session: the mode it was requested in (null outside XR) and its enabled features. */
+  xr?: { mode: 'immersive-ar' | 'immersive-vr' | null; features: string[] };
 }
 
 export type StoneMode = 'tray' | 'held' | 'tween' | 'placed' | 'dynamic';
