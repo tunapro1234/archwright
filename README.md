@@ -27,6 +27,12 @@ marks; the centering is red-brown planked timber with grain. All colours come fr
 
 Controllers work as a fallback (trigger or grip in place of the pinch).
 
+Without a headset the page plays with the mouse or a touch screen (desktop mode, outside any XR session): click a stone and it
+rises off the tray, with a ghost at each open end it may join; click a ghost and the stone seats there. Click the stone again or
+the bare board to put it back, and click the outermost stone of either half to take it off the arch. Drag the centering's handle
+down the page (120 px) to strike. The rebuild stone and the level markers beside the board take a click too. The camera is fixed,
+35° above the desk.
+
 Where the board goes (`src/scene/surface-chain.ts`, a pure function with its own tests): if the headset's scene data has a
 table mesh or a horizontal plane at desk height within reach (25 to 85 cm below the eyes, at most 75 cm away, at least
 30 × 20 cm), the board goes on it, scene meshes first. If none turns up within 1.5 s and hit-test is available, a ring follows
@@ -64,7 +70,9 @@ URL parameters, for development and tests:
 `window.__archwright` exposes the state (`loading`, `ready`, `building`, `held`, `collapsed`), the level, the surface the board
 stands on (`surface`: `desk` outside XR, else `mesh`, `plane`, `pick`, `lap` or `atelier`) and frame numbers
 (fps, JS ms per frame, draw calls, triangles, physics bodies). The `?autotest` mode goes through the same placement and strike
-code as a hand, but it is not a hand simulation.
+code as a hand, but it is not a hand simulation. For desktop-mode tests the hook also has `placed` (stones seated),
+`debug.solution` (the level's solution as steps) and `project(target)`, which gives a stone id, `'face:left'`, `'face:right'` or
+`'lever'` as a point on the page in CSS pixels, so a test can click it with real mouse events.
 
 `node scripts/key-frames.mjs <dir>` opens the emulator page with `&shots=1`, which makes the autotest hold at seven moments
 (tray, keystone held over its gap with the snap ghost, keystone seated, centering pulled, arch held, collapse half way, collapse at rest) and saves a screenshot of each.
@@ -93,7 +101,9 @@ Source: J. Heyman, *The Stone Skeleton: Structural Engineering of Masonry Archit
 - `src/levels/`: level definitions, each generated from geometry and checked with the solver.
 - `src/scene/`, `src/audio/`: procedural meshes and synthesised sounds. There are no model, texture or sound files.
 - `src/systems/`: ECS systems (an ECS, entity-component system, keeps data in components and behaviour in systems that run every
-  frame): hand tracking and pinch, grab and snap, the centering, the strike, the collapse, the surface finder, rendering.
+  frame): hand tracking and pinch, grab and snap, the centering, the strike, the collapse, the surface finder, the desktop mouse
+  mode, rendering. The mouse mode picks through IWSDK's canvas pointer events on `RayInteractable` entities, not a raycaster of
+  its own.
 
 Every stone is drawn by one instanced mesh per stone shape with a single material, and shadows are a soft blob under the board,
 not real-time shadow maps. Havok's physics WASM is not part of the first load: it is fetched when the first stone is placed.

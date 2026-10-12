@@ -54,14 +54,19 @@ export class PerfStartSystem extends createSystem({}) {
   }
 }
 
+const ARM_AFTER = 3;
+
 /** Runs last each frame: frame rate, JS time per frame, and the last rendered frame's counts. */
 export class PerfEndSystem extends createSystem({}) {
   private fps = 0;
   private ms = 0;
+  private frames = 0;
 
   update(delta: number): void {
     const arch = this.globals.arch as ArchRuntime | undefined;
     if (!arch) return;
+    // Pointer targets are collected one frame and hit-tested the next; the canvas has its size by then.
+    if (++this.frames === ARM_AFTER) arch.arm();
     const js = performance.now() - (this.globals.frameStart as number ?? performance.now());
     const k = 0.1;
     if (delta > 0) this.fps = this.fps ? this.fps + (1 / delta - this.fps) * k : 1 / delta;

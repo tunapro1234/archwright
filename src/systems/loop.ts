@@ -3,6 +3,7 @@
 // same level starts again with the same tray. Small stones beside the board open any level the
 // player has reached (solid: solved, hollow: open, lifted and lit: the one on the board).
 // Progress is saved in localStorage (src/game/progress.ts) and the game reopens where it left off.
+// The desktop mouse mode reaches the same rebuild stone and markers through globals.loop (LoopPicker).
 // Under ?autotest the arch stays held or collapsed: the passenger may cross, but nothing is saved
 // and no other level is loaded.
 import { Color, createSystem, Group, Matrix4, Quaternion, Vector3, type Mesh } from '@iwsdk/core';
@@ -27,6 +28,14 @@ export const REBUILD_AFTER = 2.0;
 export const PICK_RADIUS = 0.03;              // a pinch this close to a marker or the rebuild stone takes it
 const REBUILD_AT = new Vector3(0, 0.1, 0.09);  // site frame: above the board, in front of the arch
 const MARKER_LIFT = 0.006;
+
+/** What the desktop mouse mode needs from the loop: the same picks a pinch makes. */
+export interface LoopPicker {
+  /** A pick at `point` (world): the rebuild stone or a level marker within PICK_RADIUS. */
+  pick(point: Vector3): boolean;
+  /** World position of the rebuild stone while it is offered, else null. */
+  rebuildAt(out: Vector3): Vector3 | null;
+}
 
 export class GameLoopSystem extends createSystem({}) {
   private storage: ProgressStorage | null = null;
@@ -59,6 +68,14 @@ export class GameLoopSystem extends createSystem({}) {
     this.markers = levelMarkers(this.spots.length);
     this.markers.filled.frustumCulled = this.markers.hollow.frustumCulled = false; // instances come and go
     this.root.add(this.passenger, this.markers.filled, this.markers.hollow);
+    const picker: LoopPicker = {
+      pick: point => {
+        const arch = this.globals.arch as ArchRuntime | undefined;
+        return !!arch?.state && this.pinch(arch, point);
+      },
+      rebuildAt: out => (this.rebuild?.visible ? this.rebuild.getWorldPosition(out) : null),
+    };
+    this.globals.loop = picker;
   }
 
   update(delta: number): void {

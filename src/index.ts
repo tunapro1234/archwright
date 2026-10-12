@@ -10,6 +10,7 @@ import { PerfEndSystem, PerfStartSystem, StoneRenderSystem } from './systems/ren
 import { SurfaceSystem } from './systems/surface.js';
 import { AutotestSystem } from './systems/autotest.js';
 import { GameLoopSystem } from './systems/loop.js';
+import { DesktopSystem } from './systems/desktop.js';
 import { browserStorage, loadProgress } from './game/progress.js';
 
 // The XR session, its optional features and the scene all come from iwsdk.config.json.
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
     .registerSystem(HandSystem, { priority: 0 })
     .registerSystem(AutotestSystem, { priority: 1 })
     .registerSystem(SurfaceSystem, { priority: 5 })
+    .registerSystem(DesktopSystem, { priority: 9 })
     .registerSystem(GrabSnapSystem, { priority: 10 })
     .registerSystem(CenteringSystem, { priority: 11 })
     .registerSystem(StaticsSystem, { priority: 12 })

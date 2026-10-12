@@ -5,7 +5,7 @@ import {
   type Entity, type World,
 } from '@iwsdk/core';
 import {
-  createLevel, placeStone, takeBack, whyNot, type GameState, type LevelDef, type Side, type StoneDef,
+  createLevel, placeStone, takeBack, whyNot, type GameState, type LevelDef, type Side, type Step, type StoneDef,
 } from './arch-state.js';
 import type { SolveResult } from '../statics/index.js';
 import { LEVELS } from '../levels/index.js';
@@ -30,6 +30,11 @@ export interface Hook {
   surface?: SurfaceKind;
   /** ?autotest with &shots=1 only: name of the key frame the autotest is holding for; clear it to go on. */
   shot?: string;
+  /** Desktop mouse mode (src/systems/desktop.ts): stones seated so far. */
+  placed?: number;
+  /** Where a target sits on the page, in CSS px: a stone id, 'face:left', 'face:right' or 'lever'. */
+  project?: (target: string) => { x: number; y: number } | null;
+  debug?: { solution: Step[] };
 }
 
 export type StoneMode = 'tray' | 'held' | 'tween' | 'placed' | 'dynamic';
@@ -81,13 +86,14 @@ export class ArchRuntime {
   /** False while SurfaceSystem is still looking for a surface: the board is hidden and nothing can be grabbed. */
   shown = true;
   bodies = 0;
+  private armed = false;
   private levelEntities: Entity[] = [];
   private readonly stoneMat = stoneMaterial();
   readonly abutmentMat = abutmentMaterial(this.stoneMat);
   private readonly woodMat = woodMaterial();
   private readonly boardMat = flatMaterial(PALETTE.board);
-  /** Snap ghosts, one per hand: where the stone that hand holds would seat. */
-  private readonly ghosts: Record<Side, Mesh>;
+  /** Snap ghosts, one per hand: where the stone that hand holds would seat (desktop mode: one per face). */
+  readonly ghosts: Record<Side, Mesh>;
   private readonly proxyMat = new MeshBasicMaterial({ visible: false });
 
   constructor(readonly world: World) {
@@ -178,7 +184,15 @@ export class ArchRuntime {
       this.stones.push({ def: s, entity, mesh, batch: b, slot, mode: 'tray', home: homes[i], pose: { ...homes[i] } });
     });
     for (const b of this.batches) if (b.mesh.instanceColor) b.mesh.instanceColor.needsUpdate = true;
-    this.hook.state = 'ready';
+    // The first level waits for arm(): until a few frames have run, the page cannot take a click yet.
+    this.hook.state = this.armed ? 'ready' : 'loading';
+  }
+
+  /** The world has run its first frames (PerfEndSystem): the hook may report the level as playable. */
+  arm(): void {
+    if (this.armed) return;
+    this.armed = true;
+    if (this.state && this.hook.state === 'loading') this.hook.state = this.state.placed.length ? 'building' : 'ready';
   }
 
   private clear(): void {
