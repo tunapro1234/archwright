@@ -16,6 +16,7 @@ import { LoadSystem } from './systems/loads.js';
 import { A11ySystem } from './systems/a11y.js';
 import { GazeSystem } from './systems/gaze.js';
 import { OnboardSystem } from './systems/onboard.js';
+import { DebugOverlaySystem } from './systems/debug.js';
 import { browserStorage, loadProgress } from './game/progress.js';
 import { isForeign, modelFile, PROFILES_DIR, profileModel } from './net/local-assets.js';
 
@@ -119,6 +120,7 @@ async function main(): Promise<void> {
     .registerSystem(MuseumSystem, { priority: 15 })
     .registerSystem(StoneRenderSystem, { priority: 20 })
     .registerSystem(LoadSystem, { priority: 21 })
+    .registerSystem(DebugOverlaySystem, { priority: 999 })
     .registerSystem(PerfEndSystem, { priority: 1000 });
 
   // ?autotest, then ?level=, then wherever the saved progress left off.

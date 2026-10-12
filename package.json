@@ -9,7 +9,7 @@
     "dev:down": "iwsdk dev down",
     "dev:status": "iwsdk dev status",
     "typecheck": "tsc --noEmit",
-    "build": "vite build",
+    "build": "vite build && node scripts/first-load.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "level-check": "tsx scripts/level-check.ts",

@@ -185,6 +185,7 @@ URL parameters, for development and tests:
 | `?emulator=1&autoxr=ar` | with the emulator only: the page requests the XR session itself (`ar` or `vr`), no click; ignored on a real headset |
 | `?surface=lap` | force a surface in an XR session: `mesh`, `plane`, `pick`, `lap` or `atelier` |
 | `?a11y=gaze,contrast` | turn accessibility settings on: `gaze`, `onehand`, `contrast` (saved ones stay on) |
+| `?debug=1` | show the performance numbers: a text box in the page corner, or a small slate on the desk in an XR session (see Performance) |
 | `?autotest=w1-1:hold` | place the level's solution (`hold`) or its trap (`collapse`) by program and pull the centering; runs can be chained with `;` |
 
 `window.__archwright` exposes the state (`loading`, `ready`, `building`, `held`, `collapsed`), the level, the surface the board
@@ -202,6 +203,31 @@ chain inside it, and in AR the autotest, which waits for the board to find its s
 
 `node scripts/key-frames.mjs <dir>` opens the emulator page with `&shots=1`, which makes the autotest hold at seven moments
 (tray, keystone held over its gap with the snap ghost, keystone seated, centering pulled, arch held, collapse half way, collapse at rest) and saves a screenshot of each.
+
+## Performance
+
+The budget, for a Quest 3/3S at 72 Hz: at most 60 draw calls per frame (100 while an arch collapses), 100k visible triangles,
+40 physics bodies, no real-time shadows. The scene is built to stay well inside it: one instanced mesh per stone shape with one
+shared material, the two piers in one mesh and each museum plinth in one mesh, level markers as two instanced meshes,
+a blob shadow instead of a shadow map, and the collapse capped at 40 bodies (the static board, piers and floor colliders count
+towards it too). Stones are low-poly prisms of a few dozen triangles.
+
+`?debug=1` shows the numbers while you play: frames per second, JS time per frame (the game's systems and the solver, not the
+GPU), draw calls and triangles of the last frame (from three.js `renderer.info`), physics bodies, the XR session's enabled
+features, detected planes and their labels, museum anchors and page visibility. A number over the budget turns red. On the
+desktop it is a text box in the page corner; in an XR session, where a page cannot be seen, the same lines are on a small slate
+standing on the desk behind the board's right corner (part of the room, not fixed to your head; it adds one draw call). The same
+numbers are in `window.__archwright.perf` every frame, in XR as well.
+
+What has been checked, and where: draw calls, triangles and bodies do not depend on the device, so they are counted in headless
+Chromium (software WebGL, the XR emulator) for four desktop cases: w1-1 ready, w3-5 standing, w3-5 collapsing, and a full
+museum. Frame times from that run come from a software renderer on a shared server and say nothing about a headset, so no
+frame-rate figure is claimed here: it has not been measured on a Quest yet.
+
+First load: `npm run build` prints the size of everything a visit can download before the first stone goes down and writes it to
+`dist/first-load.json` (`scripts/first-load.mjs`). It counts every chunk and worker of the build (an upper bound) except what only
+loads on demand: Havok's physics (about 2 MB, fetched when the first stone is placed), the emulator (`?emulator=1` only) and the
+controller and hand profiles (XR input only). Budget 8 MB.
 
 ## How the solver works
 
