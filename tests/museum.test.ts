@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   loadHandles, MAX_PLINTHS, miniature, MUSEUM_KEY, museumPieces, PLINTH, plinthLayout, saveHandles,
 } from '../src/game/museum.js';
-import { emptyProgress, recordWin, type ProgressStorage } from '../src/game/progress.js';
+import { emptyProgress, encodeArch, recordWin, type ProgressStorage } from '../src/game/progress.js';
 import { LEVELS } from '../src/levels/index.js';
 import { A11Y_PANEL, BOARD, dailySpot, loadRest, MARKER, markerSpots } from '../src/scene/layout.js';
 import { ATELIER_DESK } from '../src/scene/models.js';
@@ -76,6 +76,28 @@ describe('the copy on a plinth', () => {
     const [l, r] = m.piers;
     expect((r.x + r.width / 2 - (l.x - l.width / 2)) * m.scale).toBeLessThanOrEqual(PLINTH.size);
     expect(def.depth * m.scale).toBeLessThan(PLINTH.size);
+  });
+});
+
+describe("the player's own arch", () => {
+  const def = LEVELS.find(l => l.id === 'w1-5')!;
+  const ownSteps = [...def.trap];
+
+  it('a piece carries the arrangement saved with the win, and the copy is built from it', () => {
+    const p = recordWin(solveAll(ids.filter(id => id !== 'w1-5')), 'w1-5', ownSteps.length, 'd', ownSteps);
+    const piece = museumPieces(p)[0];
+    expect(piece.arch).toBe(encodeArch('w1-5', ownSteps));
+    const m = miniature(def, piece.arch);
+    expect(m.own).toBe(true);
+    expect(m.stones.map(s => s.stone.id)).toEqual(ownSteps.map(s => s.stone));
+  });
+
+  it('no arrangement, or one that does not close the arch here: the reference solution', () => {
+    for (const arch of [undefined, '', '0l', '0l,99r']) {
+      const m = miniature(def, arch);
+      expect(m.own).toBe(false);
+      expect(m.stones.map(s => s.stone.id)).toEqual(def.solution.map(s => s.stone));
+    }
   });
 });
 

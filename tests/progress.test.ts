@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../src/levels/index.js';
 import {
-  emptyProgress, loadProgress, recordWin, saveProgress, STORAGE_KEY, unlocked, type ProgressStorage,
+  decodeArch, emptyProgress, encodeArch, loadProgress, recordWin, saveProgress, STORAGE_KEY, unlocked, type ProgressStorage,
 } from '../src/game/progress.js';
 
 const ids = LEVELS.map(l => l.id);
@@ -43,5 +43,37 @@ describe('progress', () => {
     const s = memory();
     expect(saveProgress(s, recordWin(emptyProgress(), ids[0], 5, 'x'))).toBe(true);
     expect(JSON.parse(s.data.get(STORAGE_KEY)!)).toEqual({ solved: { [ids[0]]: { stones: 5, at: 'x' } }, current: ids[1] });
+  });
+});
+
+describe('the arrangement kept with a win', () => {
+  const def = LEVELS[0];
+  const other = def.trap;
+
+  it('encodes as tray index + side, a few bytes, and decodes back', () => {
+    const code = encodeArch(def.id, def.solution)!;
+    expect(code).toMatch(/^\d+[lr](,\d+[lr])*$/);
+    expect(code.length).toBeLessThan(4 * def.solution.length);
+    expect(decodeArch(def.id, code)).toEqual(def.solution);
+    expect(encodeArch(def.id, [{ stone: 'nope', side: 'left' }])).toBeUndefined();
+    expect(encodeArch('w9-9', def.solution)).toBeUndefined();
+    for (const bad of ['', '0l,0r', '99l', '0x', '0l,', 5, null]) expect(decodeArch(def.id, bad)).toBeNull();
+  });
+
+  it('goes with the best result; a tie only fills a missing one; older saves still load', () => {
+    let p = recordWin(emptyProgress(), def.id, 5, 'd1');
+    expect(p.solved[def.id]).toEqual({ stones: 5, at: 'd1' });
+    p = recordWin(p, def.id, 5, 'd2', def.solution);
+    expect(p.solved[def.id]).toEqual({ stones: 5, at: 'd1', arch: encodeArch(def.id, def.solution) });
+    p = recordWin(p, def.id, 5, 'd3', other);
+    expect(p.solved[def.id].arch).toBe(encodeArch(def.id, def.solution));
+    p = recordWin(p, def.id, 4, 'd4', other);
+    expect(p.solved[def.id]).toEqual({ stones: 4, at: 'd4', arch: encodeArch(def.id, other) });
+
+    const s = memory();
+    saveProgress(s, p);
+    expect(loadProgress(s)).toEqual(p);
+    s.setItem(STORAGE_KEY, JSON.stringify({ solved: { [def.id]: { stones: 4, at: 'x', arch: '7l,7l' } }, current: def.id }));
+    expect(loadProgress(s).solved[def.id]).toEqual({ stones: 4, at: 'x' });
   });
 });

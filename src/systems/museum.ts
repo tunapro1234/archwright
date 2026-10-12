@@ -93,22 +93,35 @@ export class MuseumSystem extends createSystem({}) {
     }
   }
 
-  /** One mesh per piece; pieces already shown stay as they are (a new world only adds a plinth). */
+  /**
+   * One mesh per piece. A plinth already shown stays, anchor and all; only its copy is rebuilt when
+   * the arch on it changed (a better arrangement), and a new world only adds a plinth.
+   */
   private rebuild(arch: ArchRuntime, pieces: Piece[]): void {
-    const keep = this.plinths.filter(p => pieces.some(q => q.id === p.piece.id && q.levelId === p.piece.levelId));
-    for (const p of this.plinths) if (!keep.includes(p)) { this.root.remove(p.mesh); p.mesh.geometry.dispose(); }
     this.material ??= museumMaterial(arch.stoneMat);
+    for (const p of this.plinths) {
+      if (pieces.some(q => q.id === p.piece.id)) continue;
+      this.root.remove(p.mesh);
+      p.mesh.geometry.dispose();
+    }
     const layout = plinthLayout(pieces.length);
     this.plinths = pieces.map(piece => {
-      const old = keep.find(p => p.piece.id === piece.id);
-      if (old) {
-        old.piece = piece;
-        if (old.mode !== 'anchored') this.toLayout(old, layout);
-        return old;
+      let p = this.plinths.find(o => o.piece.id === piece.id);
+      if (p && (p.piece.levelId !== piece.levelId || p.piece.arch !== piece.arch)) {
+        const mesh = this.pieceMesh(piece);
+        mesh.position.copy(p.mesh.position);
+        mesh.quaternion.copy(p.mesh.quaternion);
+        this.root.remove(p.mesh);
+        p.mesh.geometry.dispose();
+        this.root.add(mesh);
+        p.mesh = mesh;
       }
-      const p: Plinth = { piece, mesh: this.pieceMesh(piece), mode: 'layout' };
-      this.toLayout(p, layout);
-      this.root.add(p.mesh);
+      if (!p) {
+        p = { piece, mesh: this.pieceMesh(piece), mode: 'layout' };
+        this.root.add(p.mesh);
+      }
+      p.piece = piece;
+      if (p.mode !== 'anchored') this.toLayout(p, layout);
       return p;
     });
   }
@@ -122,7 +135,7 @@ export class MuseumSystem extends createSystem({}) {
   /** Plinth block, then the copy standing on it: piers and the level's solution, scaled down. */
   private pieceMesh(piece: Piece): Mesh {
     const def = LEVELS.find(l => l.id === piece.levelId)!;
-    const mini = miniature(def);
+    const mini = miniature(def, piece.arch);
     const k = mini.scale, H = PLINTH.height;
     const shape = { span: def.span, rise: def.rise, units: def.stones, depth: def.depth };
     const parts = [{ geo: new BoxGeometry(PLINTH.size, H, PLINTH.size).translate(0, H / 2, 0), key: 'abutment' as const }];

@@ -4,8 +4,8 @@
 // handles that keep them in the same place in the room from one XR session to the next. Nothing
 // here throws: a corrupt progress or save reads as an empty museum.
 import { LEVELS } from '../levels/index.js';
-import { createLevel, placeStone, type LevelDef, type StoneDef } from './arch-state.js';
-import type { Progress, ProgressStorage } from './progress.js';
+import { createLevel, isClosed, placeStone, type LevelDef, type Step, type StoneDef } from './arch-state.js';
+import { decodeArch, type Progress, type ProgressStorage } from './progress.js';
 import { ABUTMENT_HEIGHT, abutments, BOARD, slotPose, type Pose2 } from '../scene/layout.js';
 
 export const MUSEUM_KEY = 'archwright.museum.v1';
@@ -22,6 +22,7 @@ export interface Piece {
   levelId: string; // the world's last level, whose arch stands on the plinth
   stones: number;  // the player's best stone count on that level
   slot: number;    // 0.. in world order
+  arch?: string;   // the player's arrangement on that level (progress encodeArch), when the save has it
 }
 
 /** Worlds in LEVELS order, each with its level ids. */
@@ -45,7 +46,8 @@ export function museumPieces(p: Progress): Piece[] {
     if (out.length >= MAX_PLINTHS) break;
     if (!ids.every(id => solved[id])) continue;
     const levelId = ids[ids.length - 1];
-    out.push({ id: `world:${world}`, levelId, stones: solved[levelId].stones, slot: out.length });
+    const { stones, arch } = solved[levelId];
+    out.push({ id: `world:${world}`, levelId, stones, slot: out.length, ...(typeof arch === 'string' && arch ? { arch } : {}) });
   }
   return out;
 }
@@ -65,20 +67,29 @@ export function plinthLayout(n: number): { x: number; z: number }[] {
 }
 
 /**
- * The copy on a plinth: the level's own solution arrangement (an arch the solver says holds), its
- * two piers, and the scale that fits it on the plinth. Poses are in the arch's site frame with the
- * board at y = 0; scale them and stand them on the plinth top.
+ * The copy on a plinth: the player's own arrangement (`arch`, from the save) or, when the save has
+ * none or it does not build a closed arch on this level, the level's reference solution; its two
+ * piers, and the scale that fits it on the plinth. Poses are in the arch's site frame with the
+ * board at y = 0; scale them and stand them on the plinth top. `own` says whose arch it is.
  */
-export function miniature(def: LevelDef): {
+export function miniature(def: LevelDef, arch?: string): {
+  own: boolean;
   scale: number;
   stones: { stone: StoneDef; pose: Pose2 }[];
   piers: { x: number; width: number; height: number }[];
 } {
-  let s = createLevel(def);
-  for (const step of def.solution) s = placeStone(s, step.stone, step.side);
+  const build = (steps: Step[]) => {
+    let s = createLevel(def);
+    for (const step of steps) if (!s.error) s = placeStone(s, step.stone, step.side);
+    return s.error || !isClosed(s) ? null : s;
+  };
+  const played = arch === undefined ? null : decodeArch(def.id, arch);
+  const mine = played && build(played);
+  const s = mine ?? build(def.solution)!;
   const piers = abutments(def);
   const width = 2 * (Math.abs(piers[0].x) + piers[0].width / 2);
   return {
+    own: !!mine,
     scale: COPY_WIDTH / width,
     stones: s.placed.map(p => ({ stone: p.stone, pose: slotPose(s.geometry, p.stone, p.slot) })),
     piers: piers.map(a => ({ ...a, height: ABUTMENT_HEIGHT })),

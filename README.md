@@ -63,8 +63,9 @@ opaque VR session (no passthrough) you sit in the atelier, a plain virtual room 
 ## The desk museum
 
 Finish every level of a world and a stone plinth appears behind the board, with a small copy of that world's last arch on it.
-The copy is the level's reference solution (an arrangement the solver says holds), not the one you built: the save keeps
-only your best stone count per level. Plinths stand in a row 7 cm behind the board, from its back corners outwards, left
+The copy is your own arch: the save keeps, with your best stone count on each level, the arrangement that did it (each
+stone's place in the tray and its side, a few bytes). A save from before that was kept, or one that no longer fits the
+level, shows the level's reference solution instead. Plinths stand in a row 7 cm behind the board, from its back corners outwards, left
 and right in turn, 10 cm apart; a new one never moves the others. Each plinth is one mesh (block, piers and stones welded
 together, colours per vertex), so a full museum of eight costs eight draw calls.
 

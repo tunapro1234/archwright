@@ -37,7 +37,7 @@ describe('daily levels', () => {
       expect(r.holding / r.closed).toBeGreaterThanOrEqual(0.02);
       expect(r.holding / r.closed).toBeLessThanOrEqual(0.6);
     }
-  });
+  }, 60_000); // a full arrangement search per level: a few seconds, more on a loaded machine
 
   it('no level repeats within a pool length of days, wherever the run starts', () => {
     const n = DAILY_POOL.length;

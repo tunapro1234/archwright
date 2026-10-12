@@ -179,7 +179,8 @@ export class GameLoopSystem extends createSystem({}) {
       this.showMarkers(arch.def.id);
       return;
     }
-    this.progress = recordWin(this.progress, arch.def.id, arch.state.placed.length, new Date().toISOString());
+    const steps = arch.state.placed.map(p => ({ stone: p.stone.id, side: p.side }));
+    this.progress = recordWin(this.progress, arch.def.id, arch.state.placed.length, new Date().toISOString(), steps);
     saveProgress(this.storage, this.progress);
     this.showMarkers(arch.def.id);
   }
