@@ -12,6 +12,8 @@ import { AutotestSystem } from './systems/autotest.js';
 import { GameLoopSystem } from './systems/loop.js';
 import { DesktopSystem } from './systems/desktop.js';
 import { LoadSystem } from './systems/loads.js';
+import { A11ySystem } from './systems/a11y.js';
+import { GazeSystem } from './systems/gaze.js';
 import { browserStorage, loadProgress } from './game/progress.js';
 
 // The XR session, its optional features and the scene all come from iwsdk.config.json.
@@ -76,7 +78,9 @@ async function main(): Promise<void> {
     .registerSystem(HandSystem, { priority: 0 })
     .registerSystem(AutotestSystem, { priority: 1 })
     .registerSystem(SurfaceSystem, { priority: 5 })
+    .registerSystem(A11ySystem, { priority: 8 })
     .registerSystem(DesktopSystem, { priority: 9 })
+    .registerSystem(GazeSystem, { priority: 9.5 })
     .registerSystem(GrabSnapSystem, { priority: 10 })
     .registerSystem(CenteringSystem, { priority: 11 })
     .registerSystem(StaticsSystem, { priority: 12 })

@@ -210,6 +210,19 @@ export function dailySpot(ids: string[]): { x: number; z: number } {
  */
 export const TABLET = { x: 0.13, z: 0.095, width: 0.085, height: 0.045, thickness: 0.009, lean: 0.35, tile: 0.0064, tileGap: 0.0017 };
 
+/**
+ * The accessibility panel (site frame): a small stone slab off the board's front left corner, past
+ * the marker columns, lying with its top tilted towards the player. Three icons in a row along x,
+ * no text: gaze (an eye), one hand (a hand), high contrast (a half-filled disc).
+ */
+export const A11Y_PANEL = { x: -0.285, z: 0.25, width: 0.072, depth: 0.03, height: 0.01, lean: 0.3, icon: 0.0075, pitch: 0.023 };
+export const A11Y_ICONS = ['gaze', 'oneHand', 'highContrast'] as const;
+
+/** Centre of icon `i` (A11Y_ICONS order), in the frame of the panel's sloped top face. */
+export function a11yIconSpot(i: number): { x: number; y: number; z: number } {
+  return { x: (i - 1) * A11Y_PANEL.pitch, y: 0, z: 0 };
+}
+
 /** Pull distance at which the centering clears the stones and the arch is struck. */
 export const strikePull = (depth: number): number => depth + CENTERING.strikeExtra;
 

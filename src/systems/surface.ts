@@ -10,7 +10,7 @@ import type { Side } from '../game/arch-state.js';
 import type { ArchRuntime } from '../game/runtime.js';
 import type { HandState } from './hands.js';
 import { atelier, flatMaterial, pickRing } from '../scene/models.js';
-import { PALETTE } from '../scene/palette.js';
+import { paint } from '../scene/palette.js';
 import {
   chooseSurface, DESK_BELOW_EYES, type SurfaceCandidate, type SurfaceChoice, type SurfaceInput, type SurfaceKind,
 } from '../scene/surface-chain.js';
@@ -57,10 +57,10 @@ export class SurfaceSystem extends createSystem({
   private p = new Vector3();
   private box = new Box3();
   private m = new Matrix4();
-  private background = new Color(PALETTE.background);
+  private background = paint(new Color(), 'background');
 
   init(): void {
-    const desk = new Mesh(new BoxGeometry(1.3, 0.04, 0.7), flatMaterial(PALETTE.desk));
+    const desk = new Mesh(new BoxGeometry(1.3, 0.04, 0.7), flatMaterial('desk'));
     desk.name = 'desk';
     desk.position.set(0, DESK_HEIGHT - 0.02, -0.45);
     this.world.createTransformEntity(desk, { persistent: true });

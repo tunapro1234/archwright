@@ -7,8 +7,8 @@ import {
 } from '@iwsdk/core';
 import type { Vec2 } from '../statics/index.js';
 import type { LoadKind, Material } from '../game/arch-state.js';
-import { ABUTMENT_HEIGHT, BOARD, CENTERING, MARKER, TABLET } from './layout.js';
-import { PALETTE } from './palette.js';
+import { A11Y_ICONS, A11Y_PANEL, a11yIconSpot, ABUTMENT_HEIGHT, BOARD, CENTERING, MARKER, TABLET } from './layout.js';
+import { COLORS, paint, type PaletteKey } from './palette.js';
 import { MATERIAL_COLOR } from './meshes.js';
 
 /** Chamfer on every stone edge (m): it catches the light, so a stone reads as a cut block. */
@@ -130,7 +130,7 @@ export function stoneMaterial(): MeshStandardMaterial {
 /** The piers: the same tooled stone in a colour none of the playable stones has. */
 export function abutmentMaterial(stone: MeshStandardMaterial): MeshStandardMaterial {
   const m = stone.clone();
-  m.color.setHex(PALETTE.abutment);
+  paint(m.color, 'abutment');
   return m;
 }
 
@@ -169,13 +169,15 @@ function plankTexture(size: number): CanvasTexture {
   return t;
 }
 
-/** Plank timber: the centering. Planks are ~3 cm wide, a tile covers 25 cm. */
-export function woodMaterial(color: number = PALETTE.centering, repeat = 4): MeshStandardMaterial {
+/** Plank timber: the centering. Planks are ~3 cm wide, a tile covers 25 cm. Painted from palette `key`. */
+export function woodMaterial(key: PaletteKey = 'centering', repeat = 4): MeshStandardMaterial {
   const map = plankTexture(256);
   map.repeat.set(repeat, repeat);
   const bumpMap = map.clone();
   bumpMap.colorSpace = NoColorSpace;
-  return new MeshStandardMaterial({ color, map, bumpMap, bumpScale: 1.5, roughness: 0.78, metalness: 0 });
+  const m = new MeshStandardMaterial({ map, bumpMap, bumpScale: 1.5, roughness: 0.78, metalness: 0 });
+  paint(m.color, key);
+  return m;
 }
 
 /**
@@ -195,11 +197,17 @@ export function ghostColor(material: Material, out: Color): Color {
   return out.setHex(MATERIAL_COLOR[material]).lerp(WHITE, 0.35);
 }
 
-/** A plain, finely grained surface: the board and the virtual desk (no planks, so not timber). */
-export function flatMaterial(color: number): MeshStandardMaterial {
+/**
+ * A plain, finely grained surface: the board and the virtual desk (no planks, so not timber).
+ * A palette key paints it (and repaints it with the palette); a number is a fixed colour.
+ */
+export function flatMaterial(color: number | PaletteKey): MeshStandardMaterial {
   const map = grainTexture(64, 0.88);
   map.repeat.set(8, 8);
-  return new MeshStandardMaterial({ color, map, roughness: 0.85, metalness: 0 });
+  const m = new MeshStandardMaterial({ map, roughness: 0.85, metalness: 0 });
+  if (typeof color === 'number') m.color.setHex(color);
+  else paint(m.color, color);
+  return m;
 }
 
 /** Wooden centering under the intrados, standing on the board, with a pull handle at the front. */
@@ -259,7 +267,7 @@ export function thrustTube(points: Vec2[], z: number): Mesh {
   const pts = points.map(p => new Vector3(p.x, p.y, z));
   const curve = new CatmullRomCurve3(pts, false, 'centripetal');
   const geo = new TubeGeometry(curve, Math.max(24, pts.length * 6), 0.0022, 6, false);
-  const mat = new MeshBasicMaterial({ color: PALETTE.thrust, transparent: true, opacity: 0, depthTest: true });
+  const mat = new MeshBasicMaterial({ color: COLORS.thrust, transparent: true, opacity: 0, depthTest: true });
   const m = new Mesh(geo, mat);
   m.name = 'thrust-line';
   m.renderOrder = 2;
@@ -306,10 +314,10 @@ export function atelier(): Group {
     { w: D.width, h: D.top, d: D.depth, x: 0, y: -D.top / 2, z: 0 },
     ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => ({ w: leg, h: lh, d: leg, x: sx * lx, y: -D.top - lh / 2, z: sz * lz })),
     { w: D.width - 0.12, h: 0.08, d: 0.02, x: 0, y: -D.top - 0.04, z: -lz }, // apron at the back
-  ]), woodMaterial(PALETTE.desk, 2.5));
+  ]), woodMaterial('desk', 2.5));
   desk.name = 'atelier-desk';
   g.add(desk);
-  const room = new Mesh(new BoxGeometry(4.2, 2.8, 4.2), flatMaterial(PALETTE.room));
+  const room = new Mesh(new BoxGeometry(4.2, 2.8, 4.2), flatMaterial('room'));
   (room.material as MeshStandardMaterial).side = BackSide;
   room.name = 'atelier-room';
   room.position.set(0, 1.4 - D.height, 0.6); // floor under the desk legs, the player inside
@@ -321,8 +329,9 @@ export function atelier(): Group {
 export function pickRing(name: string): Mesh {
   const m = new Mesh(
     new RingGeometry(0.028, 0.04, 32).rotateX(-Math.PI / 2),
-    new MeshBasicMaterial({ color: PALETTE.pinch, transparent: true, opacity: 0.9, depthWrite: false }),
+    new MeshBasicMaterial({ transparent: true, opacity: 0.9, depthWrite: false }),
   );
+  paint((m.material as MeshBasicMaterial).color, 'pinch');
   m.name = name;
   m.renderOrder = 4;
   m.visible = false;
@@ -335,7 +344,9 @@ export function passengerMesh(): Mesh {
     [0, 0], [0.007, 0], [0.0065, 0.004], [0.0045, 0.022], [0.0035, 0.026], [0.002, 0.0275],
     [0.0045, 0.03], [0.005, 0.034], [0.0042, 0.0375], [0.0022, 0.0395], [0, 0.04],
   ].map(([x, y]) => new Vector2(x, y));
-  const m = new Mesh(new LatheGeometry(p, 14), new MeshStandardMaterial({ color: PALETTE.passenger, roughness: 0.7 }));
+  const mat = new MeshStandardMaterial({ roughness: 0.7 });
+  paint(mat.color, 'passenger');
+  const m = new Mesh(new LatheGeometry(p, 14), mat);
   m.name = 'passenger';
   m.visible = false;
   return m;
@@ -353,7 +364,8 @@ export function rebuildStone(stone: MeshStandardMaterial): Group {
   ], 0.03), stone);
   block.name = 'rebuild-block';
   g.add(block);
-  const icon = new MeshBasicMaterial({ color: PALETTE.pinch });
+  const icon = new MeshBasicMaterial();
+  paint(icon.color, 'pinch');
   const arc = new Mesh(new TorusGeometry(0.0085, 0.0016, 6, 24, Math.PI * 1.5), icon);
   arc.position.z = 0.0155;
   arc.rotation.z = Math.PI * 0.25;
@@ -420,6 +432,62 @@ export function shareTablet(stone: MeshStandardMaterial, capacity = 12): { group
   return { group, face, tiles };
 }
 
+/**
+ * The accessibility panel: a low stone slab with three icons on its top, no text. Gaze is an eye
+ * (an almond rim and a pupil), one hand a flat open hand, high contrast a ring half filled. An icon
+ * that is on is lit (pinch colour) and stands proud; one that is off is dark and flush. Origin at
+ * the middle of the slab's foot; its top slopes up away from the player, facing them. Four draw calls.
+ */
+export function a11yPanel(stone: MeshStandardMaterial): {
+  group: Group; top: Group; icons: Record<(typeof A11Y_ICONS)[number], Mesh>; on: MeshBasicMaterial; off: MeshBasicMaterial;
+} {
+  const { width: w, depth: d, height: h, lean, icon: r } = A11Y_PANEL;
+  const group = new Group();
+  group.name = 'a11y-panel';
+  // A wedge: h tall at the front (+z), taller at the back, so its top faces the player.
+  const rise = d * Math.tan(lean);
+  const slab = new Mesh(prism([
+    { x: -d / 2, y: 0 }, { x: d / 2, y: 0 }, { x: d / 2, y: h }, { x: -d / 2, y: h + rise },
+  ], w, 0.002).rotateY(-Math.PI / 2), stone);
+  slab.name = 'a11y-panel-slab';
+  group.add(slab);
+  const top = new Group(); // the sloped top face: icons lie in its x-z plane
+  top.position.y = h + rise / 2;
+  top.rotation.x = lean;
+  group.add(top);
+  const on = new MeshBasicMaterial();
+  paint(on.color, 'pinch');
+  const off = new MeshBasicMaterial();
+  paint(off.color, 'background');
+  const flat = (g: BufferGeometry) => g.rotateX(-Math.PI / 2); // drawn in x-y, laid on the top face
+  const eye = weld([
+    flat(new TorusGeometry(r, r * 0.13, 4, 28).scale(1, 0.55, 1)),
+    flat(new CylinderGeometry(r * 0.32, r * 0.32, 0.0012, 16).rotateX(Math.PI / 2)),
+  ]);
+  const f = r * 0.2; // finger width
+  const hand = flat(boxes([
+    { w: r * 0.95, h: r * 0.9, d: 0.0012, x: 0, y: -r * 0.35, z: 0 },               // palm
+    ...[-1.5, -0.5, 0.5, 1.5].map(k => ({ w: f, h: r * (k === -1.5 || k === 1.5 ? 0.7 : 0.85), d: 0.0012,
+      x: k * f * 1.2, y: r * 0.45, z: 0 })),                                          // fingers
+    { w: r * 0.55, h: f, d: 0.0012, x: -r * 0.62, y: -r * 0.15, z: 0 },             // thumb
+  ]));
+  const contrast = weld([
+    flat(new TorusGeometry(r, r * 0.13, 4, 28)),
+    flat(new CylinderGeometry(r, r, 0.0012, 16, 1, false, 0, Math.PI).rotateX(Math.PI / 2)),
+  ]);
+  const geos = { gaze: eye, oneHand: hand, highContrast: contrast };
+  const icons = {} as Record<(typeof A11Y_ICONS)[number], Mesh>;
+  A11Y_ICONS.forEach((k, i) => {
+    const m = new Mesh(geos[k], off);
+    const p = a11yIconSpot(i);
+    m.position.set(p.x, p.y + 0.0007, p.z);
+    m.name = `a11y-${k}`;
+    top.add(m);
+    icons[k] = m;
+  });
+  return { group, top, icons, on, off };
+}
+
 /** Non-indexed geometries (position, normal, uv) welded into one, so a model is one draw call. */
 function weld(parts: BufferGeometry[]): BufferGeometry {
   const out: Record<string, number[]> = { position: [], normal: [], uv: [] };
@@ -481,5 +549,5 @@ export function loadMesh(kind: LoadKind, kg: number, mats: Record<LoadKind, Mesh
 
 /** The loads' materials: the piers' stone, bronze and cart timber (not the centering's, which fades out). */
 export function loadMaterials(): Record<LoadKind, MeshStandardMaterial> {
-  return { tower: flatMaterial(PALETTE.abutment), bell: flatMaterial(PALETTE.bronze), cart: woodMaterial(PALETTE.centering, 2) };
+  return { tower: flatMaterial('abutment'), bell: flatMaterial('bronze'), cart: woodMaterial('centering', 2) };
 }

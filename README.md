@@ -25,7 +25,8 @@ the arch carries itself or collapses across your desk. No controllers are needed
 
 The tray groups stones by kind. The three stones differ in colour and in lightness, so they also tell apart in greyscale or
 with colour blindness: ochre sandstone (mid), pale tuff (light), dark basalt (dark). Every stone has chamfered edges and chisel
-marks; the centering is red-brown planked timber with grain. All colours come from `src/scene/palette.ts`.
+marks; the centering is red-brown planked timber with grain. All colours come from `src/scene/palette.ts`, which also
+holds a high-contrast palette (see [Accessibility](#accessibility)).
 
 **Today's Span.** The round stone beside the level markers opens the day's level: the same arch for everyone on the same date,
 numbered from 1 October 2026 (#1). Once the centering is out, a small stone tablet rises on the board with one tile per stone,
@@ -59,6 +60,43 @@ your hand's ray over real surfaces and you pinch to pick a spot on your desk; a 
 a picked spot gives way if a real desk is detected before the first stone goes down; after that the board stays put. In an
 opaque VR session (no passthrough) you sit in the atelier, a plain virtual room with a wooden desk.
 
+## Accessibility
+
+Three settings, each switched by an icon on a small stone panel off the board's front left corner (no text: an eye, a hand, a
+half-filled disc). A lit, raised icon is on. Pinch it, click it in desktop mode, or look at it and pinch in gaze mode. The
+choice is saved on the device (`archwright.a11y.v1` in localStorage); `?a11y=gaze,onehand,contrast` turns settings on from
+the address.
+
+- **Gaze.** For players who cannot reach or carry a stone. The head's ray picks the target, and a pinch of either hand (or a
+  controller trigger) confirms it, wherever the hand is. A thin ring sits on whatever is looked at: a stone that can be taken,
+  an open end for the stone already picked up, the centering's handle, the rebuild stone, a level marker, the share tablet or a
+  panel icon. Stones follow the same two steps as the desktop mouse mode (the code is shared, `src/systems/select.ts`): the
+  picked stone rises off the tray with a ghost at each open end, and looking at an end and pinching seats it there. To strike,
+  look at the centering's handle and keep the pinch for 0.8 s; the centering slides out while you hold. This is head gaze
+  (where the head points), not eye tracking. A pinch made while looking at nothing still works as a normal hand pinch.
+- **One hand.** Nothing in Archwright needs two hands, with or without this setting. Each of these takes one pinch of one
+  hand: taking a stone from the tray, carrying it and letting go at an open end, taking the outermost stone back off,
+  pulling the centering, the rebuild stone, the level markers, the share tablet, the panel icons, and picking a spot on the
+  desk when no table is detected. The setting adds one thing: pinch the centering's handle and hold it for 0.8 s and it pulls
+  itself out, so the strike does not need a 10 cm pull towards you. There is no time limit anywhere in the game.
+- **High contrast.** The scene is repainted at once with a second palette (`HIGH_CONTRAST` in `src/scene/palette.ts`):
+  near-white tuff, orange sandstone and near-black basalt, violet timber, a navy desk and a sky-blue line of thrust. It looks
+  unnatural on purpose. Stones keep their chisel marks and chamfered edges, the centering its planks, so colour is never the
+  only cue.
+
+What we measured, and what we did not. The two palettes are checked by a test (`tests/palette.test.ts`) with CIE ΔE76 colour
+differences, the same differences under a simulation of protanopia, deuteranopia and tritanopia
+(Machado, Oliveira and Fernandes 2009, full severity), and the WCAG luminance contrast ratio between the three stones:
+
+| | stone / stone ΔE | stone / timber ΔE | worst pair, colour-blind simulation | stone contrast ratio |
+|---|---|---|---|---|
+| normal palette | 45.5 | 41.5 | 25.4 | 2.10 |
+| high contrast | 80.3 | 120.1 | 51.9 | 3.01 |
+
+The gaze pick (a ray against a sphere round each target, nearest hit within 1.5 m) and the hold-to-strike timing have unit
+tests. The gaze and one-hand modes have not been tried on a headset yet, nor with players who need them; we have no
+user-study numbers to report.
+
 ## How to run
 
 Requirements: Node.js 22.12+ (see `.nvmrc`).
@@ -86,6 +124,7 @@ URL parameters, for development and tests:
 | `?emulator=1` | install IWER, Meta's WebXR emulator, so a desktop browser can run an XR session |
 | `?emulator=1&autoxr=ar` | with the emulator only: the page requests the XR session itself (`ar` or `vr`), no click; ignored on a real headset |
 | `?surface=lap` | force a surface in an XR session: `mesh`, `plane`, `pick`, `lap` or `atelier` |
+| `?a11y=gaze,contrast` | turn accessibility settings on: `gaze`, `onehand`, `contrast` (saved ones stay on) |
 | `?autotest=w1-1:hold` | place the level's solution (`hold`) or its trap (`collapse`) by program and pull the centering; runs can be chained with `;` |
 
 `window.__archwright` exposes the state (`loading`, `ready`, `building`, `held`, `collapsed`), the level, the surface the board
@@ -93,7 +132,8 @@ stands on (`surface`: `desk` outside XR, else `mesh`, `plane`, `pick`, `lap` or 
 (fps, JS ms per frame, draw calls, triangles, physics bodies). The `?autotest` mode goes through the same placement and strike
 code as a hand, but it is not a hand simulation. For desktop-mode tests the hook also has `placed` (stones seated),
 `debug.solution` (the level's solution as steps) and `project(target)`, which gives a stone id, `'face:left'`, `'face:right'`,
-`'lever'`, `'tablet'` or `'marker:today'` as a point on the page in CSS pixels, so a test can click it with real mouse events.
+`'lever'`, `'tablet'`, `'marker:today'` or a panel icon (`'a11y:gaze'`, `'a11y:onehand'`, `'a11y:contrast'`) as a point on the
+page in CSS pixels, so a test can click it with real mouse events. `a11y` holds the accessibility settings in force.
 On a daily level `daily` holds the day's number and, once the arch is struck, its share card.
 `xr` gives the session mode (`immersive-ar`, `immersive-vr`, or null outside XR) and its enabled WebXR features. The XR smoke
 test opens `?emulator=1&autoxr=ar&autotest=w1-1:hold` and `?emulator=1&autoxr=vr`: a real (emulated) session, the surface
@@ -143,7 +183,7 @@ Source: J. Heyman, *The Stone Skeleton: Structural Engineering of Masonry Archit
 - `src/scene/`, `src/audio/`: procedural meshes and synthesised sounds. There are no model, texture or sound files.
 - `src/systems/`: ECS systems (an ECS, entity-component system, keeps data in components and behaviour in systems that run every
   frame): hand tracking and pinch, grab and snap, the centering, the strike, the collapse, the surface finder, the desktop mouse
-  mode, rendering. The mouse mode picks through IWSDK's canvas pointer events on `RayInteractable` entities, not a raycaster of
+  mode, the accessibility panel and gaze mode, rendering. The mouse mode picks through IWSDK's canvas pointer events on `RayInteractable` entities, not a raycaster of
   its own.
 
 Every stone is drawn by one instanced mesh per stone shape with a single material, and shadows are a soft blob under the board,

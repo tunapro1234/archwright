@@ -10,6 +10,7 @@ import {
 import type { SolveResult } from '../statics/index.js';
 import { LEVELS } from '../levels/index.js';
 import { dailyDate, dailyLevel, localDateISO } from './daily.js';
+import type { A11ySettings } from './a11y.js';
 import {
   abutments, ABUTMENT_HEIGHT, BOARD, centeringTop, facePose, loadRest, shapeKey, stoneOutline, trayPoses, type Pose2,
 } from '../scene/layout.js';
@@ -18,7 +19,7 @@ import {
   woodMaterial,
 } from '../scene/models.js';
 import { MATERIAL_COLOR } from '../scene/meshes.js';
-import { PALETTE } from '../scene/palette.js';
+import { COLORS, onRepaint } from '../scene/palette.js';
 import type { SurfaceKind } from '../scene/surface-chain.js';
 import { playReject, playTick } from '../audio/synth.js';
 
@@ -34,11 +35,14 @@ export interface Hook {
   /** Desktop mouse mode (src/systems/desktop.ts): stones seated so far. */
   placed?: number;
   /** Where a target sits on the page, in CSS px: a stone id, 'face:left', 'face:right', 'lever',
-   *  'tablet' (the share card, once shown) or 'marker:today' (the daily level's marker). */
+   *  'tablet' (the share card, once shown), 'marker:today' (the daily level's marker) or an icon of the
+   *  accessibility panel ('a11y:gaze', 'a11y:onehand', 'a11y:contrast'). */
   project?: (target: string) => { x: number; y: number } | null;
   debug?: { solution: Step[] };
   /** Today's Span: the day's number while a daily level is on the board, and its share card once struck. */
   daily?: { number: number; card: string | null } | null;
+  /** Accessibility settings in force (src/game/a11y.ts). */
+  a11y?: A11ySettings;
   /** The XR session: the mode it was requested in (null outside XR) and its enabled features. */
   xr?: { mode: 'immersive-ar' | 'immersive-vr' | null; features: string[] };
 }
@@ -77,6 +81,7 @@ export interface Batch { mesh: InstancedMesh; count: number }
 
 const tmpV = new Vector3();
 const tmpQ = new Quaternion();
+const tmpC = new Color();
 const tmpQ2 = new Quaternion();
 const xAxis = new Vector3(1, 0, 0);
 const zAxis = new Vector3(0, 0, 1);
@@ -110,7 +115,7 @@ export class ArchRuntime {
   readonly abutmentMat = abutmentMaterial(this.stoneMat);
   private readonly woodMat = woodMaterial();
   private readonly loadMats = loadMaterials();
-  private readonly boardMat = flatMaterial(PALETTE.board);
+  private readonly boardMat = flatMaterial('board');
   /** Snap ghosts, one per hand: where the stone that hand holds would seat (desktop mode: one per face). */
   readonly ghosts: Record<Side, Mesh>;
   private readonly proxyMat = new MeshBasicMaterial({ visible: false });
@@ -131,6 +136,14 @@ export class ArchRuntime {
     this.site.add(sun);
     this.ghosts = { left: ghostMesh('ghost-left'), right: ghostMesh('ghost-right') };
     for (const g of Object.values(this.ghosts)) world.createTransformEntity(g, { persistent: true });
+    onRepaint(() => this.repaint());
+  }
+
+  /** The palette changed (high-contrast mode): stone tints and the line of thrust follow it. */
+  private repaint(): void {
+    for (const v of this.stones) this.batches[v.batch].mesh.setColorAt(v.slot, tmpC.setHex(MATERIAL_COLOR[v.def.material]));
+    for (const b of this.batches) if (b.mesh.instanceColor) b.mesh.instanceColor.needsUpdate = true;
+    if (this.thrustLine) ((this.thrustLine as Mesh).material as MeshBasicMaterial).color.setHex(COLORS.thrust);
   }
 
   /** A world level by id, 'today' or a daily id (daily-YYYY-MM-DD) for Today's Span; else the first level. */

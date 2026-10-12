@@ -24,7 +24,7 @@ import { along, dailySpot, markerSpots, passengerPath, TABLET } from '../scene/l
 import type { Vec2 } from '../statics/index.js';
 import { dailyMarker, levelMarkers, passengerMesh, rebuildStone, shareTablet } from '../scene/models.js';
 import { MATERIAL_COLOR } from '../scene/meshes.js';
-import { PALETTE } from '../scene/palette.js';
+import { COLORS, onRepaint } from '../scene/palette.js';
 import { SILENCE } from './statics.js';
 import { playTick } from '../audio/synth.js';
 
@@ -53,6 +53,11 @@ export interface LoopPicker {
   tabletAt(out: Vector3): Vector3 | null;
   /** World position of the Today's Span marker. */
   dailyAt(out: Vector3): Vector3 | null;
+  /**
+   * Everything a pick may take now (rebuild stone, share tablet, daily marker, open level markers),
+   * for the gaze mode: `fn` gets an id, the world centre (reused, copy it) and a pick radius.
+   */
+  forEachSpot(fn: (id: string, at: Vector3, radius: number) => void): void;
 }
 
 export class GameLoopSystem extends createSystem({}) {
@@ -81,6 +86,8 @@ export class GameLoopSystem extends createSystem({}) {
   private v = new Vector3();
   private s = new Vector3();
   private c = new Color();
+  private w = new Vector3();
+  private repainted = false;
 
   init(): void {
     this.autotest = new URLSearchParams(location.search).has('autotest');
@@ -101,8 +108,10 @@ export class GameLoopSystem extends createSystem({}) {
       rebuildAt: out => (this.rebuild?.visible ? this.rebuild.getWorldPosition(out) : null),
       tabletAt: out => (this.tablet?.group.visible ? this.tabletFace(out) : null),
       dailyAt: out => (this.rebuild ? this.daily.getWorldPosition(out) : null),
+      forEachSpot: fn => this.forEachSpot(fn),
     };
     this.globals.loop = picker;
+    onRepaint(() => { this.repainted = true; });
   }
 
   update(delta: number): void {
@@ -119,6 +128,11 @@ export class GameLoopSystem extends createSystem({}) {
       arch.site.add(this.root);
     }
     if (arch.generation !== this.generation) this.reset(arch);
+    if (this.repainted) {
+      this.repainted = false;
+      this.showMarkers(arch.def.id);
+      if (this.card) this.tintTiles(arch);
+    }
 
     const state = arch.hook.state;
     if (this.verdict === 'none' && (state === 'held' || state === 'collapsed')) this.onVerdict(arch, state);
@@ -233,7 +247,7 @@ export class GameLoopSystem extends createSystem({}) {
       const shown = this.open.has(spot.id);
       const here = spot.id === current;
       this.v.set(spot.x, here ? MARKER_LIFT : 0, spot.z);
-      this.c.setHex(here ? PALETTE.pinch : solved ? PALETTE.sandstone : PALETTE.tuff);
+      this.c.setHex(here ? COLORS.pinch : solved ? COLORS.sandstone : COLORS.tuff);
       for (const [mesh, on] of [[filled, shown && solved], [hollow, shown && !solved]] as const) {
         this.s.setScalar(on ? 1 : 0);
         mesh.setMatrixAt(i, this.m.compose(this.v, this.q, this.s));
@@ -249,7 +263,7 @@ export class GameLoopSystem extends createSystem({}) {
     const here = current === `daily-${today}`;
     this.daily.position.set(this.todaySpot.x, here ? MARKER_LIFT : 0, this.todaySpot.z);
     (this.daily.material as MeshStandardMaterial).color.setHex(
-      here ? PALETTE.pinch : dailyHeld(this.storage, today) ? PALETTE.sandstone : PALETTE.tuff);
+      here ? COLORS.pinch : dailyHeld(this.storage, today) ? COLORS.sandstone : COLORS.tuff);
   }
 
   /** The card of the struck daily arch: tiles on the tablet, the hook, and the tablet to rise. */
@@ -267,13 +281,31 @@ export class GameLoopSystem extends createSystem({}) {
       const y = TABLET.height * 0.5 + (fell ? -0.004 * ((i * 7) % 3) : 0);
       this.q.setFromAxisAngle(this.v.set(0, 0, 1), fell ? 0.35 * (((i * 5) % 3) - 1) : 0);
       tiles.setMatrixAt(i, this.m.compose(this.v.set(x, y, 0), this.q, this.s.setScalar(1)));
-      tiles.setColorAt(i, this.c.setHex(MATERIAL_COLOR[ring[i].stone.material]));
     }
     this.q.identity();
     tiles.count = n;
     tiles.instanceMatrix.needsUpdate = true;
-    if (tiles.instanceColor) tiles.instanceColor.needsUpdate = true;
+    this.tintTiles(arch);
     this.wobble = this.hop = 0;
+  }
+
+  /** Tablet tiles in the stones' colours (again after a palette change). */
+  private tintTiles(arch: ArchRuntime): void {
+    const { tiles } = this.tablet;
+    const ring = ringOrder(arch.state);
+    for (let i = 0; i < tiles.count; i++) tiles.setColorAt(i, this.c.setHex(MATERIAL_COLOR[ring[i].stone.material]));
+    if (tiles.instanceColor) tiles.instanceColor.needsUpdate = true;
+  }
+
+  private forEachSpot(fn: (id: string, at: Vector3, radius: number) => void): void {
+    const arch = this.globals.arch as ArchRuntime | undefined;
+    if (!arch?.state || !arch.shown || !this.rebuild) return;
+    if (this.rebuild.visible) fn('rebuild', this.rebuild.getWorldPosition(this.w), PICK_RADIUS);
+    if (this.tablet.group.visible) fn('tablet', this.tabletFace(this.w), TABLET_PICK);
+    fn('marker:today', this.daily.getWorldPosition(this.w), PICK_RADIUS);
+    for (const spot of this.spots) {
+      if (this.open.has(spot.id)) fn(`marker:${spot.id}`, arch.site.localToWorld(this.w.set(spot.x, 0.006, spot.z)), PICK_RADIUS);
+    }
   }
 
   private animateTablet(delta: number): void {

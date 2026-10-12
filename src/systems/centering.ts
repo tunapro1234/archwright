@@ -1,19 +1,23 @@
 // The wooden centering slides out towards the player by its handle, with one hand or both. Once it
 // clears the stones the arch is struck; after that it slides on to the end of its travel and is
-// taken away (it fades out), so the arch, or its collapse, is in full view.
+// taken away (it fades out), so the arch, or its collapse, is in full view. In the one-hand mode
+// (src/game/a11y.ts) pinching the handle and holding it HOLD_TO_STRIKE strikes too, without a pull:
+// the centering slides out by itself while the pinch is kept (pulling still works on top of it).
 import { createSystem, Vector3, type MeshStandardMaterial } from '@iwsdk/core';
 import type { ArchRuntime } from '../game/runtime.js';
 import type { Side } from '../game/arch-state.js';
 import type { HandState } from './hands.js';
 import { CENTERING, strikePull } from '../scene/layout.js';
 import { playScrape } from '../audio/synth.js';
+import { holdPull } from '../game/a11y.js';
+import type { A11yPanel } from './a11y.js';
 
 export const HANDLE_RADIUS = 0.06;
 export const AUTO_PULL_SPEED = 0.07; // m/s, autotest only
 const FADE = 0.5;                    // s for the struck centering to fade out
 
 export class CenteringSystem extends createSystem({}) {
-  private grip: Record<Side, { z0: number; pull0: number } | undefined> = { left: undefined, right: undefined };
+  private grip: Record<Side, { z0: number; pull0: number; held: number } | undefined> = { left: undefined, right: undefined };
   private local = new Vector3();
   private hp = new Vector3();
   private scraped = false;
@@ -24,6 +28,7 @@ export class CenteringSystem extends createSystem({}) {
     if (!arch?.centering || !hands) return;
     const c = arch.centering;
     const usable = arch.state.placed.length > 0 && !c.struck;
+    const oneHand = !!(this.globals.a11y as A11yPanel | undefined)?.settings.oneHand;
 
     let pull = c.pull;
     let gripped = false;
@@ -34,12 +39,13 @@ export class CenteringSystem extends createSystem({}) {
       arch.site.worldToLocal(this.local.copy(h.point));
       if (!this.grip[side] && h.pinchStarted) {
         c.handle.getWorldPosition(this.hp);
-        if (this.hp.distanceTo(h.point) < HANDLE_RADIUS) this.grip[side] = { z0: this.local.z, pull0: c.pull };
+        if (this.hp.distanceTo(h.point) < HANDLE_RADIUS) this.grip[side] = { z0: this.local.z, pull0: c.pull, held: 0 };
       }
       const g = this.grip[side];
       if (g) {
         // With two hands the one that has pulled further leads; pushing back is allowed until the strike.
-        const p = g.pull0 + (this.local.z - g.z0);
+        let p = g.pull0 + (this.local.z - g.z0);
+        if (oneHand) p = Math.max(p, holdPull((g.held += delta), g.pull0, strikePull(arch.def.depth), CENTERING.maxPull));
         pull = gripped ? Math.max(pull, p) : p;
         gripped = true;
       }

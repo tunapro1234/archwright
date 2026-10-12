@@ -3,6 +3,9 @@
 // checks CIE ΔE76 between them, with and without a Machado 2009 protan/deutan/tritan simulation,
 // and a luminance ratio between the three stones. Colour is never the only cue: stones carry
 // chisel marks and chamfered edges, the centering planks and grain.
+// HIGH_CONTRAST is the accessibility mode's palette (src/game/a11y.ts): the same keys, pulled far
+// apart (the same test with thresholds about 1.6 times higher, `okunurluk.kabul.ts yuksek`).
+// The scene is painted from COLORS, which holds one of the two; usePalette switches it live.
 export const PALETTE = {
   /** Warm ochre, mid lightness. */
   sandstone: 0xc98f4a,
@@ -31,3 +34,56 @@ export const PALETTE = {
   /** Pinch cursor while pinching; also the icons (rebuild, current level marker). */
   pinch: 0xffc94a,
 } as const;
+
+export type PaletteKey = keyof typeof PALETTE;
+export type Palette = { readonly [K in PaletteKey]: number };
+
+/**
+ * Accessibility mode: three stones a step apart in lightness (near-white, orange, near-black),
+ * violet timber and a navy desk that are no stone's colour, and a sky-blue line of thrust.
+ * Unnatural on purpose; legibility first.
+ */
+export const HIGH_CONTRAST: Palette = {
+  sandstone: 0xe07a1f,
+  tuff: 0xffffff,
+  basalt: 0x141414,
+  centering: 0x9b30ff,
+  desk: 0x1f3a7a,
+  thrust: 0x00b0ff,
+  /** Mid grey: white, orange and black stones all stand off it. */
+  board: 0x5c5c5c,
+  abutment: 0x9e9e9e,
+  background: 0x000000,
+  room: 0x262626,
+  passenger: 0xff2d95,
+  bronze: 0x2e8b57,
+  pinch: 0xffeb00,
+};
+
+/** The colours the scene is painted with now: PALETTE until usePalette says otherwise. */
+export const COLORS: Record<PaletteKey, number> = { ...PALETTE };
+
+interface Paintable { setHex(hex: number): unknown }
+const painted: { color: Paintable; key: PaletteKey }[] = [];
+const repaints: (() => void)[] = [];
+
+/** Paints `color` (a three.js Color) from COLORS[key] now and again whenever the palette changes. */
+export function paint<T extends Paintable>(color: T, key: PaletteKey): T {
+  color.setHex(COLORS[key]);
+  painted.push({ color, key });
+  return color;
+}
+
+/** Calls `f` after every palette change, for colours paint() cannot hold (per-instance colours). */
+export function onRepaint(f: () => void): void {
+  repaints.push(f);
+}
+
+/** Switches the scene to `p`: COLORS, every painted colour and every onRepaint callback. */
+export function usePalette(p: Palette): void {
+  let same = true;
+  for (const k of Object.keys(COLORS) as PaletteKey[]) if (COLORS[k] !== p[k]) { same = false; COLORS[k] = p[k]; }
+  if (same) return;
+  for (const { color, key } of painted) color.setHex(COLORS[key]);
+  for (const f of repaints) f();
+}

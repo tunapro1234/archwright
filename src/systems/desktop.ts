@@ -4,7 +4,9 @@
 // puts it back; clicking the outermost stone of either half lifts it off the arch again. Drag the
 // centering's handle down the page (DRAG_PX) to pull it out and strike the arch. After a collapse
 // the rebuild stone and the level markers beside the board take a click as they take a pinch, and
-// so does the share tablet of Today's Span (a click copies its card).
+// so does the share tablet of Today's Span (a click copies its card), and the icons of the
+// accessibility panel (a click switches one). The select-then-seat steps
+// are SelectPlace (src/systems/select.ts), shared with the gaze mode.
 //
 // Picking goes through IWSDK's canvas pointer path: the page's pointer events are forwarded into
 // the scene, onto entities tagged RayInteractable (iwsdk.config.json, input.canvasPointerEvents).
@@ -15,13 +17,12 @@ import {
 } from '@iwsdk/core';
 import type { ArchRuntime, StoneView } from '../game/runtime.js';
 import type { Side } from '../game/arch-state.js';
-import { BOARD, CENTERING, strikePull, TABLET, type Pose2 } from '../scene/layout.js';
+import { A11Y_ICONS, A11Y_PANEL, BOARD, CENTERING, strikePull, TABLET, type Pose2 } from '../scene/layout.js';
 import { leverPull, ndcToCss } from '../game/desktop.js';
 import type { LoopPicker } from './loop.js';
+import { SelectPlace } from './select.js';
+import { A11Y_TARGETS, type A11yKey, type A11yPanel } from './a11y.js';
 
-export const LIFT = 0.045;      // m a picked stone rises above its tray spot
-const LIFT_TIME = 0.22;
-const SEAT_TIME = 0.32;
 const SIDES = ['left', 'right'] as const;
 
 type Listener = (e: { point: Vector3 }) => void;
@@ -30,24 +31,23 @@ const on = (o: Object3D, type: string, fn: Listener) => o.addEventListener(type 
 export class DesktopSystem extends createSystem({}) {
   private active = false;
   private generation = -1;
-  private selected: StoneView | undefined;
-  private lifted: Pose2 = { x: 0, y: 0, z: 0, angle: 0, tilt: 0 };
+  private select!: SelectPlace;
   private faces!: Record<Side, Mesh>;
-  private facePose: Record<Side, Pose2 | undefined> = { left: undefined, right: undefined };
   private lever!: Mesh;
   private board!: Mesh;
   private rebuild!: Mesh;
   private tablet!: Mesh;
+  private icons = {} as Record<A11yKey, Mesh>;
   private proxies: Entity[] = [];
   private hovered = new Set<Object3D>();
   private downY = 0;
   private drag: { y0: number; pull0: number; dy: number } | undefined;
-  private t = 0;
   private v = new Vector3();
   private scratch = new Object3D();
   private canvas!: HTMLCanvasElement;
 
   init(): void {
+    this.select = SelectPlace.of(this.globals);
     const hidden = new MeshBasicMaterial({ visible: false }); // hit shapes only: never drawn
     const proxy = (mesh: Mesh, name: string) => {
       mesh.name = name;
@@ -84,6 +84,12 @@ export class DesktopSystem extends createSystem({}) {
       if (at) loop!.pick(at);
     });
     this.hover(this.tablet);
+    for (const k of A11Y_ICONS) {
+      const m = proxy(new Mesh(new SphereGeometry(A11Y_PANEL.pitch / 2, 10, 6), hidden), `a11y-${k}-hit`);
+      on(m, 'pointerdown', () => (this.globals.a11y as A11yPanel | undefined)?.toggle(k));
+      this.hover(m);
+      this.icons[k] = m;
+    }
 
     this.canvas = this.renderer.domElement;
     this.canvas.style.touchAction = 'none'; // a touch drag works the lever instead of scrolling the page
@@ -113,12 +119,13 @@ export class DesktopSystem extends createSystem({}) {
   update(delta: number): void {
     const arch = this.globals.arch as ArchRuntime | undefined;
     if (!arch?.state) return;
-    this.t += delta;
     const active = !this.renderer.xr.isPresenting;
     if (active !== this.active || arch.generation !== this.generation) {
+      // A new level: its stones are new, forget the old selection. Into or out of XR: put it back.
+      if (arch.generation !== this.generation) this.select.reset();
+      else this.select.drop(arch);
       this.active = active;
       this.generation = arch.generation;
-      this.selected = undefined;
       this.drag = undefined;
       this.hovered.clear();
       this.cursor();
@@ -127,12 +134,9 @@ export class DesktopSystem extends createSystem({}) {
     }
     if (!active) return;
 
-    const building = this.canBuild(arch);
-    if (this.selected && (!building || (this.selected.mode !== 'held' && this.selected.mode !== 'tween'))) {
-      this.drop(arch); // the arch was struck, or something else took the stone
-    }
-    const s = this.selected;
-    if (s?.mode === 'held') s.pose.y = this.lifted.y + 0.003 * Math.sin(this.t * 3);
+    const had = this.select.selected;
+    this.select.update(arch, delta); // lets go if the arch was struck, or something else took the stone
+    if (had && !this.select.selected) this.refreshFaces(arch);
 
     // Hit shapes follow the board (it may have moved) and what is on it.
     const c = arch.centering;
@@ -150,10 +154,12 @@ export class DesktopSystem extends createSystem({}) {
     const face = (this.globals.loop as LoopPicker | undefined)?.tabletAt(this.v);
     this.tablet.visible = !!face;
     if (face) this.follow(this.tablet, face);
-  }
-
-  private canBuild(arch: ArchRuntime): boolean {
-    return arch.shown && (arch.state.phase === 'building' || arch.state.phase === 'ready');
+    const panel = this.globals.a11y as A11yPanel | undefined;
+    for (const k of A11Y_ICONS) {
+      const at = panel?.iconAt(k, this.v);
+      this.icons[k].visible = !!at;
+      if (at) this.follow(this.icons[k], at);
+    }
   }
 
   /** RayInteractable on the stones and hit shapes outside XR only. */
@@ -173,47 +179,22 @@ export class DesktopSystem extends createSystem({}) {
       if (this.active) { if (!e.hasComponent(RayInteractable)) e.addComponent(RayInteractable); }
       else if (e.hasComponent(RayInteractable)) e.removeComponent(RayInteractable);
     }
-    if (!this.active) for (const m of [this.lever, this.board, this.rebuild, this.tablet]) m.visible = false;
+    if (!this.active) for (const m of [this.lever, this.board, this.rebuild, this.tablet, ...Object.values(this.icons)]) m.visible = false;
   }
 
   private pick(arch: ArchRuntime, v: StoneView): void {
-    if (!this.active || !this.canBuild(arch)) return;
-    if (this.selected === v) { this.drop(arch); return; }
-    const free = v.mode === 'tray' || (v.mode === 'tween' && v.tween?.then === 'tray');
-    if (!free) {
-      // The outermost stone of either half comes back off the arch, as a pinch would take it.
-      if (v.mode !== 'placed' || !this.outermost(arch, v) || !arch.unplace(v)) return;
-    }
-    if (this.selected) arch.sendHome(this.selected);
-    this.selected = v;
-    v.heldBy = undefined;
-    Object.assign(this.lifted, v.home);
-    this.lifted.y += LIFT;
-    arch.tweenTo(v, this.lifted, LIFT_TIME, 0.01, 'held');
-    this.refreshFaces(arch);
-  }
-
-  private outermost(arch: ArchRuntime, v: StoneView): boolean {
-    const placed = arch.state.placed;
-    return SIDES.some(side => {
-      for (let i = placed.length - 1; i >= 0; i--) if (placed[i].side === side) return placed[i].stone.id === v.def.id;
-      return false;
-    });
+    if (!this.active) return;
+    if (this.select.pick(arch, v)) this.refreshFaces(arch);
   }
 
   private seat(side: Side): void {
     const arch = this.globals.arch as ArchRuntime | undefined;
-    const v = this.selected;
-    if (!arch || !v || !this.active || !this.canBuild(arch) || !this.facePose[side]) return;
-    this.selected = undefined;
-    arch.place(v, side, SEAT_TIME, 0.03);
-    this.refreshFaces(arch);
+    if (!arch || !this.active) return;
+    if (this.select.seat(arch, side)) this.refreshFaces(arch);
   }
 
   private drop(arch: ArchRuntime): void {
-    const v = this.selected;
-    this.selected = undefined;
-    if (v && (v.mode === 'held' || v.mode === 'tween')) arch.sendHome(v);
+    this.select.drop(arch);
     this.refreshFaces(arch);
   }
 
@@ -221,35 +202,29 @@ export class DesktopSystem extends createSystem({}) {
     const arch = this.globals.arch as ArchRuntime | undefined;
     if (!arch || !this.active) return;
     if ((this.globals.loop as LoopPicker | undefined)?.pick(point)) return;
-    if (this.selected) this.drop(arch);
+    if (this.select.selected) this.drop(arch);
   }
 
   private grab(): void {
     const arch = this.globals.arch as ArchRuntime | undefined;
     if (!arch || !this.active || !this.lever.visible) return;
-    if (this.selected) this.drop(arch);
+    if (this.select.selected) this.drop(arch);
     this.drag = { y0: this.downY, pull0: arch.centering.pull, dy: 0 };
     this.cursor();
   }
 
   /** Ghost and hit shape at each open face the selected stone may join; none without a selection. */
   private refreshFaces(arch: ArchRuntime): void {
-    const v = this.active ? this.selected : undefined;
-    const targets = v ? arch.targets(v) : [];
+    this.select.refresh(arch, side => this.hovered.has(this.faces[side]), this.active);
+    const v = this.select.selected;
     for (const side of SIDES) {
-      const t = targets.find(q => q.side === side);
       const face = this.faces[side];
-      this.facePose[side] = t?.pose;
-      if (!v || !t) {
-        face.visible = false;
-        arch.hideGhost(side);
-        continue;
-      }
+      const pose = this.select.faces[side];
+      if (!v || !pose) { face.visible = false; continue; }
       face.geometry = arch.batches[v.batch].mesh.geometry;
-      arch.applyPose(face, t.pose);
+      arch.applyPose(face, pose);
       face.updateMatrixWorld();
       face.visible = true;
-      arch.showGhost(side, v, t.pose, this.hovered.has(face) ? 1 : 0.4);
     }
   }
 
@@ -286,10 +261,13 @@ export class DesktopSystem extends createSystem({}) {
       arch.centering.handle.getWorldPosition(this.v);
     } else if (target === 'tablet' || target === 'marker:today') {
       if (!(target === 'tablet' ? loop?.tabletAt(this.v) : loop?.dailyAt(this.v))) return null;
+    } else if (target.startsWith('a11y:')) {
+      const key = A11Y_ICONS.find(k => A11Y_TARGETS[k] === target);
+      if (!key || !(this.globals.a11y as A11yPanel | undefined)?.iconAt(key, this.v)) return null;
     } else if (target === 'face:left' || target === 'face:right') {
       const side: Side = target === 'face:left' ? 'left' : 'right';
       // The selected stone's face; without one, where the first tray stone that fits would go.
-      const pool = this.selected ? [this.selected] : arch.stones.filter(s => s.mode === 'tray');
+      const pool = this.select.selected ? [this.select.selected] : arch.stones.filter(s => s.mode === 'tray');
       let hit: { v: StoneView; pose: Pose2 } | undefined;
       for (const s of pool) {
         const t = arch.targets(s).find(q => q.side === side);
