@@ -63,6 +63,8 @@ function level(p: LevelSpec): LevelDef {
 }
 
 const THICK = 0.16;
+const MEDIUM = 0.11;
+const SLIM = 0.09;
 const THIN = 0.07;
 
 export const LEVELS: LevelDef[] = [
@@ -106,5 +108,35 @@ export const LEVELS: LevelDef[] = [
     // Heavy at the feet, light at the crown; the same stones the other way round fall.
     solution: { left: ['basalt', 'sandstone', 'tuff', 'tuff'], right: ['basalt', 'sandstone', 'tuff', 'tuff'], key: 'keystone' },
     trap: { left: ['tuff', 'tuff', 'sandstone', 'basalt'], right: ['tuff', 'tuff', 'sandstone', 'basalt'], key: 'keystone' },
+  }),
+  level({
+    id: 'w1-4',
+    span: 0.34,
+    stones: 9,
+    tray: {
+      sandstone: { material: 'sandstone', t: THICK, count: 2 },
+      tuff: { material: 'tuff', t: SLIM, count: 8 },
+      keystone: { material: 'tuff', t: SLIM, keystone: true, count: 1 },
+    },
+    // A wider arch and only two thick stones: they belong at the feet, where the thrust bends out.
+    solution: { left: ['sandstone', 'tuff', 'tuff', 'tuff'], right: ['sandstone', 'tuff', 'tuff', 'tuff'], key: 'keystone' },
+    // Strengthening the crown instead feels right and fails.
+    trap: { left: ['tuff', 'tuff', 'tuff', 'sandstone'], right: ['tuff', 'tuff', 'tuff', 'sandstone'], key: 'keystone' },
+  }),
+  level({
+    id: 'w1-5',
+    span: 0.32,
+    stones: 9,
+    tray: {
+      basalt: { material: 'basalt', t: THICK, count: 2 },
+      sandstone: { material: 'sandstone', t: MEDIUM, count: 2 },
+      wide: { material: 'tuff', t: THIN, units: 2, count: 2 },
+      tuff: { material: 'tuff', t: THIN, count: 2 },
+      keystone: { material: 'tuff', t: THIN, keystone: true, count: 1 },
+    },
+    // A big block is not a strong one: the wide wedges are thin tuff and go up by the keystone.
+    solution: { left: ['basalt', 'sandstone', 'wide'], right: ['basalt', 'sandstone', 'wide'], key: 'keystone' },
+    // Laid at the feet like a foundation, they let the arch close in as few stones and it just fails.
+    trap: { left: ['wide', 'basalt', 'sandstone'], right: ['wide', 'basalt', 'sandstone'], key: 'keystone' },
   }),
 ];
