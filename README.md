@@ -18,6 +18,8 @@ the arch carries itself or collapses across your desk. No controllers are needed
   side to take it back off.
 - When the arch is closed, pinch the handle of the wooden centering and **pull it towards you**, with one hand or both. Once it
   clears the stones the arch is on its own.
+- From world 3 on, a small tower, bell or cart waits on the board behind the arch. When a stone covers its course, it comes down
+  onto that stone's back, and the arch has to carry it as well as itself. A heavier load is drawn a little bigger.
 - If the arch stands, its line of thrust (the path the load takes through the stones) lights up as a cyan thread. If it does
   not, it opens at the joints the solver named and falls.
 
@@ -62,7 +64,7 @@ URL parameters, for development and tests:
 
 | Parameter | Effect |
 |---|---|
-| `?level=w1-2` | start on another level (`w1-1` to `w1-5`, pointed arches `w2-1` to `w2-5`) |
+| `?level=w1-2` | start on another level (`w1-1` to `w1-5`, pointed arches `w2-1` to `w2-5`, loads `w3-1` to `w3-5`) |
 | `?emulator=1` | install IWER, Meta's WebXR emulator, so a desktop browser can run an XR session |
 | `?emulator=1&autoxr=ar` | with the emulator only: the page requests the XR session itself (`ar` or `vr`), no click; ignored on a real headset |
 | `?surface=lap` | force a surface in an XR session: `mesh`, `plane`, `pick`, `lap` or `atelier` |
@@ -95,6 +97,13 @@ classic result that a semicircular arch needs a ring at least about 0.107 of its
 Levels are checked the same way. A level is a centering, a number of courses and a tray of stones (sandstone, light tuff,
 heavy basalt; thick, thin or wide). `npm run level-check` closes the arch in every way the tray allows, solves each one, and
 confirms that the intended solution holds, that a tempting wrong arrangement falls, and that most arrangements fall.
+
+World 3 adds loads: a tower, a bell or a cart standing on the arch. Each one goes to the solver as a vertical point load
+(its mass times g) at the middle of the back of the stone that covers its course, and the scene puts the model on exactly that
+point. The masses are game values at the scale of the model (a stone weighs 0.2 to 0.4 kg, a load 0.3 to 0.7 kg). In every
+world-3 level the tempting wrong arrangement holds with nothing on it and falls under the load. Three of the five levels put a
+load off the crown, towards the quarter span, where a point load strains an arch most; in their solutions most of the heavy
+stones go on the far side of the load, not under it.
 
 Source: J. Heyman, *The Stone Skeleton: Structural Engineering of Masonry Architecture*, Cambridge University Press, 1995.
 

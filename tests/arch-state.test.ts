@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildArch, createLevel, isClosed, openFaces, placeStone, ringOrder, strike, takeBack, type LevelDef, type StoneDef,
+  buildArch, createLevel, G, isClosed, openFaces, placeStone, pointLoads, ringOrder, stoneAt, strike, takeBack, type LevelDef,
+  type StoneDef,
 } from '../src/game/arch-state.js';
 import { ringArch, semicircularArch, solveArch } from '../src/statics/index.js';
 
@@ -128,5 +129,51 @@ describe('ringArch', () => {
     const a = ringArch({ span: 0.3, rise: 0.15, units: 5, pieces: [{ units: 2, t: 0.02 }, { units: 1, t: 0.02 }, { units: 2, t: 0.02 }] });
     expect(a.blocks).toHaveLength(3);
     expect(() => ringArch({ span: 0.3, rise: 0.15, units: 5, pieces: [{ units: 2, t: 0.02 }] })).toThrow();
+  });
+});
+
+describe('loads (world 3)', () => {
+  const loaded: LevelDef = { ...def, loads: [{ course: 2, kg: 0.5, kind: 'bell' }] };
+  const close = (d: LevelDef) => {
+    let s = createLevel(d);
+    for (const [id, side] of [['a', 'left'], ['b', 'left'], ['c', 'left'], ['d', 'right'], ['w', 'right'], ['key', 'left']] as const) s = placeStone(s, id, side);
+    return s;
+  };
+
+  it('createLevel copies the loads, so the level definition is never changed through the state', () => {
+    const s = createLevel(loaded);
+    expect(s.geometry.loads).toEqual(loaded.loads);
+    expect(s.geometry.loads[0]).not.toBe(loaded.loads![0]);
+    expect(createLevel(def).geometry.loads).toEqual([]);
+  });
+
+  it('a load stands on the middle of the back of the stone that covers its course', () => {
+    const s = close(loaded);
+    expect(stoneAt(s, 2)?.stone.id).toBe('c');
+    const [pl] = pointLoads(s);
+    const arch = buildArch(s);
+    const v = arch.blocks[ringOrder(s).findIndex(p => p.stone.id === 'c')].vertices;
+    expect(pl.at.x).toBeCloseTo((v[2].x + v[3].x) / 2, 12);
+    expect(pl.at.y).toBeCloseTo((v[2].y + v[3].y) / 2, 12);
+    expect(pl.fy).toBeCloseTo(-0.5 * G, 12);
+    // A wide stone covers two courses: a load on either one stands on it.
+    expect(stoneAt(s, 4)?.stone.id).toBe('w');
+    expect(stoneAt(s, 5)?.stone.id).toBe('w');
+  });
+
+  it('a load over an open course is left out', () => {
+    let s = createLevel(loaded);
+    s = placeStone(s, 'a', 'left');
+    expect(stoneAt(s, 2)).toBeUndefined();
+    expect(pointLoads({ ...s, placed: s.placed }, buildArch(close(def)))).toEqual([]);
+  });
+
+  it('strike hands the loads to the solver: the same arch with a heavy enough load fails', () => {
+    expect(strike(close(def)).result.stands).toBe(true);
+    const heavy = { ...loaded, loads: [{ course: 2, kg: 20, kind: 'bell' as const }] };
+    const r = strike(close(heavy)).result;
+    expect(r.stands).toBe(false);
+    const a = buildArch(close(heavy));
+    expect(r).toEqual(solveArch(a, { pointLoads: pointLoads(close(heavy), a) }));
   });
 });

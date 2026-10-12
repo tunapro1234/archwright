@@ -26,6 +26,8 @@ export const PALETTE = {
   room: 0x4b4640,
   /** The passenger who walks over a finished arch: deep blue, unlike any stone or the timber. */
   passenger: 0x2f5d9e,
+  /** The bell that stands on an arch in world 3: dark verdigris bronze, off every stone and the timber. */
+  bronze: 0x4f6b5a,
   /** Pinch cursor while pinching; also the icons (rebuild, current level marker). */
   pinch: 0xffc94a,
 } as const;

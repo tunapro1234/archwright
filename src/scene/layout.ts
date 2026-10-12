@@ -8,6 +8,9 @@
 import { ringArch, type Vec2 } from '../statics/index.js';
 import { buildArch, type GameState, type LevelDef, type StoneDef } from '../game/arch-state.js';
 
+/** The centering a stone is shaped for (a level's geometry without its loads). */
+type Shape = Pick<GameState['geometry'], 'span' | 'rise' | 'units' | 'depth'>;
+
 export const ABUTMENT_HEIGHT = 0.05;
 export const ABUTMENT_SPARE = 0.025;  // abutment width beyond the thickest stone
 export const BOARD = { width: 0.46, zMin: -0.08, zMax: 0.3, thickness: 0.012 };
@@ -30,7 +33,7 @@ export interface Pose2 { x: number; y: number; z: number; angle: number; tilt: n
  * slot it can take: stones of one kind are congruent anywhere on either half, even on a pointed
  * centering. Only a keystone differs there, since it straddles the point, so it is drawn for the crown.
  */
-export function stoneOutline(geo: GameState['geometry'], stone: StoneDef): Vec2[] {
+export function stoneOutline(geo: Shape, stone: StoneDef): Vec2[] {
   return toLocal(blockAt(geo, stone, stone.keystone ? crownSlot(geo, stone) : 0)).outline;
 }
 
@@ -40,9 +43,21 @@ export function shapeKey(s: StoneDef): string {
 }
 
 /** Pose of `stone` seated at course `slot`, in the site frame. */
-export function slotPose(geo: GameState['geometry'], stone: StoneDef, slot: number): Pose2 {
+export function slotPose(geo: Shape, stone: StoneDef, slot: number): Pose2 {
   const { centroid, angle } = toLocal(blockAt(geo, stone, slot));
   return { x: centroid.x, y: centroid.y + ABUTMENT_HEIGHT, z: 0, angle, tilt: 0 };
+}
+
+/** Middle of a stone's back (extrados) in its own frame: where a load stands on it (world 3). */
+export function stoneBack(geo: Shape, stone: StoneDef): Vec2 {
+  const o = stoneOutline(geo, stone); // [inner0, inner1, outer1, outer0]
+  return { x: (o[2].x + o[3].x) / 2, y: (o[2].y + o[3].y) / 2 };
+}
+
+/** Where a load waits on the board until its course is covered: behind the arch, below its course. */
+export function loadRest(geo: Shape, course: number): { x: number; y: number; z: number } {
+  const unit: StoneDef = { id: '', material: 'tuff', t: 0.01, units: 1 };
+  return { x: slotPose(geo, unit, course).x, y: 0, z: -(geo.depth / 2 + 0.025) };
 }
 
 /** Pose for a stone joining `side` of the arch right now. */
@@ -118,7 +133,7 @@ export function intrados(span: number, rise: number, segments: number): Vec2[] {
  * The centering's top as built: the intrados curve, except under the crown course, where the
  * keystone's flat underside lies. On a pointed centering the curve's point would stick through it.
  */
-export function centeringTop(geo: GameState['geometry'], segments: number): Vec2[] {
+export function centeringTop(geo: Shape, segments: number): Vec2[] {
   const curve = intrados(geo.span, geo.rise, segments);
   if (geo.units % 2 === 0) return curve;
   const edge = intrados(geo.span, geo.rise, geo.units)[(geo.units - 1) / 2]; // left corner of the crown course
@@ -166,7 +181,7 @@ export function along(path: Vec2[], t: number, out: Vec2 = { x: 0, y: 0 }): Vec2
 }
 
 /** Level markers: small stones in a column beside the board, one column per world (w1 left, w2 right, ...). */
-export const MARKER = { size: 0.02, gap: 0.05, edge: 0.03, column: 0.035, z0: -0.02 };
+export const MARKER = { size: 0.02, gap: 0.05, edge: 0.03, column: 0.045, z0: -0.02 };
 export function markerSpots(ids: string[]): { id: string; x: number; z: number }[] {
   const worlds: string[] = [];
   const row = new Map<string, number>();
@@ -189,9 +204,9 @@ export const strikePull = (depth: number): number => depth + CENTERING.strikeExt
 
 // A keystone fills the gap the two halves leave, and neither half may pass the crown: with one
 // course to fill that gap is the middle one (wider keystones are taken as centred too).
-const crownSlot = (geo: GameState['geometry'], stone: StoneDef) => Math.floor((geo.units - stone.units) / 2);
+const crownSlot = (geo: Shape, stone: StoneDef) => Math.floor((geo.units - stone.units) / 2);
 
-function blockAt(geo: GameState['geometry'], stone: StoneDef, slot: number): Vec2[] {
+function blockAt(geo: Shape, stone: StoneDef, slot: number): Vec2[] {
   const pieces = [];
   for (let k = 0; k < slot; k++) pieces.push({ units: 1, t: stone.t });
   pieces.push({ units: stone.units, t: stone.t });

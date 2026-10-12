@@ -2,11 +2,11 @@
 import {
   BackSide, BoxGeometry, BufferGeometry, CanvasTexture, CatmullRomCurve3, Color, DataTexture, ExtrudeGeometry,
   Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, NoColorSpace, RepeatWrapping, RGBAFormat,
-  ConeGeometry, InstancedMesh, LatheGeometry, RingGeometry, Shape, SRGBColorSpace, TorusGeometry, TubeGeometry, Vector2,
+  ConeGeometry, CylinderGeometry, InstancedMesh, LatheGeometry, RingGeometry, Shape, SRGBColorSpace, TorusGeometry, TubeGeometry, Vector2,
   Vector3,
 } from '@iwsdk/core';
 import type { Vec2 } from '../statics/index.js';
-import type { Material } from '../game/arch-state.js';
+import type { LoadKind, Material } from '../game/arch-state.js';
 import { ABUTMENT_HEIGHT, BOARD, CENTERING, MARKER } from './layout.js';
 import { PALETTE } from './palette.js';
 import { MATERIAL_COLOR } from './meshes.js';
@@ -386,4 +386,68 @@ export function levelMarkers(count: number): { filled: InstancedMesh; hollow: In
   filled.name = 'markers-solved';
   hollow.name = 'markers-open';
   return { filled, hollow };
+}
+
+/** Non-indexed geometries (position, normal, uv) welded into one, so a model is one draw call. */
+function weld(parts: BufferGeometry[]): BufferGeometry {
+  const out: Record<string, number[]> = { position: [], normal: [], uv: [] };
+  for (const g0 of parts) {
+    const g = g0.index ? g0.toNonIndexed() : g0;
+    for (const k of Object.keys(out)) out[k].push(...(g.getAttribute(k).array as Float32Array));
+    g.dispose();
+    if (g !== g0) g0.dispose();
+  }
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(out.position, 3));
+  geo.setAttribute('normal', new Float32BufferAttribute(out.normal, 3));
+  geo.setAttribute('uv', new Float32BufferAttribute(out.uv, 2));
+  return geo;
+}
+
+/** The load a model is drawn for; a heavier one is drawn a little bigger (by the cube root of its mass). */
+export const LOAD_BASE_KG = 0.5;
+
+/**
+ * A load that stands on an arch in world 3, origin at the middle of its foot, up +y, long side
+ * along x (the arch). Tower: a squat stone tower with battlements, in the piers' stone. Bell: a cast
+ * bell under a short beam, in bronze. Cart: a wooden cart on four wheels. No text; one draw call each.
+ * Materials come from loadMaterials(), made once.
+ */
+export function loadMesh(kind: LoadKind, kg: number, mats: Record<LoadKind, MeshStandardMaterial>): Mesh {
+  let geo: BufferGeometry;
+  if (kind === 'tower') {
+    const w = 0.024, h = 0.042, c = 0.006;
+    const parts = [{ w, h, d: w, x: 0, y: h / 2, z: 0 }];
+    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) parts.push({ w: c, h: c, d: c, x: x * (w - c) / 2, y: h + c / 2, z: z * (w - c) / 2 });
+    geo = boxes(parts);
+  } else if (kind === 'bell') {
+    const p = [[0, 0.003], [0.012, 0.003], [0.0115, 0.006], [0.009, 0.012], [0.0075, 0.019], [0.0068, 0.024], [0.004, 0.027], [0, 0.0275]]
+      .map(([x, y]) => new Vector2(x, y));
+    const beam = boxes([
+      { w: 0.032, h: 0.004, d: 0.006, x: 0, y: 0.031, z: 0 },
+      { w: 0.003, h: 0.031, d: 0.006, x: -0.0145, y: 0.0155, z: 0 },
+      { w: 0.003, h: 0.031, d: 0.006, x: 0.0145, y: 0.0155, z: 0 },
+    ]);
+    geo = weld([new LatheGeometry(p, 16), beam]);
+  } else {
+    const r = 0.0065;
+    const body = boxes([{ w: 0.04, h: 0.012, d: 0.022, x: 0, y: r + 0.008, z: 0 }]);
+    const wheels = [-1, 1].flatMap(x => [-1, 1].map(z => {
+      const g = new CylinderGeometry(r, r, 0.004, 12);
+      g.rotateX(Math.PI / 2);
+      g.translate(x * 0.013, r, z * 0.011);
+      return g;
+    }));
+    geo = weld([body, ...wheels]);
+  }
+  const k = Math.min(1.3, Math.max(0.8, Math.cbrt(kg / LOAD_BASE_KG)));
+  geo.scale(k, k, k);
+  const m = new Mesh(geo, mats[kind]);
+  m.name = `load-${kind}`;
+  return m;
+}
+
+/** The loads' materials: the piers' stone, bronze and cart timber (not the centering's, which fades out). */
+export function loadMaterials(): Record<LoadKind, MeshStandardMaterial> {
+  return { tower: flatMaterial(PALETTE.abutment), bell: flatMaterial(PALETTE.bronze), cart: woodMaterial(PALETTE.centering, 2) };
 }

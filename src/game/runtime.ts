@@ -1,19 +1,19 @@
 // The live level: game state, the entities that show it, and the browser hook. Systems read and
 // drive it through world.globals.arch; the rules themselves stay in arch-state.ts.
 import {
-  Color, DirectionalLight, Group, InstancedMesh, Mesh, MeshBasicMaterial, Object3D, Quaternion, Vector3,
+  Color, DirectionalLight, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Object3D, Quaternion, Vector3,
   type Entity, type World,
 } from '@iwsdk/core';
 import {
-  createLevel, placeStone, takeBack, whyNot, type GameState, type LevelDef, type Side, type Step, type StoneDef,
+  createLevel, placeStone, takeBack, whyNot, type GameState, type LevelDef, type Load, type Side, type Step, type StoneDef,
 } from './arch-state.js';
 import type { SolveResult } from '../statics/index.js';
 import { LEVELS } from '../levels/index.js';
 import {
-  abutments, ABUTMENT_HEIGHT, BOARD, centeringTop, facePose, shapeKey, stoneOutline, trayPoses, type Pose2,
+  abutments, ABUTMENT_HEIGHT, BOARD, centeringTop, facePose, loadRest, shapeKey, stoneOutline, trayPoses, type Pose2,
 } from '../scene/layout.js';
 import {
-  abutmentMaterial, blobShadow, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, prism, stoneMaterial,
+  abutmentMaterial, blobShadow, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, loadMaterials, loadMesh, prism, stoneMaterial,
   woodMaterial,
 } from '../scene/models.js';
 import { MATERIAL_COLOR } from '../scene/meshes.js';
@@ -37,6 +37,17 @@ export interface Hook {
   debug?: { solution: Step[] };
   /** The XR session: the mode it was requested in (null outside XR) and its enabled features. */
   xr?: { mode: 'immersive-ar' | 'immersive-vr' | null; features: string[] };
+}
+
+/** A load of world 3 in the scene; LoadSystem moves it (src/systems/loads.ts). */
+export interface LoadView {
+  def: Load;
+  mesh: Mesh;                       // top-level entity, world transform
+  rest: { x: number; y: number; z: number }; // site frame: where it waits on the board
+  on: number;                       // 0 waiting on the board .. 1 standing on its stone
+  stone?: string;                   // id of the stone it stands on (or is coming down onto)
+  top: Vector3;                     // world point on that stone's back, kept while the load goes back
+  ride?: Matrix4;                   // once that stone falls: the load's transform in the stone's frame
 }
 
 export type StoneMode = 'tray' | 'held' | 'tween' | 'placed' | 'dynamic';
@@ -75,6 +86,7 @@ export class ArchRuntime {
   siteEntity!: Entity;
   stones: StoneView[] = [];
   batches: Batch[] = [];
+  loads: LoadView[] = [];
   centering!: { mesh: Mesh; handle: Object3D; pull: number; struck: boolean; auto: boolean };
   thrustLine?: Mesh;
   result?: SolveResult;
@@ -93,6 +105,7 @@ export class ArchRuntime {
   private readonly stoneMat = stoneMaterial();
   readonly abutmentMat = abutmentMaterial(this.stoneMat);
   private readonly woodMat = woodMaterial();
+  private readonly loadMats = loadMaterials();
   private readonly boardMat = flatMaterial(PALETTE.board);
   /** Snap ghosts, one per hand: where the stone that hand holds would seat (desktop mode: one per face). */
   readonly ghosts: Record<Side, Mesh>;
@@ -186,6 +199,14 @@ export class ArchRuntime {
       this.stones.push({ def: s, entity, mesh, batch: b, slot, mode: 'tray', home: homes[i], pose: { ...homes[i] } });
     });
     for (const b of this.batches) if (b.mesh.instanceColor) b.mesh.instanceColor.needsUpdate = true;
+    // World 3: the loads wait on the board behind the arch, each below its course.
+    for (const l of this.state.geometry.loads) {
+      const mesh = loadMesh(l.kind, l.kg, this.loadMats);
+      mesh.visible = this.shown;
+      this.levelEntities.push(this.world.createTransformEntity(mesh));
+      this.loads.push({ def: l, mesh, rest: loadRest(geo, l.course), on: 0, top: new Vector3() });
+    }
+    this.setFade(1); // the load materials too, after the last level's fade
     // The first level waits for arm(): until a few frames have run, the page cannot take a click yet.
     this.hook.state = this.armed ? 'ready' : 'loading';
   }
@@ -205,6 +226,7 @@ export class ArchRuntime {
     for (const child of [...this.site.children]) if (!(child instanceof DirectionalLight) && !child.userData.keep) this.site.remove(child);
     this.stones = [];
     this.batches = [];
+    this.loads = [];
     this.thrustLine = undefined;
   }
 
@@ -282,6 +304,7 @@ export class ArchRuntime {
     this.shown = on;
     this.site.visible = on;
     for (const b of this.batches) b.mesh.visible = on;
+    for (const l of this.loads) l.mesh.visible = on;
   }
 
   /** Fade the level's stones and its line of thrust (1 = solid), before the next level is set up. */
@@ -289,6 +312,10 @@ export class ArchRuntime {
     const see = alpha < 1;
     if (this.stoneMat.transparent !== see) { this.stoneMat.transparent = see; this.stoneMat.needsUpdate = true; }
     this.stoneMat.opacity = alpha;
+    for (const m of Object.values(this.loadMats)) {
+      if (m.transparent !== see) { m.transparent = see; m.needsUpdate = true; }
+      m.opacity = alpha;
+    }
     if (this.thrustLine) ((this.thrustLine as Mesh).material as MeshBasicMaterial).opacity = 0.95 * alpha;
   }
 

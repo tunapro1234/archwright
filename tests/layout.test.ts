@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../src/levels/index.js';
-import { buildArch, createLevel, placeStone, ringOrder } from '../src/game/arch-state.js';
+import { buildArch, createLevel, placeStone, pointLoads, ringOrder, stoneAt } from '../src/game/arch-state.js';
 import {
-  abutments, ABUTMENT_HEIGHT, along, BOARD, CENTERING, centeringTop, markerSpots, MARKER, passengerPath, slotPose, stoneKind, stoneOutline, strikePull, trayPoses,
+  abutments, ABUTMENT_HEIGHT, along, BOARD, CENTERING, centeringTop, loadRest, markerSpots, MARKER, passengerPath, slotPose, stoneBack,
+  stoneKind, stoneOutline, strikePull, trayPoses,
 } from '../src/scene/layout.js';
 
 describe.each(LEVELS.map(l => [l.id, l] as const))('layout %s', (_, def) => {
@@ -86,7 +87,30 @@ describe.each(LEVELS.map(l => [l.id, l] as const))('layout %s', (_, def) => {
     expect(top).toBeGreaterThan(Math.max(...centeringTop(s.geometry, 32).map(p => p.y)) + ABUTMENT_HEIGHT + 0.005);
     expect(along(path, 0)).toEqual(path[0]);
     expect(along(path, 1).x).toBeCloseTo(path[path.length - 1].x, 12);
-    expect(along(path, 0.5).x).toBeCloseTo(0, 6); // symmetric solution: half way is the crown
+    const half = (side: 'left' | 'right') => def.solution.filter(t => t.side === side).map(t => t.stone.replace(/-\d+$/, ''));
+    const keyLeft = half('left').slice(0, -1); // the keystone goes in last, on the left
+    // A symmetric solution: half way is the crown. With a load (world 3) the halves may differ.
+    if (JSON.stringify(keyLeft) === JSON.stringify(half('right'))) expect(along(path, 0.5).x).toBeCloseTo(0, 6);
+    else expect(Math.abs(along(path, 0.5).x)).toBeLessThan(def.span / 4);
+  });
+
+  it.runIf(!!def.loads?.length)('a load comes down where the solver puts it, and waits on the board behind the arch', () => {
+    let s = s0;
+    for (const step of def.solution) s = placeStone(s, step.stone, step.side);
+    const solver = pointLoads(s);
+    def.loads!.forEach((l, i) => {
+      const p = stoneAt(s, l.course)!;
+      const pose = slotPose(s.geometry, p.stone, p.slot);
+      const b = stoneBack(s.geometry, p.stone);
+      const c = Math.cos(pose.angle), sn = Math.sin(pose.angle);
+      expect(pose.x + c * b.x - sn * b.y).toBeCloseTo(solver[i].at.x, 9);
+      expect(pose.y + sn * b.x + c * b.y).toBeCloseTo(solver[i].at.y + ABUTMENT_HEIGHT, 9);
+      const r = loadRest(s.geometry, l.course);
+      const foot = 0.017; // half the deepest load model across the arch at its largest scale (models.ts loadMesh)
+      expect(r.z + foot).toBeLessThan(-def.depth / 2); // clear of the arch's back face
+      expect(r.z - foot).toBeGreaterThan(BOARD.zMin);  // on the board
+      expect(Math.abs(r.x)).toBeLessThan(def.span / 2);
+    });
   });
 
   it('abutments carry the springings and fit on the board', () => {
@@ -113,5 +137,8 @@ describe('level markers', () => {
     const w1 = spots.filter(s => s.id.startsWith('w1-')), w2 = spots.filter(s => s.id.startsWith('w2-'));
     expect(new Set(w1.map(s => s.x)).size).toBe(1);
     expect(Math.sign(w1[0].x)).not.toBe(Math.sign(w2[0].x));
+    const w3 = spots.filter(s => s.id.startsWith('w3-'));
+    expect(new Set(w3.map(s => s.x)).size).toBe(1);
+    expect(Math.abs(w3[0].x)).toBeGreaterThan(Math.abs(w1[0].x)); // the next column out on w1's side
   });
 });

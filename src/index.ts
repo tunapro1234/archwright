@@ -11,6 +11,7 @@ import { SurfaceSystem } from './systems/surface.js';
 import { AutotestSystem } from './systems/autotest.js';
 import { GameLoopSystem } from './systems/loop.js';
 import { DesktopSystem } from './systems/desktop.js';
+import { LoadSystem } from './systems/loads.js';
 import { browserStorage, loadProgress } from './game/progress.js';
 
 // The XR session, its optional features and the scene all come from iwsdk.config.json.
@@ -82,6 +83,7 @@ async function main(): Promise<void> {
     .registerSystem(CollapseSystem, { priority: 13 })
     .registerSystem(GameLoopSystem, { priority: 14 })
     .registerSystem(StoneRenderSystem, { priority: 20 })
+    .registerSystem(LoadSystem, { priority: 21 })
     .registerSystem(PerfEndSystem, { priority: 1000 });
 
   // ?autotest, then ?level=, then wherever the saved progress left off.

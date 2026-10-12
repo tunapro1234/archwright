@@ -5,7 +5,7 @@
 // and neither half may cross the crown. The last gap takes a keystone, which closes the arch.
 // The player's only choice is which stone goes on which side; the stones differ in thickness,
 // weight and width, so that choice decides whether the arch holds when the centering is struck.
-import { ringArch, solveArch, type Arch, type SolveResult } from '../statics/index.js';
+import { ringArch, solveArch, type Arch, type PointLoad, type SolveResult } from '../statics/index.js';
 
 export type Side = 'left' | 'right';
 export type Step = { stone: string; side: Side };
@@ -25,6 +25,16 @@ export interface StoneDef {
   keystone?: boolean; // only a keystone can close the last gap, and it must fill it exactly
 }
 
+/**
+ * A weight that stands on the finished arch (world 3): a small tower, a bell or a cart. It rests on
+ * the extrados of whichever stone covers its course of the centering (0 = the course by the left
+ * abutment) and reaches the solver as a vertical point load of kg * g there.
+ */
+export type LoadKind = 'tower' | 'bell' | 'cart';
+export interface Load { course: number; kg: number; kind: LoadKind }
+
+export const G = 9.81;
+
 export interface LevelDef {
   id: string;
   span: number;       // centering (intrados) span, m
@@ -36,6 +46,7 @@ export interface LevelDef {
   trap: Step[];       // a full arrangement that closes the arch but collapses
   par: number;        // fewest stones a known holding arrangement uses
   friction?: number;  // joint friction coefficient (solver default 0.7)
+  loads?: Load[];     // weights on the arch (world 3); none by default
 }
 
 export interface PlacedStone { stone: StoneDef; side: Side; slot: number } // slot = first course it covers
@@ -45,7 +56,7 @@ export type Phase = 'building' | 'ready' | 'held' | 'collapsed';
 export interface GameState {
   level: string;
   phase: Phase;              // building -> ready (closed) -> held | collapsed
-  geometry: { span: number; rise: number; units: number; depth: number; friction?: number };
+  geometry: { span: number; rise: number; units: number; depth: number; friction?: number; loads: Load[] };
   stones: StoneDef[];        // every stone of the level, in tray order
   tray: StoneDef[];          // stones not placed yet, in tray order
   placed: PlacedStone[];     // in placement order
@@ -59,7 +70,10 @@ export function createLevel(def: LevelDef): GameState {
   return {
     level: def.id,
     phase: 'building',
-    geometry: { span: def.span, rise: def.rise, units: def.stones, depth: def.depth, friction: def.friction },
+    geometry: {
+      span: def.span, rise: def.rise, units: def.stones, depth: def.depth, friction: def.friction,
+      loads: (def.loads ?? []).map(l => ({ ...l })),
+    },
     stones: def.tray,
     tray: def.tray.slice(),
     placed: [],
@@ -151,6 +165,28 @@ export function buildArch(s: GameState): Arch {
   });
 }
 
+/** The stone covering course `course`, or undefined while that course is still open. */
+export function stoneAt(s: GameState, course: number): PlacedStone | undefined {
+  return s.placed.find(p => p.slot <= course && course < p.slot + p.stone.units);
+}
+
+/**
+ * The loads as the solver takes them, for a closed arch: each at the middle of the extrados of the
+ * stone that covers its course (block i of buildArch is ringOrder(s)[i]). A load over an open course
+ * has nothing to stand on and is left out.
+ */
+export function pointLoads(s: GameState, arch: Arch = buildArch(s)): PointLoad[] {
+  const ring = ringOrder(s);
+  const out: PointLoad[] = [];
+  for (const l of s.geometry.loads) {
+    const p = stoneAt(s, l.course);
+    if (!p) continue;
+    const v = arch.blocks[ring.indexOf(p)].vertices; // [intrados k, intrados k1, extrados k1, extrados k]
+    out.push({ at: { x: (v[2].x + v[3].x) / 2, y: (v[2].y + v[3].y) / 2 }, fy: -l.kg * G });
+  }
+  return out;
+}
+
 /**
  * Pull the centering. A closed arch is judged by the statics solver. An open one has no path for
  * the thrust from one abutment to the other, so it cannot carry itself as an arch: it is reported
@@ -162,7 +198,12 @@ export function strike(s: GameState): { state: GameState; result: SolveResult } 
   if (!isClosed(s)) {
     result = { stands: false, thrustLine: [], minMargin: -1, criticalJoints: [], failure: 'hinge' };
   } else {
-    result = solveArch(buildArch(s), s.geometry.friction === undefined ? {} : { friction: s.geometry.friction });
+    const arch = buildArch(s);
+    const loads = pointLoads(s, arch);
+    result = solveArch(arch, {
+      ...(s.geometry.friction === undefined ? {} : { friction: s.geometry.friction }),
+      ...(loads.length ? { pointLoads: loads } : {}),
+    });
   }
   const state: GameState = { ...s, phase: result.stands ? 'held' : 'collapsed', result, error: undefined };
   return { state, result };

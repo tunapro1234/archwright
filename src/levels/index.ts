@@ -1,7 +1,8 @@
-// World 1 (Roman, semicircular centering) and world 2 (pointed centering). Each level is a few design choices (span, courses, which
+// World 1 (Roman, semicircular centering), world 2 (pointed centering) and world 3 (loads: a
+// tower, a bell or a cart stands on the finished arch). Each level is a few design choices (span, courses, which
 // stones are on offer); every block, joint and weight is generated from them by ringArch, and the
 // solver checks the solution and the trap (tests and `npm run level-check`).
-import type { LevelDef, Material, StoneDef, Step } from '../game/arch-state.js';
+import type { LevelDef, Load, Material, StoneDef, Step } from '../game/arch-state.js';
 
 interface Kind {
   material: Material;
@@ -12,7 +13,7 @@ interface Kind {
 }
 interface Arrangement { left: string[]; right: string[]; key: string } // kind names, springing to crown
 
-interface LevelSpec {
+export interface LevelSpec {
   id: string;
   span: number;       // m
   rise?: number;      // m, default span/2 (semicircle)
@@ -21,9 +22,10 @@ interface LevelSpec {
   tray: Record<string, Kind>;
   solution: Arrangement;
   trap: Arrangement;
+  loads?: Load[];     // world 3: weights standing on the arch
 }
 
-function level(p: LevelSpec): LevelDef {
+export function level(p: LevelSpec): LevelDef {
   const radius = p.span / 2;
   const tray: StoneDef[] = [];
   for (const [name, k] of Object.entries(p.tray)) {
@@ -59,9 +61,11 @@ function level(p: LevelSpec): LevelDef {
     solution,
     trap: steps(p.trap),
     par: solution.length,
+    ...(p.loads ? { loads: p.loads } : {}),
   };
 }
 
+const HEAVY = 0.22;
 const THICK = 0.16;
 const MEDIUM = 0.11;
 const SLIM = 0.09;
@@ -215,5 +219,85 @@ export const LEVELS: LevelDef[] = [
     solution: { left: ['wide', 'sandstone', 'tuff'], right: ['wide', 'sandstone', 'tuff'], key: 'keystone' },
     // Up by the point their weight bends the arch open.
     trap: { left: ['tuff', 'sandstone', 'wide'], right: ['tuff', 'sandstone', 'wide'], key: 'keystone' },
+  }),
+// World 3: loads. Each one stands on the stone that covers its course and goes to the solver as a
+  // point load on that stone's back. Every trap here holds with nothing on it; the load brings it down.
+  // A stone weighs about 0.2 to 0.4 kg at this scale, so a 0.3 to 0.7 kg load is a lot.
+  level({
+    id: 'w3-1',
+    span: 0.3,
+    stones: 5,
+    loads: [{ course: 2, kg: 0.6, kind: 'tower' }],
+    tray: {
+      sandstone: { material: 'sandstone', t: HEAVY, count: 2 },
+      tuff: { material: 'tuff', t: THICK, count: 4 },
+      keystone: { material: 'tuff', t: THICK, keystone: true, count: 1 },
+    },
+    // A tower on the keystone: the two heavy stones go to the feet.
+    solution: { left: ['sandstone', 'tuff'], right: ['sandstone', 'tuff'], key: 'keystone' },
+    // Both heavy stones on one side: the empty ring stands, the tower tips it over.
+    trap: { left: ['sandstone', 'sandstone'], right: ['tuff', 'tuff'], key: 'keystone' },
+  }),
+  level({
+    id: 'w3-2',
+    span: 0.3,
+    stones: 7,
+    loads: [{ course: 2, kg: 0.5, kind: 'bell' }],
+    tray: {
+      sandstone: { material: 'sandstone', t: HEAVY, count: 3 },
+      tuff: { material: 'tuff', t: THICK, count: 4 },
+      keystone: { material: 'tuff', t: THICK, keystone: true, count: 1 },
+    },
+    // A bell off the crown, towards the quarter span, where a load strains an arch most. The heavy
+    // stones balance it from the other side.
+    solution: { left: ['sandstone', 'tuff', 'tuff'], right: ['sandstone', 'tuff', 'sandstone'], key: 'keystone' },
+    // Propping the bell up from below feels right, and fails.
+    trap: { left: ['sandstone', 'sandstone', 'tuff'], right: ['tuff', 'tuff', 'tuff'], key: 'keystone' },
+  }),
+  level({
+    id: 'w3-3',
+    span: 0.32,
+    stones: 9,
+    loads: [{ course: 3, kg: 0.6, kind: 'cart' }],
+    tray: {
+      basalt: { material: 'basalt', t: HEAVY, count: 2 },
+      sandstone: { material: 'sandstone', t: THICK, count: 2 },
+      tuff: { material: 'tuff', t: THICK, count: 5 },
+      keystone: { material: 'tuff', t: THICK, keystone: true, count: 1 },
+    },
+    // A cart on the left haunch pushes the arch over to the right: the basalt goes there, as a counterweight.
+    solution: { left: ['tuff', 'sandstone', 'sandstone', 'tuff'], right: ['basalt', 'tuff', 'basalt', 'tuff'], key: 'keystone' },
+    // Every heavy stone under the cart: the side that has to push back is left light.
+    trap: { left: ['sandstone', 'sandstone', 'basalt', 'tuff'], right: ['tuff', 'tuff', 'tuff', 'tuff'], key: 'keystone' },
+  }),
+  level({
+    id: 'w3-4',
+    span: 0.32,
+    stones: 9,
+    loads: [{ course: 4, kg: 0.7, kind: 'tower' }, { course: 2, kg: 0.3, kind: 'bell' }],
+    tray: {
+      sandstone: { material: 'sandstone', t: HEAVY, count: 4 },
+      tuff: { material: 'tuff', t: THICK, count: 5 },
+      keystone: { material: 'tuff', t: THICK, keystone: true, count: 1 },
+    },
+    // A tower on the crown and a bell on the left: the heavy stones lean against them from the right.
+    solution: { left: ['tuff', 'tuff', 'sandstone', 'tuff'], right: ['sandstone', 'sandstone', 'sandstone', 'tuff'], key: 'keystone' },
+    trap: { left: ['tuff', 'sandstone', 'sandstone', 'sandstone'], right: ['tuff', 'tuff', 'tuff', 'sandstone'], key: 'keystone' },
+  }),
+  level({
+    id: 'w3-5',
+    span: 0.3,
+    rise: 0.24,
+    stones: 7,
+    loads: [{ course: 3, kg: 0.6, kind: 'tower' }],
+    tray: {
+      sandstone: { material: 'sandstone', t: THICK, count: 4 },
+      tuff: { material: 'tuff', t: MEDIUM, count: 4 },
+      keystone: { material: 'sandstone', t: THICK, keystone: true, count: 1 },
+    },
+    // A pointed arch under a tower: heavy stones at the feet and against the point, light ones between.
+    solution: { left: ['sandstone', 'tuff', 'sandstone'], right: ['sandstone', 'tuff', 'sandstone'], key: 'keystone' },
+    // Even a pointed arch tips over under the tower when the weight is all on one side.
+    trap: { left: ['sandstone', 'sandstone', 'tuff'], right: ['tuff', 'tuff', 'tuff'], key: 'keystone' },
   }),
 ];
