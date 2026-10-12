@@ -45,18 +45,18 @@ function measure(p: Palette) {
 describe('palette legibility (numbers in the README)', () => {
   it('normal palette', () => {
     const r = measure(PALETTE);
-    expect(r.stones).toBeCloseTo(45.5, 1);
-    expect(r.timber).toBeCloseTo(41.5, 1);
+    expect(r.stones).toBeCloseTo(35.5, 1);
+    expect(r.timber).toBeCloseTo(38.0, 1);
     expect(r.blind).toBeCloseTo(25.4, 1);
-    expect(r.contrast).toBeCloseTo(2.1, 2);
+    expect(r.contrast).toBeCloseTo(2.32, 2);
   });
 
   it('high-contrast palette: every margin well above the normal one', () => {
     const r = measure(HIGH_CONTRAST);
-    expect(r.stones).toBeCloseTo(80.3, 1);
+    expect(r.stones).toBeCloseTo(80.7, 1);
     expect(r.timber).toBeCloseTo(120.1, 1);
     expect(r.blind).toBeCloseTo(51.9, 1);
-    expect(r.contrast).toBeCloseTo(3.01, 2);
+    expect(r.contrast).toBeCloseTo(3.97, 2);
     const n = measure(PALETTE);
     for (const k of ['stones', 'timber', 'blind', 'contrast'] as const) expect(r[k]).toBeGreaterThan(n[k] * 1.4);
   });

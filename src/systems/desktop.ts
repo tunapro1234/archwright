@@ -8,6 +8,10 @@
 // accessibility panel (a click switches one). The select-then-seat steps
 // are SelectPlace (src/systems/select.ts), shared with the gaze mode.
 //
+// The camera frames each level (frameView): from 35° above, as close as it can be with the arch,
+// its tray, the centering's handle and the markers beside the board all in view, so a tall
+// pointed arch pulls it back. It is framed again when the window changes shape.
+//
 // Picking goes through IWSDK's canvas pointer path: the page's pointer events are forwarded into
 // the scene, onto entities tagged RayInteractable (iwsdk.config.json, input.canvasPointerEvents).
 // The tags come off while an XR session runs, so hands and controllers never meet these targets.
@@ -17,8 +21,11 @@ import {
 } from '@iwsdk/core';
 import type { ArchRuntime, StoneView } from '../game/runtime.js';
 import type { Side } from '../game/arch-state.js';
-import { A11Y_ICONS, A11Y_PANEL, BOARD, CENTERING, strikePull, TABLET, type Pose2 } from '../scene/layout.js';
-import { leverPull, ndcToCss } from '../game/desktop.js';
+import {
+  A11Y_ICONS, A11Y_PANEL, abutmentTop, BOARD, CENTERING, crownPoint, strikePull, TABLET, viewPoints, type Pose2,
+} from '../scene/layout.js';
+import { frameView, leverPull, ndcToCss } from '../game/desktop.js';
+import { LEVELS } from '../levels/index.js';
 import type { LoopPicker } from './loop.js';
 import { SelectPlace } from './select.js';
 import { A11Y_TARGETS, type A11yKey, type A11yPanel } from './a11y.js';
@@ -42,6 +49,8 @@ export class DesktopSystem extends createSystem({}) {
   private hovered = new Set<Object3D>();
   private downY = 0;
   private drag: { y0: number; pull0: number; dy: number } | undefined;
+  private framed = { generation: -1, aspect: 0 };
+  private ids = LEVELS.map(l => l.id);
   private v = new Vector3();
   private scratch = new Object3D();
   private canvas!: HTMLCanvasElement;
@@ -131,8 +140,10 @@ export class DesktopSystem extends createSystem({}) {
       this.cursor();
       this.tag(arch);
       this.refreshFaces(arch);
+      this.framed.generation = -1;
     }
     if (!active) return;
+    this.frame(arch);
 
     const had = this.select.selected;
     this.select.update(arch, delta); // lets go if the arch was struck, or something else took the stone
@@ -228,6 +239,22 @@ export class DesktopSystem extends createSystem({}) {
     }
   }
 
+  /** Desktop camera for this level and window shape (frameView), once per level and resize. */
+  private frame(arch: ArchRuntime): void {
+    const cam = this.camera;
+    if (this.framed.generation === arch.generation && this.framed.aspect === cam.aspect) return;
+    this.framed.generation = arch.generation;
+    this.framed.aspect = cam.aspect;
+    const view = frameView(viewPoints(arch.def, this.ids), cam.fov, cam.aspect);
+    arch.site.updateWorldMatrix(true, false);
+    const eye = arch.site.localToWorld(this.v.set(view.eye.x, view.eye.y, view.eye.z));
+    // The camera's position is local to the player rig.
+    if (cam.parent) { cam.parent.updateWorldMatrix(true, false); cam.parent.worldToLocal(eye); }
+    cam.position.copy(eye);
+    cam.lookAt(arch.site.localToWorld(this.v.set(view.target.x, view.target.y, view.target.z)));
+    cam.updateMatrixWorld();
+  }
+
   private follow(m: Mesh, at: Vector3): void {
     const arch = this.globals.arch as ArchRuntime;
     m.position.copy(at);
@@ -259,6 +286,9 @@ export class DesktopSystem extends createSystem({}) {
     if (target === 'lever') {
       if (!arch.centering) return null;
       arch.centering.handle.getWorldPosition(this.v);
+    } else if (target === 'crown' || target === 'abutment:left' || target === 'abutment:right') {
+      const p = target === 'crown' ? crownPoint(arch.def) : abutmentTop(arch.def, target === 'abutment:left' ? 'left' : 'right');
+      arch.site.localToWorld(this.v.set(p.x, p.y, p.z));
     } else if (target === 'tablet' || target === 'marker:today') {
       if (!(target === 'tablet' ? loop?.tabletAt(this.v) : loop?.dailyAt(this.v))) return null;
     } else if (target.startsWith('a11y:')) {

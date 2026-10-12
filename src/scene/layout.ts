@@ -6,7 +6,7 @@
 // abutments. The tray holds the loose stones in rows in front of the arch, lying face up so their
 // wedge shape reads from above; the centering slides out towards +z, stopping short of the tray.
 import { ringArch, type Vec2 } from '../statics/index.js';
-import { buildArch, type GameState, type LevelDef, type StoneDef } from '../game/arch-state.js';
+import { buildArch, createLevel, isClosed, placeStone, type GameState, type LevelDef, type StoneDef } from '../game/arch-state.js';
 
 /** The centering a stone is shaped for (a level's geometry without its loads). */
 type Shape = Pick<GameState['geometry'], 'span' | 'rise' | 'units' | 'depth'>;
@@ -225,6 +225,87 @@ export function a11yIconSpot(i: number): { x: number; y: number; z: number } {
 
 /** Pull distance at which the centering clears the stones and the arch is struck. */
 export const strikePull = (depth: number): number => depth + CENTERING.strikeExtra;
+
+/**
+ * The abutments as cut stone: two courses of ashlar blocks with staggered joints. The lower course
+ * is two blocks side by side, the upper one a single cap split front and back, so no vertical joint
+ * runs straight through. Boxes in the site frame (centre, size); the chamfer on each block is the joint.
+ */
+export function ashlarBlocks(a: { x: number; width: number; height: number }, depth: number): { x: number; y: number; z: number; w: number; h: number; d: number }[] {
+  const low = a.height * 0.55, cap = a.height - low;
+  return [
+    ...[-1, 1].map(k => ({ x: a.x + (k * a.width) / 4, y: low / 2, z: 0, w: a.width / 2, h: low, d: depth })),
+    ...[-1, 1].map(k => ({ x: a.x, y: low + cap / 2, z: (k * depth) / 4, w: a.width, h: cap, d: depth / 2 })),
+  ];
+}
+
+/** Every stone of the level's reference arch as built, with its outline in the site frame ([inner0, inner1, outer1, outer0]). */
+function builtStones(def: LevelDef): { slot: number; units: number; outline: Vec2[] }[] {
+  let s = createLevel(def);
+  for (const step of def.solution) if (!s.error) s = placeStone(s, step.stone, step.side);
+  if (s.error || !isClosed(s)) return [];
+  return s.placed.map(p => {
+    const pose = slotPose(s.geometry, p.stone, p.slot);
+    const c = Math.cos(pose.angle), n = Math.sin(pose.angle);
+    const outline = stoneOutline(s.geometry, p.stone).map(v => ({ x: pose.x + c * v.x - n * v.y, y: pose.y + n * v.x + c * v.y }));
+    return { slot: p.slot, units: p.stone.units, outline };
+  });
+}
+const builtArch = (def: LevelDef): Vec2[][] => builtStones(def).map(b => b.outline);
+
+/** The crown: where the arch's back (extrados) crosses its middle (x = 0), in the site frame. */
+export function crownPoint(def: LevelDef): { x: number; y: number; z: number } {
+  let y = -Infinity;
+  for (const o of builtArch(def)) {
+    const a = o[3], b = o[2];
+    const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
+    if (lo > 1e-9 || hi < -1e-9) continue;
+    y = Math.max(y, hi - lo < 1e-12 ? Math.max(a.y, b.y) : a.y + ((b.y - a.y) * (0 - a.x)) / (b.x - a.x));
+  }
+  return { x: 0, y: Number.isFinite(y) ? y : ABUTMENT_HEIGHT + def.rise, z: 0 };
+}
+
+/** Middle of an abutment's top face, in the site frame. */
+export function abutmentTop(def: LevelDef, side: 'left' | 'right'): { x: number; y: number; z: number } {
+  const a = abutments(def)[side === 'left' ? 0 : 1];
+  return { x: a.x, y: a.height, z: 0 };
+}
+
+/** Highest a load model stands above the stone it rides on (the tallest, a tower at its largest). */
+const LOAD_TOP = 0.065;
+
+/**
+ * Points (site frame) the desktop camera keeps in view for a level: the board, the marker columns
+ * beside it and the accessibility panel, the arch as built with its abutments and any loads riding
+ * on it, every tray stone, and the centering's handle over its whole travel.
+ */
+export function viewPoints(def: LevelDef, ids: string[]): { x: number; y: number; z: number }[] {
+  const out: { x: number; y: number; z: number }[] = [];
+  const geo = createLevel(def).geometry;
+  for (const x of [-BOARD.width / 2, BOARD.width / 2]) for (const z of [BOARD.zMin, BOARD.zMax]) out.push({ x, y: 0, z });
+  for (const m of [...markerSpots(ids), dailySpot(ids)]) {
+    for (const k of [-1, 1]) out.push({ x: m.x + (k * MARKER.size) / 2, y: MARKER.size, z: m.z + (k * MARKER.size) / 2 });
+  }
+  for (const k of [-1, 1]) out.push({ x: A11Y_PANEL.x + (k * A11Y_PANEL.width) / 2, y: A11Y_PANEL.height + A11Y_PANEL.depth * 0.3, z: A11Y_PANEL.z + A11Y_PANEL.depth / 2 });
+  const built = builtStones(def);
+  for (const p of built.flatMap(b => b.outline)) for (const z of [-def.depth / 2, def.depth / 2]) out.push({ x: p.x, y: p.y, z });
+  for (const a of abutments(def)) {
+    for (const k of [-1, 1]) out.push({ x: a.x + (k * a.width) / 2, y: a.height, z: def.depth / 2 + 0.006 });
+  }
+  for (const l of geo.loads) {
+    // Waiting behind the arch on the board, then riding on the middle of its stone's back.
+    out.push({ ...loadRest(geo, l.course), y: LOAD_TOP });
+    const on = built.find(b => b.slot <= l.course && l.course < b.slot + b.units);
+    if (on) for (const v of [on.outline[2], on.outline[3]]) out.push({ x: v.x, y: v.y + LOAD_TOP, z: 0 });
+  }
+  trayPoses(def).forEach((p, i) => {
+    const o = stoneOutline(geo, def.tray[i]);
+    for (const v of o) out.push({ x: p.x + v.x, y: def.depth, z: p.z - v.y });
+  });
+  const handle = { y: 0.022, z: def.depth * 0.46 + CENTERING.handleDepth };
+  for (const pull of [0, CENTERING.maxPull]) out.push({ x: 0, y: handle.y, z: handle.z + pull });
+  return out;
+}
 
 // --- helpers ---------------------------------------------------------------------------------
 

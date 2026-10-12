@@ -15,6 +15,7 @@ import {
   chooseSurface, DESK_BELOW_EYES, type SurfaceCandidate, type SurfaceChoice, type SurfaceInput, type SurfaceKind,
 } from '../scene/surface-chain.js';
 import { playReject, playTick, unlockAudio } from '../audio/synth.js';
+import { BOARD } from '../scene/layout.js';
 
 export const DESK_HEIGHT = 0.75;
 /** On a real desk the arch goes this far ahead of the eyes (the desk centre may be further off). */
@@ -62,7 +63,9 @@ export class SurfaceSystem extends createSystem({
   init(): void {
     const desk = new Mesh(new BoxGeometry(1.3, 0.04, 0.7), flatMaterial('desk'));
     desk.name = 'desk';
-    desk.position.set(0, DESK_HEIGHT - 0.02, -0.45);
+    // Its top a board's thickness below the board's top: the board lies on it. Level with it, the
+    // two tops fought for the same depth (the stripes across the board in the desktop view).
+    desk.position.set(0, DESK_HEIGHT - BOARD.thickness - 0.02, -0.45);
     this.world.createTransformEntity(desk, { persistent: true });
     this.desk = desk;
     this.atelier = atelier();
@@ -170,7 +173,7 @@ export class SurfaceSystem extends createSystem({
         const y = this.head.y - ATELIER_BELOW_EYES;
         site.position.set(this.head.x + this.fwd.x * ATELIER_FORWARD, y, this.head.z + this.fwd.z * ATELIER_FORWARD);
         // The desk centre a little behind the arch, so the tray in front of it is on the desk too.
-        this.atelier.position.set(site.position.x + this.fwd.x * 0.05, y, site.position.z + this.fwd.z * 0.05);
+        this.atelier.position.set(site.position.x + this.fwd.x * 0.05, y - BOARD.thickness, site.position.z + this.fwd.z * 0.05);
         this.atelier.rotation.set(0, yaw, 0);
       } else if (c.kind === 'mesh' || c.kind === 'plane') {
         site.position.set(this.head.x + this.fwd.x * DESK_FORWARD, c.position!.y, this.head.z + this.fwd.z * DESK_FORWARD);

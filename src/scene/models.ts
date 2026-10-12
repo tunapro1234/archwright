@@ -123,13 +123,45 @@ export function stoneMaterial(): MeshStandardMaterial {
   const normalMap = chiselNormals(128);
   normalMap.repeat.set(9, 9); // ~11 cm per tile, strokes ~5 mm apart
   return new MeshStandardMaterial({
-    color: 0xffffff, map, normalMap, normalScale: new Vector2(0.9, 0.9), roughness: 0.93, metalness: 0,
+    color: 0xffffff, map, normalMap, normalScale: new Vector2(1.25, 1.25), roughness: 0.93, metalness: 0,
   });
 }
 
 /** The piers: the same tooled stone in a colour none of the playable stones has. */
 export function abutmentMaterial(stone: MeshStandardMaterial): MeshStandardMaterial {
   const m = stone.clone();
+  paint(m.color, 'abutment');
+  return m;
+}
+
+/**
+ * The abutments as one mesh of cut ashlar blocks (layout ashlarBlocks, site frame): every block
+ * chamfered, so the joints read as grooves, and each a shade lighter or darker than the next
+ * (a vertex colour under the palette colour). One draw call for both piers.
+ */
+export function ashlarMesh(blocks: { x: number; y: number; z: number; w: number; h: number; d: number }[], material: MeshStandardMaterial): Mesh {
+  const parts = blocks.map(b => prism([
+    { x: -b.w / 2, y: -b.h / 2 }, { x: b.w / 2, y: -b.h / 2 }, { x: b.w / 2, y: b.h / 2 }, { x: -b.w / 2, y: b.h / 2 },
+  ], b.d, 0.0022).translate(b.x, b.y, b.z));
+  const counts = parts.map(g => (g.index ? g.index.count : g.getAttribute('position').count));
+  const geo = weld(parts);
+  const color = new Float32Array(geo.getAttribute('position').count * 3);
+  let at = 0;
+  counts.forEach((n, i) => {
+    const tone = 0.84 + 0.16 * hash(i, 17);
+    color.fill(tone, at * 3, (at + n) * 3);
+    at += n;
+  });
+  geo.setAttribute('color', new Float32BufferAttribute(color, 3));
+  const m = new Mesh(geo, material);
+  m.name = 'abutments';
+  return m;
+}
+
+/** The ashlar's material: the piers' tooled stone, toned per block by vertex colour. */
+export function ashlarMaterial(stone: MeshStandardMaterial): MeshStandardMaterial {
+  const m = stone.clone();
+  m.vertexColors = true;
   paint(m.color, 'abutment');
   return m;
 }
@@ -300,6 +332,28 @@ function boxes(parts: { w: number; h: number; d: number; x: number; y: number; z
 }
 
 export const ATELIER_DESK = { width: 1.2, depth: 0.7, height: 0.74, top: 0.035 } as const;
+/** The atelier's back wall (desk-top frame): where the shelf and the window hang. */
+const BACK_WALL = 0.6 - 2.1;
+const ATELIER_SHELF = [
+  { w: 0.7, h: 0.022, d: 0.16, x: -0.75, y: 0.5, z: BACK_WALL + 0.08 },
+  ...[-1, 1].map(k => ({ w: 0.02, h: 0.1, d: 0.12, x: -0.75 + k * 0.28, y: 0.44, z: BACK_WALL + 0.06 })),
+  { w: 0.09, h: 0.07, d: 0.09, x: -0.95, y: 0.546, z: BACK_WALL + 0.08 },
+  { w: 0.06, h: 0.11, d: 0.07, x: -0.84, y: 0.566, z: BACK_WALL + 0.08 },
+  { w: 0.13, h: 0.045, d: 0.1, x: -0.58, y: 0.533, z: BACK_WALL + 0.08 },
+];
+const ATELIER_WINDOW = (() => {
+  const w = 0.8, h = 0.95, x = 0.8, y = 0.75, z = BACK_WALL + 0.004, f = 0.05, fd = 0.06;
+  return {
+    w, h, x, y, z,
+    frame: [
+      { w: w + 2 * f, h: f, d: fd, x, y: y + h / 2 + f / 2, z: z + fd / 2 },
+      { w: w + 2 * f, h: f * 1.4, d: fd * 1.6, x, y: y - h / 2 - f * 0.7, z: z + fd * 0.8 }, // sill
+      ...[-1, 1].map(k => ({ w: f, h, d: fd, x: x + k * (w / 2 + f / 2), y, z: z + fd / 2 })),
+      { w: 0.025, h, d: fd * 0.6, x, y, z: z + fd * 0.3 }, // mullion
+      { w, h: 0.025, d: fd * 0.6, x, y: y + h * 0.12, z: z + fd * 0.3 }, // transom
+    ],
+  };
+})();
 
 /**
  * The atelier for opaque VR: a plain room and a wooden desk, origin at the centre of the desk top,
@@ -314,7 +368,10 @@ export function atelier(): Group {
     { w: D.width, h: D.top, d: D.depth, x: 0, y: -D.top / 2, z: 0 },
     ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => ({ w: leg, h: lh, d: leg, x: sx * lx, y: -D.top - lh / 2, z: sz * lz })),
     { w: D.width - 0.12, h: 0.08, d: 0.02, x: 0, y: -D.top - 0.04, z: -lz }, // apron at the back
-  ]), woodMaterial('desk', 2.5));
+    // On the back wall: a plank shelf on two brackets with a few blocks on it, and a window frame.
+    ...ATELIER_SHELF,
+    ...ATELIER_WINDOW.frame,
+  ]), woodMaterial('workbench', 2.5));
   desk.name = 'atelier-desk';
   g.add(desk);
   const room = new Mesh(new BoxGeometry(4.2, 2.8, 4.2), flatMaterial('room'));
@@ -322,6 +379,12 @@ export function atelier(): Group {
   room.name = 'atelier-room';
   room.position.set(0, 1.4 - D.height, 0.6); // floor under the desk legs, the player inside
   g.add(room);
+  // Daylight through the window: an unlit warm pane, the brightest thing in the room.
+  const W = ATELIER_WINDOW;
+  const pane = new Mesh(new BoxGeometry(W.w, W.h, 0.004), new MeshBasicMaterial({ color: 0xf2e3c4 }));
+  pane.name = 'atelier-window';
+  pane.position.set(W.x, W.y, W.z);
+  g.add(pane);
   return g;
 }
 

@@ -24,8 +24,10 @@ the arch carries itself or collapses across your desk. No controllers are needed
   not, it opens at the joints the solver named and falls.
 
 The tray groups stones by kind. The three stones differ in colour and in lightness, so they also tell apart in greyscale or
-with colour blindness: ochre sandstone (mid), pale tuff (light), dark basalt (dark). Every stone has chamfered edges and chisel
-marks; the centering is red-brown planked timber with grain. All colours come from `src/scene/palette.ts`, which also
+with colour blindness: muted ochre sandstone (mid), pale tuff (light), dark basalt (dark). Every stone has chamfered edges and chisel
+marks; the centering is red-brown planked timber with grain. The arch springs from two piers of cut limestone, two courses
+of blocks with staggered joints. One warm key light from high on the right and a soft ambient fill light the scene; there are
+no real-time shadows, only a soft blob under the arch. All colours come from `src/scene/palette.ts`, which also
 holds a high-contrast palette (see [Accessibility](#accessibility)).
 
 **Today's Span.** The round stone beside the level markers opens the day's level: the same arch for everyone on the same date,
@@ -49,8 +51,9 @@ Controllers work as a fallback (trigger or grip in place of the pinch).
 Without a headset the page plays with the mouse or a touch screen (desktop mode, outside any XR session): click a stone and it
 rises off the tray, with a ghost at each open end it may join; click a ghost and the stone seats there. Click the stone again or
 the bare board to put it back, and click the outermost stone of either half to take it off the arch. Drag the centering's handle
-down the page (120 px) to strike. The rebuild stone, the level markers beside the board and the share tablet take a click too. The camera is fixed,
-35° above the desk.
+down the page (120 px) to strike. The rebuild stone, the level markers beside the board and the share tablet take a click too. The camera looks
+down from 35° and frames each level: as close as it can be with the arch, its tray, the centering's handle and the markers in
+view, so a tall pointed arch pulls it back (`frameView`, src/game/desktop.ts).
 
 Where the board goes (`src/scene/surface-chain.ts`, a pure function with its own tests): if the headset's scene data has a
 table mesh or a horizontal plane at desk height within reach (25 to 85 cm below the eyes, at most 75 cm away, at least
@@ -58,7 +61,7 @@ table mesh or a horizontal plane at desk height within reach (25 to 85 cm below 
 your hand's ray over real surfaces and you pinch to pick a spot on your desk; a spot at floor or shelf height is refused. After
 9.5 s with no pick, or without hit-test, the board sits on a lap tray 40 cm in front of you, 42 cm below the eyes. A lap tray or
 a picked spot gives way if a real desk is detected before the first stone goes down; after that the board stays put. In an
-opaque VR session (no passthrough) you sit in the atelier, a plain virtual room with a wooden desk.
+opaque VR session (no passthrough) you sit in the atelier, a plain virtual room with a walnut desk, a shelf and a window.
 
 ## The desk museum
 
@@ -106,8 +109,8 @@ differences, the same differences under a simulation of protanopia, deuteranopia
 
 | | stone / stone ΔE | stone / timber ΔE | worst pair, colour-blind simulation | stone contrast ratio |
 |---|---|---|---|---|
-| normal palette | 45.5 | 41.5 | 25.4 | 2.10 |
-| high contrast | 80.3 | 120.1 | 51.9 | 3.01 |
+| normal palette | 35.5 | 38.0 | 25.4 | 2.32 |
+| high contrast | 80.7 | 120.1 | 51.9 | 3.97 |
 
 The gaze pick (a ray against a sphere round each target, nearest hit within 1.5 m) and the hold-to-strike timing have unit
 tests. The gaze and one-hand modes have not been tried on a headset yet, nor with players who need them; we have no
@@ -164,7 +167,8 @@ stands on (`surface`: `desk` outside XR, else `mesh`, `plane`, `pick`, `lap` or 
 (fps, JS ms per frame, draw calls, triangles, physics bodies). The `?autotest` mode goes through the same placement and strike
 code as a hand, but it is not a hand simulation. For desktop-mode tests the hook also has `placed` (stones seated),
 `debug.solution` (the level's solution as steps) and `project(target)`, which gives a stone id, `'face:left'`, `'face:right'`,
-`'lever'`, `'tablet'`, `'marker:today'` or a panel icon (`'a11y:gaze'`, `'a11y:onehand'`, `'a11y:contrast'`) as a point on the
+`'lever'`, `'crown'` (the top of the arch's back), `'abutment:left'`, `'abutment:right'` (an abutment's top face), `'tablet'`,
+`'marker:today'` or a panel icon (`'a11y:gaze'`, `'a11y:onehand'`, `'a11y:contrast'`) as a point on the
 page in CSS pixels, so a test can click it with real mouse events. `a11y` holds the accessibility settings in force.
 On a daily level `daily` holds the day's number and, once the arch is struck, its share card.
 `xr` gives the session mode (`immersive-ar`, `immersive-vr`, or null outside XR) and its enabled WebXR features. The XR smoke

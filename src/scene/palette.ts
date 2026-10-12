@@ -7,8 +7,8 @@
 // apart (the same test with thresholds about 1.6 times higher, `okunurluk.kabul.ts yuksek`).
 // The scene is painted from COLORS, which holds one of the two; usePalette switches it live.
 export const PALETTE = {
-  /** Warm ochre, mid lightness. */
-  sandstone: 0xc98f4a,
+  /** Muted warm ochre, mid lightness: a dressed sandstone, not an orange. */
+  sandstone: 0xb48b60,
   /** Pale grey-cream, the lightest stone. */
   tuff: 0xe6dfcc,
   /** Dark grey, the darkest stone. */
@@ -21,12 +21,14 @@ export const PALETTE = {
   thrust: 0x3fd6e8,
   /** The board the arch is built on: light cool grey, so dark and pale stones both stand out on it. */
   board: 0x8d969e,
-  /** The two piers: a weathered stone that is none of the three playable ones. */
-  abutment: 0xa08468,
+  /** The two piers (cut ashlar) and the stone props: a warm grey limestone, none of the three playable stones. */
+  abutment: 0x80786b,
   /** Opaque VR (atelier) background. */
   background: 0x2b2e33,
   /** Walls and floor of the atelier (opaque VR): dim warm plaster, behind everything else. */
   room: 0x4b4640,
+  /** The atelier's desk (opaque VR): warm walnut, darker than the sandstone and browner than the centering. */
+  workbench: 0x6e5340,
   /** The passenger who walks over a finished arch: deep blue, unlike any stone or the timber. */
   passenger: 0x2f5d9e,
   /** The bell that stands on an arch in world 3: dark verdigris bronze, off every stone and the timber. */
@@ -44,7 +46,7 @@ export type Palette = { readonly [K in PaletteKey]: number };
  * Unnatural on purpose; legibility first.
  */
 export const HIGH_CONTRAST: Palette = {
-  sandstone: 0xe07a1f,
+  sandstone: 0xc8641a,
   tuff: 0xffffff,
   basalt: 0x141414,
   centering: 0x9b30ff,
@@ -55,6 +57,7 @@ export const HIGH_CONTRAST: Palette = {
   abutment: 0x9e9e9e,
   background: 0x000000,
   room: 0x262626,
+  workbench: 0x1f3a7a,
   passenger: 0xff2d95,
   bronze: 0x2e8b57,
   pinch: 0xffeb00,

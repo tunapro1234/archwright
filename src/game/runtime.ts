@@ -12,10 +12,10 @@ import { LEVELS } from '../levels/index.js';
 import { dailyDate, dailyLevel, localDateISO } from './daily.js';
 import type { A11ySettings } from './a11y.js';
 import {
-  abutments, ABUTMENT_HEIGHT, BOARD, centeringTop, facePose, loadRest, shapeKey, stoneOutline, trayPoses, type Pose2,
+  abutments, ABUTMENT_HEIGHT, ashlarBlocks, BOARD, centeringTop, facePose, loadRest, shapeKey, stoneOutline, trayPoses, type Pose2,
 } from '../scene/layout.js';
 import {
-  abutmentMaterial, blobShadow, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, loadMaterials, loadMesh, prism, stoneMaterial,
+  abutmentMaterial, ashlarMaterial, ashlarMesh, blobShadow, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, loadMaterials, loadMesh, prism, stoneMaterial,
   woodMaterial,
 } from '../scene/models.js';
 import { MATERIAL_COLOR } from '../scene/meshes.js';
@@ -36,6 +36,7 @@ export interface Hook {
   /** Desktop mouse mode (src/systems/desktop.ts): stones seated so far. */
   placed?: number;
   /** Where a target sits on the page, in CSS px: a stone id, 'face:left', 'face:right', 'lever',
+   *  'crown' (the top of the arch's back), 'abutment:left', 'abutment:right' (an abutment's top),
    *  'tablet' (the share card, once shown), 'marker:today' (the daily level's marker) or an icon of the
    *  accessibility panel ('a11y:gaze', 'a11y:onehand', 'a11y:contrast'). */
   project?: (target: string) => { x: number; y: number } | null;
@@ -116,6 +117,7 @@ export class ArchRuntime {
   private levelEntities: Entity[] = [];
   readonly stoneMat = stoneMaterial();
   readonly abutmentMat = abutmentMaterial(this.stoneMat);
+  private readonly ashlarMat = ashlarMaterial(this.stoneMat);
   private readonly woodMat = woodMaterial();
   private readonly loadMats = loadMaterials();
   private readonly boardMat = flatMaterial('board');
@@ -134,9 +136,15 @@ export class ArchRuntime {
     this.site.name = 'site';
     this.site.position.set(0, 0.75, -0.5);
     this.siteEntity = world.createTransformEntity(this.site, { persistent: true });
-    const sun = new DirectionalLight(0xffffff, 1.2);
-    sun.position.set(0.4, 1.0, 0.6);
+    // One warm key light from high on the right, a little in front, so the chamfers and chisel
+    // marks catch it; the soft fill is the scene's gradient environment. No real-time shadows:
+    // a blob under the arch does that.
+    const sun = new DirectionalLight(0xffe7c8, 1.45);
+    sun.position.set(0.55, 1.0, 0.5);
     this.site.add(sun);
+    // Aimed at the board wherever it stands (the default target is the world origin, under the player).
+    sun.target.userData.keep = true;
+    this.site.add(sun.target);
     this.ghosts = { left: ghostMesh('ghost-left'), right: ghostMesh('ghost-right') };
     for (const g of Object.values(this.ghosts)) world.createTransformEntity(g, { persistent: true });
     onRepaint(() => this.repaint());
@@ -172,14 +180,8 @@ export class ArchRuntime {
     const add = (o: Object3D) => { this.site.add(o); return o; };
     add(boardMesh(this.boardMat));
     add(blobShadow(def.span + 0.16, def.depth + 0.14)).position.set(0, 0.0006, 0);
-    for (const a of abutments(def)) {
-      const m = new Mesh(prism([
-        { x: -a.width / 2, y: 0 }, { x: a.width / 2, y: 0 }, { x: a.width / 2, y: a.height }, { x: -a.width / 2, y: a.height },
-      ], def.depth + 0.012, 0.002), this.abutmentMat);
-      m.name = 'abutment';
-      m.position.set(a.x, 0, 0);
-      add(m);
-    }
+    // Two piers of cut stone, two courses each, in one mesh.
+    add(ashlarMesh(abutments(def).flatMap(a => ashlarBlocks(a, def.depth + 0.012)), this.ashlarMat));
     this.woodMat.transparent = false;
     this.woodMat.opacity = 1;
     this.setFade(1);
