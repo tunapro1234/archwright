@@ -24,6 +24,8 @@ export const PALETTE = {
   background: 0x2b2e33,
   /** Walls and floor of the atelier (opaque VR): dim warm plaster, behind everything else. */
   room: 0x4b4640,
-  /** Pinch cursor while pinching. */
+  /** The passenger who walks over a finished arch: deep blue, unlike any stone or the timber. */
+  passenger: 0x2f5d9e,
+  /** Pinch cursor while pinching; also the icons (rebuild, current level marker). */
   pinch: 0xffc94a,
 } as const;

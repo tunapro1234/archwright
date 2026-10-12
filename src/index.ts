@@ -9,6 +9,8 @@ import { CollapseSystem } from './systems/collapse.js';
 import { PerfEndSystem, PerfStartSystem, StoneRenderSystem } from './systems/render.js';
 import { SurfaceSystem } from './systems/surface.js';
 import { AutotestSystem } from './systems/autotest.js';
+import { GameLoopSystem } from './systems/loop.js';
+import { browserStorage, loadProgress } from './game/progress.js';
 
 // The XR session, its optional features and the scene all come from iwsdk.config.json.
 // Only `local-floor` (falling back to `local`) is used as the reference space; every
@@ -53,11 +55,13 @@ async function main(): Promise<void> {
     .registerSystem(CenteringSystem, { priority: 11 })
     .registerSystem(StaticsSystem, { priority: 12 })
     .registerSystem(CollapseSystem, { priority: 13 })
+    .registerSystem(GameLoopSystem, { priority: 14 })
     .registerSystem(StoneRenderSystem, { priority: 20 })
     .registerSystem(PerfEndSystem, { priority: 1000 });
 
+  // ?autotest, then ?level=, then wherever the saved progress left off.
   const autotest = params.get('autotest')?.split(';')[0]?.split(':')[0] ?? null;
-  arch.load(ArchRuntime.levelById(autotest ?? params.get('level')));
+  arch.load(ArchRuntime.levelById(autotest ?? params.get('level') ?? loadProgress(browserStorage()).current));
 }
 
 void main();

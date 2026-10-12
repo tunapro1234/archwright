@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../src/levels/index.js';
 import { buildArch, createLevel, placeStone, ringOrder } from '../src/game/arch-state.js';
 import {
-  abutments, ABUTMENT_HEIGHT, BOARD, CENTERING, centeringTop, slotPose, stoneKind, stoneOutline, strikePull, trayPoses,
+  abutments, ABUTMENT_HEIGHT, along, BOARD, CENTERING, centeringTop, markerSpots, MARKER, passengerPath, slotPose, stoneKind, stoneOutline, strikePull, trayPoses,
 } from '../src/scene/layout.js';
 
 describe.each(LEVELS.map(l => [l.id, l] as const))('layout %s', (_, def) => {
@@ -74,11 +74,44 @@ describe.each(LEVELS.map(l => [l.id, l] as const))('layout %s', (_, def) => {
     expect(top[top.length - 1].x).toBeCloseTo(def.span / 2, 12);
   });
 
+  it('the passenger walks from one abutment over the back of the arch to the other', () => {
+    let s = s0;
+    for (const step of def.solution) s = placeStone(s, step.stone, step.side);
+    const path = passengerPath(def, s);
+    const [l, r] = abutments(def);
+    expect(path[0]).toEqual({ x: l.x - l.width / 2, y: ABUTMENT_HEIGHT });
+    expect(path[path.length - 1]).toEqual({ x: r.x + r.width / 2, y: ABUTMENT_HEIGHT });
+    // Over the keystone, not under it (a step up where a thicker stone follows a thinner one is fine).
+    const top = Math.max(...path.map(p => p.y));
+    expect(top).toBeGreaterThan(Math.max(...centeringTop(s.geometry, 32).map(p => p.y)) + ABUTMENT_HEIGHT + 0.005);
+    expect(along(path, 0)).toEqual(path[0]);
+    expect(along(path, 1).x).toBeCloseTo(path[path.length - 1].x, 12);
+    expect(along(path, 0.5).x).toBeCloseTo(0, 6); // symmetric solution: half way is the crown
+  });
+
   it('abutments carry the springings and fit on the board', () => {
     const [l, r] = abutments(def);
     expect(l.x + l.width / 2).toBeCloseTo(-def.span / 2, 9); // inner face at the springing
     expect(l.width).toBeGreaterThan(Math.max(...def.tray.map(t => t.t))); // wider than any stone's foot
     expect(r.x + r.width / 2).toBeLessThanOrEqual(BOARD.width / 2);
     expect(l.x - l.width / 2).toBeGreaterThanOrEqual(-BOARD.width / 2);
+  });
+});
+
+describe('level markers', () => {
+  const spots = markerSpots(LEVELS.map(l => l.id));
+  it('one per level, beside the board, a column per world, never two in one place', () => {
+    expect(spots.map(s => s.id)).toEqual(LEVELS.map(l => l.id));
+    for (const s of spots) {
+      expect(Math.abs(s.x) - MARKER.size / 2).toBeGreaterThan(BOARD.width / 2);
+      expect(s.z).toBeGreaterThan(BOARD.zMin);
+      expect(s.z).toBeLessThan(BOARD.zMax);
+    }
+    for (const a of spots) for (const b of spots) {
+      if (a !== b) expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThan(MARKER.size * 2);
+    }
+    const w1 = spots.filter(s => s.id.startsWith('w1-')), w2 = spots.filter(s => s.id.startsWith('w2-'));
+    expect(new Set(w1.map(s => s.x)).size).toBe(1);
+    expect(Math.sign(w1[0].x)).not.toBe(Math.sign(w2[0].x));
   });
 });

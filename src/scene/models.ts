@@ -2,11 +2,12 @@
 import {
   BackSide, BoxGeometry, BufferGeometry, CanvasTexture, CatmullRomCurve3, Color, DataTexture, ExtrudeGeometry,
   Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, NoColorSpace, RepeatWrapping, RGBAFormat,
-  RingGeometry, Shape, SRGBColorSpace, TubeGeometry, Vector2, Vector3,
+  ConeGeometry, InstancedMesh, LatheGeometry, RingGeometry, Shape, SRGBColorSpace, TorusGeometry, TubeGeometry, Vector2,
+  Vector3,
 } from '@iwsdk/core';
 import type { Vec2 } from '../statics/index.js';
 import type { Material } from '../game/arch-state.js';
-import { ABUTMENT_HEIGHT, BOARD, CENTERING } from './layout.js';
+import { ABUTMENT_HEIGHT, BOARD, CENTERING, MARKER } from './layout.js';
 import { PALETTE } from './palette.js';
 import { MATERIAL_COLOR } from './meshes.js';
 
@@ -326,4 +327,63 @@ export function pickRing(name: string): Mesh {
   m.renderOrder = 4;
   m.visible = false;
   return m;
+}
+
+/** The passenger: a small turned figure (cloak and head in one lathe, one draw call), 4 cm tall, feet at y = 0. */
+export function passengerMesh(): Mesh {
+  const p = [
+    [0, 0], [0.007, 0], [0.0065, 0.004], [0.0045, 0.022], [0.0035, 0.026], [0.002, 0.0275],
+    [0.0045, 0.03], [0.005, 0.034], [0.0042, 0.0375], [0.0022, 0.0395], [0, 0.04],
+  ].map(([x, y]) => new Vector2(x, y));
+  const m = new Mesh(new LatheGeometry(p, 14), new MeshStandardMaterial({ color: PALETTE.passenger, roughness: 0.7 }));
+  m.name = 'passenger';
+  m.visible = false;
+  return m;
+}
+
+/**
+ * The rebuild stone: a plain block with a turning arrow cut into its face (no text). Pinched, it
+ * sets the same level up again. Origin at its centre, the arrow facing +z (the player).
+ */
+export function rebuildStone(stone: MeshStandardMaterial): Group {
+  const g = new Group();
+  g.name = 'rebuild';
+  const block = new Mesh(prism([
+    { x: -0.024, y: -0.016 }, { x: 0.024, y: -0.016 }, { x: 0.02, y: 0.016 }, { x: -0.02, y: 0.016 },
+  ], 0.03), stone);
+  block.name = 'rebuild-block';
+  g.add(block);
+  const icon = new MeshBasicMaterial({ color: PALETTE.pinch });
+  const arc = new Mesh(new TorusGeometry(0.0085, 0.0016, 6, 24, Math.PI * 1.5), icon);
+  arc.position.z = 0.0155;
+  arc.rotation.z = Math.PI * 0.25;
+  g.add(arc);
+  // Arrowhead at the arc's end, pointing along it.
+  const head = new Mesh(new ConeGeometry(0.0034, 0.0055, 10), icon);
+  const end = Math.PI * 0.25 + Math.PI * 1.5;
+  head.position.set(Math.cos(end) * 0.0085, Math.sin(end) * 0.0085, 0.0155);
+  head.rotation.z = end;
+  g.add(head);
+  g.visible = false;
+  return g;
+}
+
+/**
+ * Level markers, one instance per level: a solid little block for a solved level, a hollow
+ * frame for an open one; locked levels are left out (scaled to zero). Two draw calls.
+ */
+export function levelMarkers(count: number): { filled: InstancedMesh; hollow: InstancedMesh } {
+  const s = MARKER.size, h = 0.012, bar = 0.004;
+  const mat = flatMaterial(0xffffff);
+  const filled = new InstancedMesh(new BoxGeometry(s, h, s).translate(0, h / 2, 0), mat, count);
+  const frame = boxes([
+    { w: s, h, d: bar, x: 0, y: h / 2, z: (s - bar) / 2 },
+    { w: s, h, d: bar, x: 0, y: h / 2, z: -(s - bar) / 2 },
+    { w: bar, h, d: s - 2 * bar, x: (s - bar) / 2, y: h / 2, z: 0 },
+    { w: bar, h, d: s - 2 * bar, x: -(s - bar) / 2, y: h / 2, z: 0 },
+  ]);
+  const hollow = new InstancedMesh(frame, mat, count);
+  filled.name = 'markers-solved';
+  hollow.name = 'markers-open';
+  return { filled, hollow };
 }

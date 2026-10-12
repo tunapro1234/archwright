@@ -6,7 +6,7 @@
 // abutments. The tray holds the loose stones in rows in front of the arch, lying face up so their
 // wedge shape reads from above; the centering slides out towards +z, stopping short of the tray.
 import { ringArch, type Vec2 } from '../statics/index.js';
-import type { GameState, LevelDef, StoneDef } from '../game/arch-state.js';
+import { buildArch, type GameState, type LevelDef, type StoneDef } from '../game/arch-state.js';
 
 export const ABUTMENT_HEIGHT = 0.05;
 export const ABUTMENT_SPARE = 0.025;  // abutment width beyond the thickest stone
@@ -128,6 +128,58 @@ export function centeringTop(geo: GameState['geometry'], segments: number): Vec2
     { x: -ex, y: edge.y }, { x: ex, y: edge.y },
     ...curve.filter(p => p.x > ex + 1e-9),
   ];
+}
+
+/**
+ * Where the passenger walks once the arch holds (site frame, x-y at z = 0): over the left
+ * abutment, along the back of every stone, and off over the right abutment.
+ */
+export function passengerPath(def: LevelDef, s: GameState): Vec2[] {
+  const [l, r] = abutments(def);
+  const path: Vec2[] = [{ x: l.x - l.width / 2, y: l.height }];
+  for (const b of buildArch(s).blocks) {
+    const [, , outer1, outer0] = b.vertices;
+    path.push({ x: outer0.x, y: outer0.y + ABUTMENT_HEIGHT }, { x: outer1.x, y: outer1.y + ABUTMENT_HEIGHT });
+  }
+  path.push({ x: r.x + r.width / 2, y: r.height });
+  return path;
+}
+
+/** The point a fraction `t` in [0, 1] of the way along a polyline, by length. */
+export function along(path: Vec2[], t: number, out: Vec2 = { x: 0, y: 0 }): Vec2 {
+  let total = 0;
+  for (let i = 1; i < path.length; i++) total += Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
+  let d = Math.max(0, Math.min(1, t)) * total;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1], b = path[i];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (d <= len || i === path.length - 1) {
+      const k = len > 0 ? Math.min(1, d / len) : 0;
+      out.x = a.x + (b.x - a.x) * k;
+      out.y = a.y + (b.y - a.y) * k;
+      return out;
+    }
+    d -= len;
+  }
+  out.x = path[0].x; out.y = path[0].y;
+  return out;
+}
+
+/** Level markers: small stones in a column beside the board, one column per world (w1 left, w2 right, ...). */
+export const MARKER = { size: 0.02, gap: 0.05, edge: 0.03, column: 0.035, z0: -0.02 };
+export function markerSpots(ids: string[]): { id: string; x: number; z: number }[] {
+  const worlds: string[] = [];
+  const row = new Map<string, number>();
+  return ids.map(id => {
+    const w = id.split('-')[0];
+    if (!worlds.includes(w)) worlds.push(w);
+    const k = worlds.indexOf(w);
+    const n = row.get(w) ?? 0;
+    row.set(w, n + 1);
+    const side = k % 2 === 0 ? -1 : 1;
+    const x = side * (BOARD.width / 2 + MARKER.edge + Math.floor(k / 2) * MARKER.column);
+    return { id, x, z: MARKER.z0 + n * MARKER.gap };
+  });
 }
 
 /** Pull distance at which the centering clears the stones and the arch is struck. */

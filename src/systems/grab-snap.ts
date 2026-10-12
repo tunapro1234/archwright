@@ -26,11 +26,14 @@ export class GrabSnapSystem extends createSystem({}) {
   private held: Record<Side, StoneView | undefined> = { left: undefined, right: undefined };
   private local = new Vector3();
   private p = new Vector3();
+  private generation = -1;
 
   update(delta: number): void {
     const arch = this.globals.arch as ArchRuntime | undefined;
     const hands = this.globals.hands as Record<Side, HandState> | undefined;
     if (!arch?.state || !hands) return;
+    // A new level (next, rebuild, a marker, autotest): stones held from the old one are gone.
+    if (arch.generation !== this.generation) { this.generation = arch.generation; this.held = { left: undefined, right: undefined }; }
 
     for (const side of ['left', 'right'] as const) {
       const h = hands[side];

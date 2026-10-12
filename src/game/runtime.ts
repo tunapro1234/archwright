@@ -83,7 +83,7 @@ export class ArchRuntime {
   bodies = 0;
   private levelEntities: Entity[] = [];
   private readonly stoneMat = stoneMaterial();
-  private readonly abutmentMat = abutmentMaterial(this.stoneMat);
+  readonly abutmentMat = abutmentMaterial(this.stoneMat);
   private readonly woodMat = woodMaterial();
   private readonly boardMat = flatMaterial(PALETTE.board);
   /** Snap ghosts, one per hand: where the stone that hand holds would seat. */
@@ -137,6 +137,7 @@ export class ArchRuntime {
     }
     this.woodMat.transparent = false;
     this.woodMat.opacity = 1;
+    this.setFade(1);
     const cm = centeringMesh(centeringTop(this.state.geometry, 32), def.depth, this.woodMat);
     cm.position.set(0, ABUTMENT_HEIGHT, 0);
     add(cm);
@@ -185,7 +186,7 @@ export class ArchRuntime {
     this.hideGhost('right');
     for (const e of this.levelEntities) e.dispose();
     this.levelEntities = [];
-    for (const child of [...this.site.children]) if (!(child instanceof DirectionalLight)) this.site.remove(child);
+    for (const child of [...this.site.children]) if (!(child instanceof DirectionalLight) && !child.userData.keep) this.site.remove(child);
     this.stones = [];
     this.batches = [];
     this.thrustLine = undefined;
@@ -265,6 +266,14 @@ export class ArchRuntime {
     this.shown = on;
     this.site.visible = on;
     for (const b of this.batches) b.mesh.visible = on;
+  }
+
+  /** Fade the level's stones and its line of thrust (1 = solid), before the next level is set up. */
+  setFade(alpha: number): void {
+    const see = alpha < 1;
+    if (this.stoneMat.transparent !== see) { this.stoneMat.transparent = see; this.stoneMat.needsUpdate = true; }
+    this.stoneMat.opacity = alpha;
+    if (this.thrustLine) ((this.thrustLine as Mesh).material as MeshBasicMaterial).opacity = 0.95 * alpha;
   }
 
   hideGhost(side: Side): void {
