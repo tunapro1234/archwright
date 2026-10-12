@@ -16,6 +16,7 @@ import { LoadSystem } from './systems/loads.js';
 import { A11ySystem } from './systems/a11y.js';
 import { GazeSystem } from './systems/gaze.js';
 import { browserStorage, loadProgress } from './game/progress.js';
+import { isForeign, modelFile, PROFILES_DIR, profileModel } from './net/local-assets.js';
 
 // The XR session, its optional features and the scene all come from iwsdk.config.json.
 // Only `local-floor` (falling back to `local`) is used as the reference space; every
@@ -23,13 +24,32 @@ import { browserStorage, loadProgress } from './game/progress.js';
 
 const params = new URLSearchParams(location.search);
 
-// Same-origin only: the input layer would otherwise fetch controller and hand models from a CDN.
-// In passthrough the player sees their real hands and controllers, so no model is loaded at all.
+// Same origin only (src/net/local-assets.ts). The input layer asks for controller and hand models
+// by their WebXR input profile; a profile we serve resolves through its own profile.json to the
+// model beside it on this site. In passthrough the player sees their real hands, so no hand model;
+// a controller keeps its model there (it shows where the ray starts). Anything else from another
+// origin is refused, and the input stays tracked without a visual.
+const BASE = import.meta.env.BASE_URL;
 const loadGLTF = AssetManager.loadGLTF.bind(AssetManager);
-AssetManager.loadGLTF = (url: string, key?: string) =>
-  /^https?:\/\//.test(url) && !url.startsWith(location.origin)
-    ? Promise.reject(new Error(`remote asset blocked: ${url}`))
-    : loadGLTF(url, key);
+const profiles = new Map<string, Promise<unknown>>();
+let passthrough = (): boolean => false;
+AssetManager.loadGLTF = (url: string, key?: string) => {
+  const model = profileModel(url);
+  if (model) {
+    if (model.profile === 'generic-hand' && passthrough()) return Promise.reject(new Error('passthrough: real hands are in view'));
+    const dir = `${BASE}${PROFILES_DIR}/${model.profile}/`;
+    let json = profiles.get(model.profile);
+    if (!json) {
+      json = fetch(dir + 'profile.json').then(r => (r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${dir}profile.json`))));
+      profiles.set(model.profile, json);
+    }
+    return json.then(p => {
+      const file = modelFile(p, model.hand);
+      return file ? loadGLTF(dir + file, key) : Promise.reject(new Error(`${model.profile}: no ${model.hand} model`));
+    });
+  }
+  return isForeign(url, location.origin) ? Promise.reject(new Error(`remote asset blocked: ${url}`)) : loadGLTF(url, key);
+};
 
 /** The mode each XR session was asked for (WebXR does not report it), filled by watchSessionModes. */
 const sessionModes = new WeakMap<XRSession, XRSessionMode>();
@@ -65,15 +85,22 @@ async function main(): Promise<void> {
 
   const arch = new ArchRuntime(world);
   world.globals.arch = arch;
-  arch.hook.xr = { mode: null, features: [] };
+  arch.hook.xr = { mode: null, features: [], inputs: [] };
+  passthrough = () => {
+    const s = world.renderer.xr.getSession();
+    return !!s && s.environmentBlendMode !== 'opaque';
+  };
   world.renderer.xr.addEventListener('sessionstart', () => {
     const s = world.renderer.xr.getSession();
     if (!s) return;
     // A session nobody asked for here (a browser grant): opaque means VR, see-through means AR.
     const mode = sessionModes.get(s) ?? (s.environmentBlendMode === 'opaque' ? 'immersive-vr' : 'immersive-ar');
-    arch.hook.xr = { mode: mode === 'inline' ? null : mode, features: [...(s.enabledFeatures ?? [])] };
+    // Each input source by its most specific profile ('meta-quest-touch-plus', 'generic-hand', ...).
+    const inputs = () => [...s.inputSources].map(i => i.profiles[0] ?? 'unknown');
+    arch.hook.xr = { mode: mode === 'inline' ? null : mode, features: [...(s.enabledFeatures ?? [])], inputs: inputs() };
+    s.addEventListener('inputsourceschange', () => { if (arch.hook.xr) arch.hook.xr.inputs = inputs(); });
   });
-  world.renderer.xr.addEventListener('sessionend', () => { arch.hook.xr = { mode: null, features: [] }; });
+  world.renderer.xr.addEventListener('sessionend', () => { arch.hook.xr = { mode: null, features: [], inputs: [] }; });
   world
     .registerSystem(PerfStartSystem, { priority: -100 })
     .registerSystem(HandSystem, { priority: 0 })

@@ -225,12 +225,22 @@ Source: J. Heyman, *The Stone Skeleton: Structural Engineering of Masonry Archit
 
 Every stone is drawn by one instanced mesh per stone shape with a single material, and shadows are a soft blob under the board,
 not real-time shadow maps. Havok's physics WASM is not part of the first load: it is fetched when the first stone is placed.
-Nothing is fetched from another origin; the input layer's controller and hand models (which would come from a CDN) are not
-loaded, since passthrough shows the player's real hands.
+Nothing is fetched from another origin. Three defaults in the libraries would do it, and each is redirected
+(`src/net/local-assets.ts`):
+
+- Controller and hand models (the input layer would take them from jsDelivr): the WebXR input profiles of the Quest controllers
+  and of tracked hands are copied into `public/input-profiles/` and served from this site, each model found through its own
+  `profile.json`. A controller has its model in both modes; a hand only in opaque VR, since passthrough shows the real hand.
+- Draco and KTX2 decoders (the glTF loader would take them from unpkg): not used, no model here is compressed that way, so no
+  decoder is shipped and the decoder path points into this site.
+- The UI kit's Avatar picture (from DiceBear): no avatar is ever drawn, and the default is blanked.
+
+The build rewrites those three library defaults and fails if the output still names any of those hosts.
 
 ## Built with
 
-[Immersive Web SDK](https://iwsdk.dev) (MIT), three.js (MIT), Havok physics via IWSDK (MIT). Third-party assets are listed in
+[Immersive Web SDK](https://iwsdk.dev) (MIT), three.js (MIT), Havok physics via IWSDK (MIT), WebXR input profiles (MIT,
+controller and hand models). Third-party assets are listed in
 [ASSETS.md](ASSETS.md).
 
 ## License

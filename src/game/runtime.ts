@@ -45,8 +45,8 @@ export interface Hook {
   daily?: { number: number; card: string | null } | null;
   /** Accessibility settings in force (src/game/a11y.ts). */
   a11y?: A11ySettings;
-  /** The XR session: the mode it was requested in (null outside XR) and its enabled features. */
-  xr?: { mode: 'immersive-ar' | 'immersive-vr' | null; features: string[] };
+  /** The XR session: the mode it was requested in (null outside XR), its enabled features and each input source's profile. */
+  xr?: { mode: 'immersive-ar' | 'immersive-vr' | null; features: string[]; inputs: string[] };
   /** The desk museum (src/systems/museum.ts): plinth ids shown, and how many follow an XR anchor. */
   museum?: { plinths: string[]; anchored: number };
 }
