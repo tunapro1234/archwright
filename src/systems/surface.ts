@@ -138,7 +138,10 @@ export class SurfaceSystem extends createSystem({
     this.input_.inXR = !!session;
     if (session) {
       unlockAudio();
+      // Until a surface is chosen: the real room in passthrough (even if the board can no longer move).
       this.desk.visible = false;
+      this.atelier.visible = false;
+      this.scene.background = session.environmentBlendMode === 'opaque' ? this.background : null;
       return;
     }
     const c = chooseSurface({ ...this.input_, inXR: false });
