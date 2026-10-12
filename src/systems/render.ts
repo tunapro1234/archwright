@@ -2,6 +2,7 @@
 // cursors, and the performance numbers for window.__archwright.
 import { createSystem, Matrix4, Mesh, MeshBasicMaterial, SphereGeometry } from '@iwsdk/core';
 import type { ArchRuntime } from '../game/runtime.js';
+import { PALETTE } from '../scene/palette.js';
 import type { Side } from '../game/arch-state.js';
 import type { HandState } from './hands.js';
 
@@ -9,7 +10,7 @@ export class StoneRenderSystem extends createSystem({}) {
   private m = new Matrix4();
   private cursors: Record<Side, Mesh> | undefined;
   private idle = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthTest: false });
-  private active = new MeshBasicMaterial({ color: 0xffc94a, transparent: true, opacity: 0.9, depthTest: false });
+  private active = new MeshBasicMaterial({ color: PALETTE.pinch, transparent: true, opacity: 0.9, depthTest: false });
 
   init(): void {
     const g = new SphereGeometry(0.006, 12, 8);

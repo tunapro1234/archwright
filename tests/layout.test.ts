@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../src/levels/index.js';
 import { buildArch, createLevel, placeStone, ringOrder } from '../src/game/arch-state.js';
 import {
-  abutments, ABUTMENT_HEIGHT, BOARD, CENTERING, slotPose, stoneOutline, strikePull, trayPoses,
+  abutments, ABUTMENT_HEIGHT, BOARD, CENTERING, slotPose, stoneKind, stoneOutline, strikePull, trayPoses,
 } from '../src/scene/layout.js';
 
 describe.each(LEVELS.map(l => [l.id, l] as const))('layout %s', (_, def) => {
@@ -29,6 +29,18 @@ describe.each(LEVELS.map(l => [l.id, l] as const))('layout %s', (_, def) => {
     const handleFront = def.depth / 2 + CENTERING.handleDepth + CENTERING.maxPull;
     expect(Math.min(...spans.map(s => s[0]))).toBeGreaterThan(handleFront);
     expect(CENTERING.maxPull).toBeGreaterThan(strikePull(def.depth));
+  });
+
+  it('the tray lies stones of one kind side by side, one run per kind, materials together', () => {
+    const poses = trayPoses(def);
+    const reading = def.tray.map((s, i) => ({ s, p: poses[i] }))
+      .sort((a, b) => Math.round(a.p.z * 1e3) - Math.round(b.p.z * 1e3) || a.p.x - b.p.x);
+    const runs: string[] = [];
+    for (const { s } of reading) if (runs[runs.length - 1] !== stoneKind(s)) runs.push(stoneKind(s));
+    expect(new Set(runs).size).toBe(runs.length);
+    const mats = runs.map(k => k.split('|')[0]);
+    const matRuns = mats.filter((m, i) => i === 0 || mats[i - 1] !== m);
+    expect(new Set(matRuns).size).toBe(matRuns.length);
   });
 
   it('a seated stone is drawn exactly where the solver puts its block', () => {

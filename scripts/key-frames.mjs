@@ -1,14 +1,15 @@
-// Six key frames of w1-1 from the emulator page, in one short run: the tray, the keystone seated,
-// the centering being pulled, the arch holding, the collapse half way, the collapse at rest.
+// Seven key frames of w1-1 from the emulator page, in one short run: the tray, the keystone held
+// over its gap with the snap ghost, the keystone seated, the centering being pulled, the arch
+// holding, the collapse half way, the collapse at rest.
 // Usage: node scripts/key-frames.mjs <out-dir>   (needs a fresh `npm run build`)
 // Writes <out-dir>/dilim-<name>.png. Desktop view with IWER installed, not a headset capture.
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 
 const outDir = resolve(process.argv[2] ?? '.');
-const SHOTS = ['tray', 'keystone', 'pulling', 'held', 'collapse-mid', 'collapsed'];
+const SHOTS = ['tray', 'ghost', 'keystone', 'pulling', 'held', 'collapse-mid', 'collapsed'];
 const PORT = 4794;
 const BASE = `http://127.0.0.1:${PORT}/archwright/`;
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -47,13 +48,17 @@ try {
   await page.goto(`${BASE}?emulator=1&shots=1&autotest=w1-1:hold;w1-1:collapse`);
   lowerPriority();
 
+  // Straight from the compositor: page.screenshot() waits for a fresh animation frame, which software
+  // WebGL may not deliver within its timeout.
+  const cdp = await page.context().newCDPSession(page);
   const taken = [];
   const t0 = Date.now();
   while (taken.length < SHOTS.length && Date.now() - t0 < 480_000) {
     const shot = await page.evaluate(() => window.__archwright?.shot ?? null);
     if (shot) {
-      await wait(300); // one more rendered frame after the hold began
-      await page.screenshot({ path: join(outDir, `dilim-${shot}.png`) });
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))); // two frames drawn in the hold
+      const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
+      writeFileSync(join(outDir, `dilim-${shot}.png`), Buffer.from(data, 'base64'));
       taken.push(shot);
       console.log(`${shot} at ${((Date.now() - t0) / 1000).toFixed(1)} s, state=${await page.evaluate(() => window.__archwright.state)}`);
       await page.evaluate(() => { window.__archwright.shot = undefined; });

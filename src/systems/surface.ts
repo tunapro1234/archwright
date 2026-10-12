@@ -5,7 +5,8 @@ import {
   BoxGeometry, Color, createSystem, Mesh, Vector3, XRPlane, type Entity,
 } from '@iwsdk/core';
 import type { ArchRuntime } from '../game/runtime.js';
-import { woodMaterial } from '../scene/meshes.js';
+import { flatMaterial } from '../scene/models.js';
+import { PALETTE } from '../scene/palette.js';
 import { unlockAudio } from '../audio/synth.js';
 
 export const DESK_HEIGHT = 0.75;
@@ -21,10 +22,10 @@ export class SurfaceSystem extends createSystem({ planes: { required: [XRPlane] 
   private head = new Vector3();
   private fwd = new Vector3();
   private p = new Vector3();
-  private background = new Color(0x2b2e33);
+  private background = new Color(PALETTE.background);
 
   init(): void {
-    const desk = new Mesh(new BoxGeometry(1.3, 0.04, 0.7), woodMaterial(0x8a6a4c));
+    const desk = new Mesh(new BoxGeometry(1.3, 0.04, 0.7), flatMaterial(PALETTE.desk));
     desk.name = 'desk';
     desk.position.set(0, DESK_HEIGHT - 0.02, -0.45);
     this.world.createTransformEntity(desk, { persistent: true });

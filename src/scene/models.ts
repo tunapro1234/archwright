@@ -1,0 +1,266 @@
+// Procedural meshes and materials. Everything is built in code: no texture files, models or fonts.
+import {
+  BoxGeometry, BufferGeometry, CanvasTexture, CatmullRomCurve3, Color, DataTexture, ExtrudeGeometry, Mesh,
+  MeshBasicMaterial, MeshStandardMaterial, NoColorSpace, RepeatWrapping, RGBAFormat, Shape, SRGBColorSpace,
+  TubeGeometry, Vector2, Vector3,
+} from '@iwsdk/core';
+import type { Vec2 } from '../statics/index.js';
+import type { Material } from '../game/arch-state.js';
+import { ABUTMENT_HEIGHT, BOARD, CENTERING } from './layout.js';
+import { PALETTE } from './palette.js';
+import { MATERIAL_COLOR } from './meshes.js';
+
+/** Chamfer on every stone edge (m): it catches the light, so a stone reads as a cut block. */
+export const STONE_BEVEL = 0.003;
+
+/** A prism over `outline` (x-y), `depth` deep in z, centred on z = 0, with a chamfer on its edges. */
+export function prism(outline: Vec2[], depth: number, bevel = STONE_BEVEL): BufferGeometry {
+  const shape = new Shape();
+  shape.moveTo(outline[0].x, outline[0].y);
+  for (let i = 1; i < outline.length; i++) shape.lineTo(outline[i].x, outline[i].y);
+  shape.closePath();
+  const g = new ExtrudeGeometry(shape, {
+    depth: depth - 2 * bevel,
+    bevelEnabled: bevel > 0,
+    bevelThickness: bevel,
+    bevelSize: bevel,
+    bevelOffset: -bevel,
+    bevelSegments: 1,
+    curveSegments: 1,
+  });
+  g.translate(0, 0, -(depth - 2 * bevel) / 2);
+  g.computeVertexNormals();
+  return g;
+}
+
+// Deterministic hash and tileable value noise: nothing here uses Math.random.
+function hash(x: number, y: number): number {
+  let h = (x * 374761393 + y * 668265263) ^ 0x5bd1e995;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 0xffffffff;
+}
+
+function valueNoise(size: number) {
+  return (x: number, y: number, cell: number) => {
+    const gx = x / cell, gy = y / cell, x0 = Math.floor(gx), y0 = Math.floor(gy);
+    const n = size / cell, fx = gx - x0, fy = gy - y0;
+    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    const v = (i: number, j: number) => hash(((x0 + i) % n + n) % n, ((y0 + j) % n + n) % n);
+    return (v(0, 0) * (1 - sx) + v(1, 0) * sx) * (1 - sy) + (v(0, 1) * (1 - sx) + v(1, 1) * sx) * sy;
+  };
+}
+
+function dataTexture(size: number, data: Uint8Array, color: boolean): DataTexture {
+  const t = new DataTexture(data, size, size, RGBAFormat);
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.colorSpace = color ? SRGBColorSpace : NoColorSpace;
+  t.generateMipmaps = true;
+  t.needsUpdate = true;
+  return t;
+}
+
+/** Grey grain in [lo, 1]: tinted by the material colour (and per instance for stones). */
+function grainTexture(size: number, lo: number): DataTexture {
+  const smooth = valueNoise(size);
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const n = 0.5 * smooth(x, y, 16) + 0.3 * smooth(x, y, 8) + 0.2 * smooth(x, y, 2);
+      const v = Math.round(255 * (lo + (1 - lo) * n));
+      const o = 4 * (y * size + x);
+      data[o] = data[o + 1] = data[o + 2] = v; data[o + 3] = 255;
+    }
+  }
+  return dataTexture(size, data, true);
+}
+
+/** Height field -> tangent-space normal map (central differences, wrapping). */
+function normalTexture(size: number, height: Float32Array, strength: number): DataTexture {
+  const data = new Uint8Array(size * size * 4);
+  const h = (x: number, y: number) => height[((y + size) % size) * size + ((x + size) % size)];
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = (h(x + 1, y) - h(x - 1, y)) * strength, dy = (h(x, y + 1) - h(x, y - 1)) * strength;
+      const len = Math.hypot(dx, dy, 1);
+      const o = 4 * (y * size + x);
+      data[o] = Math.round(127.5 * (1 - dx / len));
+      data[o + 1] = Math.round(127.5 * (1 - dy / len));
+      data[o + 2] = Math.round(127.5 * (1 + 1 / len));
+      data[o + 3] = 255;
+    }
+  }
+  return dataTexture(size, data, false);
+}
+
+/**
+ * Tooled stone: rows of short diagonal chisel strokes over a pitted grain, as on a dressed ashlar
+ * face. Baked into a normal map, so every stone shares one material and stays one instanced draw.
+ */
+function chiselNormals(size: number): DataTexture {
+  const smooth = valueNoise(size);
+  const height = new Float32Array(size * size);
+  const band = 16; // px per row of strokes
+  for (let y = 0; y < size; y++) {
+    const row = Math.floor(y / band);
+    for (let x = 0; x < size; x++) {
+      // Strokes lean one way, alternate rows the other way (a mason working back and forth).
+      const lean = row % 2 ? 1 : -1;
+      const u = x + lean * (y % band) * 0.7 + hash(row, 7) * size;
+      const stroke = 0.5 - 0.5 * Math.cos((2 * Math.PI * u) / 6);
+      const fade = Math.sin((Math.PI * (y % band)) / band); // strokes taper to the row edges
+      const pit = smooth(x, y, 4) > 0.82 ? -0.6 : 0;
+      height[y * size + x] = 0.55 * stroke * fade + 0.35 * smooth(x, y, 8) + 0.25 * smooth(x, y, 32) + pit;
+    }
+  }
+  return normalTexture(size, height, 1.2);
+}
+
+/** The one stone material: grain and chisel marks, white so each instance's colour shows true. */
+export function stoneMaterial(): MeshStandardMaterial {
+  const map = grainTexture(64, 0.8);
+  map.repeat.set(14, 14); // extrude UVs are in metres: ~7 cm per tile
+  const normalMap = chiselNormals(128);
+  normalMap.repeat.set(9, 9); // ~11 cm per tile, strokes ~5 mm apart
+  return new MeshStandardMaterial({
+    color: 0xffffff, map, normalMap, normalScale: new Vector2(0.9, 0.9), roughness: 0.93, metalness: 0,
+  });
+}
+
+/** The piers: the same tooled stone in a colour none of the playable stones has. */
+export function abutmentMaterial(stone: MeshStandardMaterial): MeshStandardMaterial {
+  const m = stone.clone();
+  m.color.setHex(PALETTE.abutment);
+  return m;
+}
+
+/**
+ * Timber for the centering: horizontal planks of uneven tone with dark seams, staggered butt joints,
+ * long grain streaks and the odd knot. Drawn once on a canvas; the same image is the bump map.
+ */
+function plankTexture(size: number): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d')!;
+  const smooth = valueNoise(size);
+  const rows = 8, rowH = size / rows;
+  const img = g.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    const r = Math.floor(y / rowH), inRow = y - r * rowH;
+    const tone = 0.82 + 0.18 * hash(r, 3);
+    const joint = Math.floor(hash(r, 11) * size);
+    for (let x = 0; x < size; x++) {
+      const grain = 0.6 * smooth(x, y * 10, 32) + 0.4 * smooth(x, y * 10, 8);
+      let v = tone * (0.8 + 0.2 * grain);
+      if (inRow < 2 || (x - joint + size) % size < 2) v *= 0.45; // seams
+      // A knot or two per plank: darker rings around a point.
+      const kx = Math.floor(hash(r, 5) * size), ky = r * rowH + rowH / 2;
+      const dk = Math.hypot((x - kx) * 0.6, y - ky);
+      if (hash(r, 9) > 0.45 && dk < rowH * 0.32) v *= 0.7 + 0.3 * Math.abs(Math.sin(dk * 1.4));
+      const o = 4 * (y * size + x);
+      img.data[o] = img.data[o + 1] = img.data[o + 2] = Math.round(255 * v);
+      img.data[o + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  const t = new CanvasTexture(c);
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.colorSpace = SRGBColorSpace;
+  return t;
+}
+
+/** Plank timber: the centering. Planks are ~3 cm wide, a tile covers 25 cm. */
+export function woodMaterial(color: number = PALETTE.centering): MeshStandardMaterial {
+  const map = plankTexture(256);
+  map.repeat.set(4, 4);
+  const bumpMap = map.clone();
+  bumpMap.colorSpace = NoColorSpace;
+  return new MeshStandardMaterial({ color, map, bumpMap, bumpScale: 1.5, roughness: 0.78, metalness: 0 });
+}
+
+/**
+ * The snap ghost: where the held stone will sit if released now. Flat, see-through, and lifted
+ * towards white so a dark basalt ghost still shows against the arch.
+ */
+export function ghostMesh(name: string): Mesh {
+  const m = new Mesh(new BufferGeometry(), new MeshBasicMaterial({ transparent: true, opacity: 0.4, depthWrite: false }));
+  m.name = name;
+  m.visible = false;
+  m.renderOrder = 3;
+  return m;
+}
+
+const WHITE = new Color(0xffffff);
+export function ghostColor(material: Material, out: Color): Color {
+  return out.setHex(MATERIAL_COLOR[material]).lerp(WHITE, 0.35);
+}
+
+/** A plain, finely grained surface: the board and the virtual desk (no planks, so not timber). */
+export function flatMaterial(color: number): MeshStandardMaterial {
+  const map = grainTexture(64, 0.88);
+  map.repeat.set(8, 8);
+  return new MeshStandardMaterial({ color, map, roughness: 0.85, metalness: 0 });
+}
+
+/** Wooden centering under the intrados, standing on the board, with a pull handle at the front. */
+export function centeringMesh(top: Vec2[], depth: number, material: MeshStandardMaterial): Mesh {
+  // Shrunk by a millimetre or two so it never z-fights with the stones resting on it.
+  const inset = 0.0015;
+  const half = top[top.length - 1].x;
+  const k = 1 - inset / half;
+  const shape = new Shape();
+  shape.moveTo(half * k, -ABUTMENT_HEIGHT);
+  for (let i = top.length - 1; i >= 0; i--) shape.lineTo(top[i].x * k, top[i].y - inset);
+  shape.lineTo(-half * k, -ABUTMENT_HEIGHT);
+  shape.closePath();
+  const d = depth * 0.92;
+  const body = new ExtrudeGeometry(shape, { depth: d, bevelEnabled: false, curveSegments: 1 });
+  body.translate(0, 0, -d / 2);
+  const mesh = new Mesh(body, material);
+  mesh.name = 'centering';
+  const handle = new Mesh(new BoxGeometry(0.07, 0.022, CENTERING.handleDepth), material);
+  handle.name = 'centering-handle';
+  handle.position.set(0, -ABUTMENT_HEIGHT + 0.022, d / 2 + CENTERING.handleDepth / 2);
+  mesh.add(handle);
+  return mesh;
+}
+
+export function boardMesh(material: MeshStandardMaterial): Mesh {
+  const depth = BOARD.zMax - BOARD.zMin;
+  const g = new BoxGeometry(BOARD.width, BOARD.thickness, depth);
+  g.translate(0, -BOARD.thickness / 2, (BOARD.zMin + BOARD.zMax) / 2);
+  const m = new Mesh(g, material);
+  m.name = 'board';
+  return m;
+}
+
+/** Soft shadow under the arch: one transparent quad with a radial gradient. No real-time shadows. */
+export function blobShadow(width: number, depth: number): Mesh {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(0,0,0,0.42)');
+  grad.addColorStop(0.6, 'rgba(0,0,0,0.18)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  const tex = new CanvasTexture(c);
+  const geo = new BoxGeometry(width, 0.0001, depth);
+  const m = new Mesh(geo, new MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+  m.name = 'blob-shadow';
+  m.position.y = 0.0006;
+  m.renderOrder = 1;
+  return m;
+}
+
+/** The line of thrust: one tube through the joint points, just in front of the stones. */
+export function thrustTube(points: Vec2[], z: number): Mesh {
+  const pts = points.map(p => new Vector3(p.x, p.y, z));
+  const curve = new CatmullRomCurve3(pts, false, 'centripetal');
+  const geo = new TubeGeometry(curve, Math.max(24, pts.length * 6), 0.0022, 6, false);
+  const mat = new MeshBasicMaterial({ color: PALETTE.thrust, transparent: true, opacity: 0, depthTest: true });
+  const m = new Mesh(geo, mat);
+  m.name = 'thrust-line';
+  m.renderOrder = 2;
+  return m;
+}

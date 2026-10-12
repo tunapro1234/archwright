@@ -12,13 +12,18 @@ the arch carries itself or collapses across your desk. No controllers are needed
 ## How to play
 
 - **Pinch** a stone in the tray (thumb and index finger together, close to the stone) and carry it to one of the two open ends
-  of the arch. Let go near the end and it seats with a click. Stones turn to the right angle by themselves.
+  of the arch. As it nears an end, a see-through ghost of the stone shows where it will sit; let go there and it seats with a
+  click. Stones turn to the right angle by themselves.
 - Stones go on from both springings towards the crown; the last gap takes only the keystone. Pinch the outermost stone of either
   side to take it back off.
 - When the arch is closed, pinch the handle of the wooden centering and **pull it towards you**, with one hand or both. Once it
   clears the stones the arch is on its own.
-- If the arch stands, its line of thrust (the path the load takes through the stones) lights up as a golden thread. If it does
+- If the arch stands, its line of thrust (the path the load takes through the stones) lights up as a cyan thread. If it does
   not, it opens at the joints the solver named and falls.
+
+The tray groups stones by kind. The three stones differ in colour and in lightness, so they also tell apart in greyscale or
+with colour blindness: ochre sandstone (mid), pale tuff (light), dark basalt (dark). Every stone has chamfered edges and chisel
+marks; the centering is red-brown planked timber with grain. All colours come from `src/scene/palette.ts`.
 
 Controllers work as a fallback (trigger or grip in place of the pinch). The board finds a desk-height surface if the headset
 reports one; otherwise it sits on a lap tray 40 cm in front of you, a little below the chest.
@@ -52,8 +57,8 @@ URL parameters, for development and tests:
 (fps, JS ms per frame, draw calls, triangles, physics bodies). The `?autotest` mode goes through the same placement and strike
 code as a hand, but it is not a hand simulation.
 
-`node scripts/key-frames.mjs <dir>` opens the emulator page with `&shots=1`, which makes the autotest hold at six moments
-(tray, keystone seated, centering pulled, arch held, collapse half way, collapse at rest) and saves a screenshot of each.
+`node scripts/key-frames.mjs <dir>` opens the emulator page with `&shots=1`, which makes the autotest hold at seven moments
+(tray, keystone held over its gap with the snap ghost, keystone seated, centering pulled, arch held, collapse half way, collapse at rest) and saves a screenshot of each.
 
 ## How the solver works
 

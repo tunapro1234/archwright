@@ -44,7 +44,8 @@ export class CenteringSystem extends createSystem({}) {
         gripped = true;
       }
     }
-    if (c.auto && usable) pull = c.pull + AUTO_PULL_SPEED * delta;
+    // At most 1 cm a frame, so a very slow frame (software rendering) never jumps past the strike.
+    if (c.auto && usable) pull = c.pull + Math.min(AUTO_PULL_SPEED * delta, 0.01);
     if (c.struck) pull = c.pull + (CENTERING.maxPull - c.pull) * Math.min(1, delta * 3);
 
     c.pull = Math.max(0, Math.min(CENTERING.maxPull, pull));

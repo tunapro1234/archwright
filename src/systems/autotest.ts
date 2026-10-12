@@ -2,9 +2,10 @@
 // seats the level's solution (hold) or its trap (collapse) stone by stone, then pulls the centering.
 // It goes through the same placement and strike code as a hand, but it is not a hand simulation.
 // Several runs can be chained with ';', e.g. ?autotest=w1-1:hold;w1-1:collapse.
-// With &shots=1 it also holds at six key frames (tray, keystone, pulling, held, collapse-mid,
-// collapsed), naming each in window.__archwright.shot until the test clears it. Slow software
-// rendering would otherwise rush past the short moments between two screenshots.
+// With &shots=1 it also holds at seven key frames (tray, ghost, keystone, pulling, held,
+// collapse-mid, collapsed), naming each in window.__archwright.shot until the test clears it. Slow
+// software rendering would otherwise rush past the short moments between two screenshots. For
+// 'ghost' the keystone is shown hovering above its gap with the snap ghost lit, as a hand would hold it.
 import { createSystem } from '@iwsdk/core';
 import { ArchRuntime } from '../game/runtime.js';
 import { strikePull } from '../scene/layout.js';
@@ -74,8 +75,21 @@ export class AutotestSystem extends createSystem({}) {
     switch (this.phase) {
       case 'place': {
         if (this.next === 0 && this.shot(arch, 'tray')) return;
-        const s = this.steps[this.next++];
+        const s = this.steps[this.next];
         const v = arch.stoneById(s.stone);
+        if (v && this.next === this.steps.length - 1 && this.shots && !this.taken.has('ghost')) {
+          const t = arch.targets(v).find(q => q.side === s.side);
+          if (t) {
+            v.tween = undefined;
+            v.mode = 'held';
+            v.pose = { ...t.pose, x: t.pose.x + 0.085, z: t.pose.z + 0.05 }; // beside the gap, the ghost in view
+            arch.showGhost('right', v, t.pose, 0.6);
+            this.shot(arch, 'ghost');
+            return;
+          }
+        }
+        arch.hideGhost('right');
+        this.next++;
         if (!v || arch.place(v, s.side, MOVE, 0.07)) console.warn(`autotest: could not place ${s.stone} on the ${s.side}`);
         this.timer = this.next < this.steps.length ? STEP : BEFORE_PULL;
         if (this.next >= this.steps.length) this.phase = 'pull';

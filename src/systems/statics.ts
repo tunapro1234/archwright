@@ -4,7 +4,7 @@ import { createSystem, type Mesh, type MeshBasicMaterial } from '@iwsdk/core';
 import type { ArchRuntime } from '../game/runtime.js';
 import { strike } from '../game/arch-state.js';
 import { ABUTMENT_HEIGHT } from '../scene/layout.js';
-import { thrustTube } from '../scene/meshes.js';
+import { thrustTube } from '../scene/models.js';
 import { playCollapse, playHold } from '../audio/synth.js';
 
 export const SILENCE = 0.6; // s between the strike and the verdict being heard and seen

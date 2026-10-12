@@ -11,8 +11,10 @@ import type { GameState, LevelDef, StoneDef } from '../game/arch-state.js';
 export const ABUTMENT_HEIGHT = 0.05;
 export const ABUTMENT_SPARE = 0.025;  // abutment width beyond the thickest stone
 export const BOARD = { width: 0.46, zMin: -0.08, zMax: 0.3, thickness: 0.012 };
-// TRAY.z: far edge (towards the arch) of the first row; rowGap: clear space between rows.
-export const TRAY = { z: 0.15, rowGap: 0.015, maxWidth: 0.42, gap: 0.012 };
+// TRAY.z: far edge (towards the arch) of the first row; rowGap: clear space between rows;
+// gap: between two stones of a kind; groupGap: between kinds.
+export const TRAY = { z: 0.15, rowGap: 0.015, maxWidth: 0.42, gap: 0.012, groupGap: 0.03 };
+const MATERIAL_ORDER = ['sandstone', 'tuff', 'basalt'] as const;
 export const CENTERING = { handleDepth: 0.03, strikeExtra: 0.012, maxPull: 0.085 };
 export const LYING = -Math.PI / 2; // tilt of a stone lying face up in the tray
 
@@ -43,32 +45,49 @@ export function facePose(s: GameState, stone: StoneDef, side: 'left' | 'right'):
   return slotPose(s.geometry, stone, slot);
 }
 
+/** Tray grouping key: stones of one material and shape are interchangeable, so they lie together. */
+export function stoneKind(s: StoneDef): string {
+  return `${s.material}|${s.t}|${s.units}|${s.keystone ? 'k' : ''}`;
+}
+
 /**
- * Tray positions, in tray order: rows of stones lying face up, centred across the board. A lying
- * stone's local y (out of the ring) points away from the player, so it lies as it will stand.
+ * Tray positions, in tray order: rows of stones lying face up, centred across the board, grouped
+ * by kind (material first, then shape) with a wider gap between kinds. A lying stone's local y
+ * (out of the ring) points away from the player, so it lies as it will stand.
  */
 export function trayPoses(def: LevelDef): Pose2[] {
   const geo = { span: def.span, rise: def.rise, units: def.stones, depth: def.depth };
   const boxes = def.tray.map(s => bounds(stoneOutline(geo, s)));
-  const rows: number[][] = [[]];
+  // Kinds in order of first appearance within each material; stable inside a kind.
+  const kinds: string[] = [];
+  for (const s of def.tray) if (!kinds.includes(stoneKind(s))) kinds.push(stoneKind(s));
+  const rank = (s: StoneDef) => MATERIAL_ORDER.indexOf(s.material) * 1000 + kinds.indexOf(stoneKind(s));
+  const order = def.tray.map((_, i) => i).sort((a, b) => rank(def.tray[a]) - rank(def.tray[b]) || a - b);
+  const gapBefore = (k: number) => (stoneKind(def.tray[order[k]]) === stoneKind(def.tray[order[k - 1]]) ? TRAY.gap : TRAY.groupGap);
+
+  const rows: { i: number; gap: number }[][] = [[]];
   let width = 0;
-  boxes.forEach((b, i) => {
-    const w = b.maxX - b.minX;
-    if (rows[rows.length - 1].length && width + TRAY.gap + w > TRAY.maxWidth) { rows.push([]); width = 0; }
-    width += (rows[rows.length - 1].length ? TRAY.gap : 0) + w;
-    rows[rows.length - 1].push(i);
+  order.forEach((i, k) => {
+    const w = boxes[i].maxX - boxes[i].minX;
+    let row = rows[rows.length - 1];
+    const gap = row.length ? gapBefore(k) : 0;
+    if (row.length && width + gap + w > TRAY.maxWidth) { row = []; rows.push(row); width = 0; }
+    const g = row.length ? gap : 0;
+    width += g + w;
+    row.push({ i, gap: g });
   });
   const out: Pose2[] = new Array(def.tray.length);
   let z0 = TRAY.z;
   for (const row of rows) {
-    const total = row.reduce((a, i) => a + boxes[i].maxX - boxes[i].minX, 0) + TRAY.gap * (row.length - 1);
-    const rowDepth = Math.max(...row.map(i => boxes[i].maxY - boxes[i].minY));
+    const total = row.reduce((a, { i, gap }) => a + gap + boxes[i].maxX - boxes[i].minX, 0);
+    const rowDepth = Math.max(...row.map(({ i }) => boxes[i].maxY - boxes[i].minY));
     let x = -total / 2;
-    for (const i of row) {
+    for (const { i, gap } of row) {
       const b = boxes[i];
+      x += gap;
       // Lying, local y maps to -z: the stone covers z in [pose.z - maxY, pose.z - minY].
       out[i] = { x: x - b.minX, y: def.depth / 2, z: z0 + rowDepth / 2 + (b.maxY + b.minY) / 2, angle: 0, tilt: LYING };
-      x += b.maxX - b.minX + TRAY.gap;
+      x += b.maxX - b.minX;
     }
     z0 += rowDepth + TRAY.rowGap;
   }

@@ -13,8 +13,11 @@ import {
   abutments, ABUTMENT_HEIGHT, BOARD, facePose, intrados, stoneOutline, trayPoses, type Pose2,
 } from '../scene/layout.js';
 import {
-  blobShadow, boardMesh, centeringMesh, MATERIAL_COLOR, prism, stoneMaterial, woodMaterial,
-} from '../scene/meshes.js';
+  abutmentMaterial, blobShadow, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, prism, stoneMaterial,
+  woodMaterial,
+} from '../scene/models.js';
+import { MATERIAL_COLOR } from '../scene/meshes.js';
+import { PALETTE } from '../scene/palette.js';
 import { playReject, playTick } from '../audio/synth.js';
 
 export type HookState = 'loading' | 'ready' | 'building' | 'held' | 'collapsed';
@@ -75,8 +78,11 @@ export class ArchRuntime {
   bodies = 0;
   private levelEntities: Entity[] = [];
   private readonly stoneMat = stoneMaterial();
+  private readonly abutmentMat = abutmentMaterial(this.stoneMat);
   private readonly woodMat = woodMaterial();
-  private readonly boardMat = woodMaterial(0x6f5138);
+  private readonly boardMat = flatMaterial(PALETTE.board);
+  /** Snap ghosts, one per hand: where the stone that hand holds would seat. */
+  private readonly ghosts: Record<Side, Mesh>;
   private readonly proxyMat = new MeshBasicMaterial({ visible: false });
 
   constructor(readonly world: World) {
@@ -93,6 +99,8 @@ export class ArchRuntime {
     const sun = new DirectionalLight(0xffffff, 1.2);
     sun.position.set(0.4, 1.0, 0.6);
     this.site.add(sun);
+    this.ghosts = { left: ghostMesh('ghost-left'), right: ghostMesh('ghost-right') };
+    for (const g of Object.values(this.ghosts)) world.createTransformEntity(g, { persistent: true });
   }
 
   static levelById(id: string | null): LevelDef {
@@ -117,7 +125,7 @@ export class ArchRuntime {
     for (const a of abutments(def)) {
       const m = new Mesh(prism([
         { x: -a.width / 2, y: 0 }, { x: a.width / 2, y: 0 }, { x: a.width / 2, y: a.height }, { x: -a.width / 2, y: a.height },
-      ], def.depth + 0.012, 0.001), this.stoneMat);
+      ], def.depth + 0.012, 0.002), this.abutmentMat);
       m.name = 'abutment';
       m.position.set(a.x, 0, 0);
       add(m);
@@ -167,6 +175,8 @@ export class ArchRuntime {
   }
 
   private clear(): void {
+    this.hideGhost('left');
+    this.hideGhost('right');
     for (const e of this.levelEntities) e.dispose();
     this.levelEntities = [];
     for (const child of [...this.site.children]) if (!(child instanceof DirectionalLight)) this.site.remove(child);
@@ -230,6 +240,21 @@ export class ArchRuntime {
   tweenTo(v: StoneView, to: Pose2, dur: number, lift: number, then: StoneMode): void {
     v.tween = { from: { ...v.pose }, to: { ...to }, t: 0, dur, lift, then };
     v.mode = 'tween';
+  }
+
+  /** Show where `v` would seat (a see-through copy at `pose`); `near` in [0, 1] firms it up. */
+  showGhost(side: Side, v: StoneView, pose: Pose2, near: number): void {
+    const g = this.ghosts[side];
+    const mat = g.material as MeshBasicMaterial;
+    g.geometry = this.batches[v.batch].mesh.geometry;
+    ghostColor(v.def.material, mat.color);
+    mat.opacity = 0.25 + 0.25 * near;
+    this.applyPose(g, pose);
+    g.visible = true;
+  }
+
+  hideGhost(side: Side): void {
+    this.ghosts[side].visible = false;
   }
 
   /** Write a site-frame pose into an object's world transform (stones are top-level entities). */

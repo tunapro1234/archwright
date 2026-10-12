@@ -1,6 +1,7 @@
 // Pinch a stone, carry it, release it near an open face: it snaps on with a tock. Proximity-gated
 // (the pinch must start on a stone), no rotation (the stone orients itself), no throwing (release
-// velocity is ignored), and a stone whose hand loses tracking floats back to the tray.
+// velocity is ignored), and a stone whose hand loses tracking floats back to the tray. While a
+// stone is carried near an open face, a see-through ghost shows where it would seat.
 import { createSystem, Vector3 } from '@iwsdk/core';
 import type { ArchRuntime, StoneView } from '../game/runtime.js';
 import type { Side } from '../game/arch-state.js';
@@ -11,6 +12,7 @@ import type { Pose2 } from '../scene/layout.js';
 export const GRAB_RADIUS = 0.05;   // pinch must start this close to a stone's centre (m)
 export const SNAP_RADIUS = 0.06;   // release this close to a face pose and the stone seats
 export const MAGNET_RADIUS = 0.1;  // within this the held stone eases towards the face pose
+export const GHOST_RADIUS = 0.16;  // within this the face shows a ghost of the held stone
 
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const lerpAngle = (a: number, b: number, t: number) => {
@@ -33,10 +35,11 @@ export class GrabSnapSystem extends createSystem({}) {
     for (const side of ['left', 'right'] as const) {
       const h = hands[side];
       const v = this.held[side];
-      if (v && (v.mode !== 'held' || v.heldBy !== side)) { this.held[side] = undefined; continue; }
+      if (v && (v.mode !== 'held' || v.heldBy !== side)) { this.held[side] = undefined; arch.hideGhost(side); continue; }
       if (!v && h.pinchStarted && h.tracked) this.tryGrab(arch, side, h);
       else if (v && (h.pinchEnded || (!h.tracked && h.lostFor > LOST_AFTER))) this.release(arch, side, v, h.tracked && h.pinchEnded);
-      else if (v && h.tracked) this.carry(arch, v, h, delta);
+      else if (v && h.tracked) this.carry(arch, side, v, h, delta);
+      if (v && !this.held[side]) arch.hideGhost(side); // let go: the stone seated or went home
     }
     for (const v of arch.stones) if (v.mode === 'tween' && v.tween) this.step(v, delta);
   }
@@ -66,15 +69,19 @@ export class GrabSnapSystem extends createSystem({}) {
     this.held[side] = best;
   }
 
-  private carry(arch: ArchRuntime, v: StoneView, h: HandState, delta: number): void {
+  private carry(arch: ArchRuntime, side: Side, v: StoneView, h: HandState, delta: number): void {
     arch.site.worldToLocal(this.local.copy(h.point));
-    // Ease towards the nearest face pose when close: magnetic snap preview; otherwise stand upright.
-    let target: Pose2 | undefined;
-    let dist = MAGNET_RADIUS;
+    // Nearest open face: a ghost from GHOST_RADIUS, and inside MAGNET_RADIUS the stone eases onto
+    // it (magnetic snap preview); otherwise the stone stands upright in the hand.
+    let nearest: Pose2 | undefined;
+    let dist = GHOST_RADIUS;
     for (const t of arch.targets(v)) {
       const d = this.p.set(t.pose.x, t.pose.y, t.pose.z).distanceTo(this.local);
-      if (d < dist) { dist = d; target = t.pose; }
+      if (d < dist) { dist = d; nearest = t.pose; }
     }
+    if (nearest) arch.showGhost(side, v, nearest, 1 - dist / GHOST_RADIUS);
+    else arch.hideGhost(side);
+    const target = dist < MAGNET_RADIUS ? nearest : undefined;
     const k = Math.min(1, delta * 18);
     if (target) {
       const pull = 1 - dist / MAGNET_RADIUS; // 0 at the edge, 1 on the pose
