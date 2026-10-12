@@ -28,6 +28,9 @@ export const REBUILD_AFTER = 2.0;
 export const PICK_RADIUS = 0.03;              // a pinch this close to a marker or the rebuild stone takes it
 const REBUILD_AT = new Vector3(0, 0.1, 0.09);  // site frame: above the board, in front of the arch
 const MARKER_LIFT = 0.006;
+// At most this much loop time per frame, so on a very slow frame (software rendering) the passenger
+// still walks and the held arch is still on view for a while before the next level replaces it.
+const MAX_STEP = 0.1;
 
 /** What the desktop mouse mode needs from the loop: the same picks a pinch makes. */
 export interface LoopPicker {
@@ -92,7 +95,7 @@ export class GameLoopSystem extends createSystem({}) {
 
     const state = arch.hook.state;
     if (this.verdict === 'none' && (state === 'held' || state === 'collapsed')) this.onVerdict(arch, state);
-    if (this.verdict !== 'none') this.t += delta;
+    if (this.verdict !== 'none') this.t += Math.min(delta, MAX_STEP);
     if (this.verdict === 'held') this.afterHold(arch);
     else if (this.verdict === 'collapsed') this.afterCollapse();
 
