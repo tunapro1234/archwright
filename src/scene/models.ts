@@ -1,8 +1,8 @@
 // Procedural meshes and materials. Everything is built in code: no texture files, models or fonts.
 import {
-  BoxGeometry, BufferGeometry, CanvasTexture, CatmullRomCurve3, Color, DataTexture, ExtrudeGeometry, Mesh,
-  MeshBasicMaterial, MeshStandardMaterial, NoColorSpace, RepeatWrapping, RGBAFormat, Shape, SRGBColorSpace,
-  TubeGeometry, Vector2, Vector3,
+  BackSide, BoxGeometry, BufferGeometry, CanvasTexture, CatmullRomCurve3, Color, DataTexture, ExtrudeGeometry,
+  Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, NoColorSpace, RepeatWrapping, RGBAFormat,
+  RingGeometry, Shape, SRGBColorSpace, TubeGeometry, Vector2, Vector3,
 } from '@iwsdk/core';
 import type { Vec2 } from '../statics/index.js';
 import type { Material } from '../game/arch-state.js';
@@ -169,9 +169,9 @@ function plankTexture(size: number): CanvasTexture {
 }
 
 /** Plank timber: the centering. Planks are ~3 cm wide, a tile covers 25 cm. */
-export function woodMaterial(color: number = PALETTE.centering): MeshStandardMaterial {
+export function woodMaterial(color: number = PALETTE.centering, repeat = 4): MeshStandardMaterial {
   const map = plankTexture(256);
-  map.repeat.set(4, 4);
+  map.repeat.set(repeat, repeat);
   const bumpMap = map.clone();
   bumpMap.colorSpace = NoColorSpace;
   return new MeshStandardMaterial({ color, map, bumpMap, bumpScale: 1.5, roughness: 0.78, metalness: 0 });
@@ -262,5 +262,68 @@ export function thrustTube(points: Vec2[], z: number): Mesh {
   const m = new Mesh(geo, mat);
   m.name = 'thrust-line';
   m.renderOrder = 2;
+  return m;
+}
+
+/** Boxes ({size, centre}) welded into one geometry, so a piece of furniture is one draw call. */
+function boxes(parts: { w: number; h: number; d: number; x: number; y: number; z: number }[]): BufferGeometry {
+  const pos: number[] = [], nor: number[] = [], uv: number[] = [];
+  for (const b of parts) {
+    const g = new BoxGeometry(b.w, b.h, b.d).toNonIndexed();
+    g.translate(b.x, b.y, b.z);
+    pos.push(...(g.getAttribute('position').array as Float32Array));
+    nor.push(...(g.getAttribute('normal').array as Float32Array));
+    // Planks run along the longest side whatever the box: scale UVs by the face size in metres.
+    const p = g.getAttribute('position'), n = g.getAttribute('normal');
+    for (let i = 0; i < p.count; i++) {
+      const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i));
+      const u = ax > 0.5 ? p.getZ(i) : p.getX(i);
+      const v = ay > 0.5 ? p.getZ(i) : p.getY(i);
+      uv.push(u, v);
+    }
+    g.dispose();
+  }
+  const out = new BufferGeometry();
+  out.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  out.setAttribute('normal', new Float32BufferAttribute(nor, 3));
+  out.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+  return out;
+}
+
+export const ATELIER_DESK = { width: 1.2, depth: 0.7, height: 0.74, top: 0.035 } as const;
+
+/**
+ * The atelier for opaque VR: a plain room and a wooden desk, origin at the centre of the desk top,
+ * the player on +z. Two draw calls: the room box seen from inside, and the desk (top and legs in one).
+ */
+export function atelier(): Group {
+  const g = new Group();
+  g.name = 'atelier';
+  const D = ATELIER_DESK;
+  const leg = 0.05, lx = D.width / 2 - 0.06, lz = D.depth / 2 - 0.06, lh = D.height - D.top;
+  const desk = new Mesh(boxes([
+    { w: D.width, h: D.top, d: D.depth, x: 0, y: -D.top / 2, z: 0 },
+    ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => ({ w: leg, h: lh, d: leg, x: sx * lx, y: -D.top - lh / 2, z: sz * lz })),
+    { w: D.width - 0.12, h: 0.08, d: 0.02, x: 0, y: -D.top - 0.04, z: -lz }, // apron at the back
+  ]), woodMaterial(PALETTE.desk, 2.5));
+  desk.name = 'atelier-desk';
+  g.add(desk);
+  const room = new Mesh(new BoxGeometry(4.2, 2.8, 4.2), flatMaterial(PALETTE.room));
+  (room.material as MeshStandardMaterial).side = BackSide;
+  room.name = 'atelier-room';
+  room.position.set(0, 1.4 - D.height, 0.6); // floor under the desk legs, the player inside
+  g.add(room);
+  return g;
+}
+
+/** Pick marker: a flat ring where the hand's ray meets a real surface. */
+export function pickRing(name: string): Mesh {
+  const m = new Mesh(
+    new RingGeometry(0.028, 0.04, 32).rotateX(-Math.PI / 2),
+    new MeshBasicMaterial({ color: PALETTE.pinch, transparent: true, opacity: 0.9, depthWrite: false }),
+  );
+  m.name = name;
+  m.renderOrder = 4;
+  m.visible = false;
   return m;
 }

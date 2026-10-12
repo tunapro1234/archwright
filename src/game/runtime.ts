@@ -18,6 +18,7 @@ import {
 } from '../scene/models.js';
 import { MATERIAL_COLOR } from '../scene/meshes.js';
 import { PALETTE } from '../scene/palette.js';
+import type { SurfaceKind } from '../scene/surface-chain.js';
 import { playReject, playTick } from '../audio/synth.js';
 
 export type HookState = 'loading' | 'ready' | 'building' | 'held' | 'collapsed';
@@ -25,6 +26,8 @@ export interface Hook {
   state: HookState;
   level: string;
   perf: { fps: number; frameMs: number; drawCalls: number; triangles: number; bodies: number };
+  /** Where the board stands: the kind SurfaceSystem last chose (src/scene/surface-chain.ts). */
+  surface?: SurfaceKind;
   /** ?autotest with &shots=1 only: name of the key frame the autotest is holding for; clear it to go on. */
   shot?: string;
 }
@@ -75,6 +78,8 @@ export class ArchRuntime {
   /** Bumped on every load, so systems can drop per-level bookkeeping. */
   generation = 0;
   physicsRegistered = false;
+  /** False while SurfaceSystem is still looking for a surface: the board is hidden and nothing can be grabbed. */
+  shown = true;
   bodies = 0;
   private levelEntities: Entity[] = [];
   private readonly stoneMat = stoneMaterial();
@@ -156,6 +161,7 @@ export class ArchRuntime {
       const mesh = new InstancedMesh(g, this.stoneMat, counts[i]);
       mesh.name = `stones-${i}`;
       mesh.frustumCulled = false; // instances move all over the desk when the arch falls
+      mesh.visible = this.shown;
       this.levelEntities.push(this.world.createTransformEntity(mesh));
       return { mesh, count: 0 };
     });
@@ -251,6 +257,14 @@ export class ArchRuntime {
     mat.opacity = 0.25 + 0.25 * near;
     this.applyPose(g, pose);
     g.visible = true;
+  }
+
+  /** Show or hide the whole board (site and stones) while the surface is being chosen. */
+  setShown(on: boolean): void {
+    if (on === this.shown) return;
+    this.shown = on;
+    this.site.visible = on;
+    for (const b of this.batches) b.mesh.visible = on;
   }
 
   hideGhost(side: Side): void {

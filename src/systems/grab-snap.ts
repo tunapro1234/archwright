@@ -45,7 +45,7 @@ export class GrabSnapSystem extends createSystem({}) {
   }
 
   private tryGrab(arch: ArchRuntime, side: Side, h: HandState): void {
-    if (arch.state.phase !== 'building' && arch.state.phase !== 'ready') return;
+    if (!arch.shown || (arch.state.phase !== 'building' && arch.state.phase !== 'ready')) return;
     arch.site.worldToLocal(this.local.copy(h.point));
     let best: StoneView | undefined;
     let bestD = GRAB_RADIUS;

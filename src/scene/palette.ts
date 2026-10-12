@@ -22,6 +22,8 @@ export const PALETTE = {
   abutment: 0xa08468,
   /** Opaque VR (atelier) background. */
   background: 0x2b2e33,
+  /** Walls and floor of the atelier (opaque VR): dim warm plaster, behind everything else. */
+  room: 0x4b4640,
   /** Pinch cursor while pinching. */
   pinch: 0xffc94a,
 } as const;

@@ -25,8 +25,15 @@ The tray groups stones by kind. The three stones differ in colour and in lightne
 with colour blindness: ochre sandstone (mid), pale tuff (light), dark basalt (dark). Every stone has chamfered edges and chisel
 marks; the centering is red-brown planked timber with grain. All colours come from `src/scene/palette.ts`.
 
-Controllers work as a fallback (trigger or grip in place of the pinch). The board finds a desk-height surface if the headset
-reports one; otherwise it sits on a lap tray 40 cm in front of you, a little below the chest.
+Controllers work as a fallback (trigger or grip in place of the pinch).
+
+Where the board goes (`src/scene/surface-chain.ts`, a pure function with its own tests): if the headset's scene data has a
+table mesh or a horizontal plane at desk height within reach (25 to 85 cm below the eyes, at most 75 cm away, at least
+30 × 20 cm), the board goes on it, scene meshes first. If none turns up within 1.5 s and hit-test is available, a ring follows
+your hand's ray over real surfaces and you pinch to pick a spot on your desk; a spot at floor or shelf height is refused. After
+9.5 s with no pick, or without hit-test, the board sits on a lap tray 40 cm in front of you, 42 cm below the eyes. A lap tray or
+a picked spot gives way if a real desk is detected before the first stone goes down; after that the board stays put. In an
+opaque VR session (no passthrough) you sit in the atelier, a plain virtual room with a wooden desk.
 
 ## How to run
 
@@ -51,9 +58,11 @@ URL parameters, for development and tests:
 |---|---|
 | `?level=w1-2` | start on another level (`w1-1`, `w1-2`, `w1-3`) |
 | `?emulator=1` | install IWER, Meta's WebXR emulator, so a desktop browser can run an XR session |
+| `?surface=lap` | force a surface in an XR session: `mesh`, `plane`, `pick`, `lap` or `atelier` |
 | `?autotest=w1-1:hold` | place the level's solution (`hold`) or its trap (`collapse`) by program and pull the centering; runs can be chained with `;` |
 
-`window.__archwright` exposes the state (`loading`, `ready`, `building`, `held`, `collapsed`), the level and frame numbers
+`window.__archwright` exposes the state (`loading`, `ready`, `building`, `held`, `collapsed`), the level, the surface the board
+stands on (`surface`: `desk` outside XR, else `mesh`, `plane`, `pick`, `lap` or `atelier`) and frame numbers
 (fps, JS ms per frame, draw calls, triangles, physics bodies). The `?autotest` mode goes through the same placement and strike
 code as a hand, but it is not a hand simulation.
 
