@@ -9,6 +9,7 @@ import {
 } from './arch-state.js';
 import type { SolveResult } from '../statics/index.js';
 import { LEVELS } from '../levels/index.js';
+import { dailyDate, dailyLevel, localDateISO } from './daily.js';
 import {
   abutments, ABUTMENT_HEIGHT, BOARD, centeringTop, facePose, loadRest, shapeKey, stoneOutline, trayPoses, type Pose2,
 } from '../scene/layout.js';
@@ -32,9 +33,12 @@ export interface Hook {
   shot?: string;
   /** Desktop mouse mode (src/systems/desktop.ts): stones seated so far. */
   placed?: number;
-  /** Where a target sits on the page, in CSS px: a stone id, 'face:left', 'face:right' or 'lever'. */
+  /** Where a target sits on the page, in CSS px: a stone id, 'face:left', 'face:right', 'lever',
+   *  'tablet' (the share card, once shown) or 'marker:today' (the daily level's marker). */
   project?: (target: string) => { x: number; y: number } | null;
   debug?: { solution: Step[] };
+  /** Today's Span: the day's number while a daily level is on the board, and its share card once struck. */
+  daily?: { number: number; card: string | null } | null;
   /** The XR session: the mode it was requested in (null outside XR) and its enabled features. */
   xr?: { mode: 'immersive-ar' | 'immersive-vr' | null; features: string[] };
 }
@@ -129,7 +133,11 @@ export class ArchRuntime {
     for (const g of Object.values(this.ghosts)) world.createTransformEntity(g, { persistent: true });
   }
 
+  /** A world level by id, 'today' or a daily id (daily-YYYY-MM-DD) for Today's Span; else the first level. */
   static levelById(id: string | null): LevelDef {
+    if (id === 'today') return dailyLevel(localDateISO());
+    const date = id ? dailyDate(id) : null;
+    if (date) return dailyLevel(date);
     return LEVELS.find(l => l.id === id) ?? LEVELS[0];
   }
 

@@ -197,6 +197,19 @@ export function markerSpots(ids: string[]): { id: string; x: number; z: number }
   });
 }
 
+/** Marker of Today's Span: a round stone in the next free marker column, level with the first row. */
+export function dailySpot(ids: string[]): { x: number; z: number } {
+  const k = new Set(ids.map(id => id.split('-')[0])).size;
+  const side = k % 2 === 0 ? -1 : 1;
+  return { x: side * (BOARD.width / 2 + MARKER.edge + Math.floor(k / 2) * MARKER.column), z: MARKER.z0 };
+}
+
+/**
+ * The share tablet of Today's Span (site frame): a small slab standing on the board between the
+ * arch and the tray, right of centre, leaning back towards the arch. Its face shows one tile per stone.
+ */
+export const TABLET = { x: 0.13, z: 0.095, width: 0.085, height: 0.045, thickness: 0.009, lean: 0.35, tile: 0.0064, tileGap: 0.0017 };
+
 /** Pull distance at which the centering clears the stones and the arch is struck. */
 export const strikePull = (depth: number): number => depth + CENTERING.strikeExtra;
 

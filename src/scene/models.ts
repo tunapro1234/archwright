@@ -7,7 +7,7 @@ import {
 } from '@iwsdk/core';
 import type { Vec2 } from '../statics/index.js';
 import type { LoadKind, Material } from '../game/arch-state.js';
-import { ABUTMENT_HEIGHT, BOARD, CENTERING, MARKER } from './layout.js';
+import { ABUTMENT_HEIGHT, BOARD, CENTERING, MARKER, TABLET } from './layout.js';
 import { PALETTE } from './palette.js';
 import { MATERIAL_COLOR } from './meshes.js';
 
@@ -386,6 +386,38 @@ export function levelMarkers(count: number): { filled: InstancedMesh; hollow: In
   filled.name = 'markers-solved';
   hollow.name = 'markers-open';
   return { filled, hollow };
+}
+
+/** Marker of Today's Span: a round stone, unlike the square level markers. One draw call. */
+export function dailyMarker(): Mesh {
+  const r = MARKER.size * 0.58, h = 0.01;
+  const m = new Mesh(new CylinderGeometry(r, r * 1.08, h, 20).translate(0, h / 2, 0), flatMaterial(0xffffff));
+  m.name = 'marker-daily';
+  return m;
+}
+
+/**
+ * Share tablet of Today's Span: a small stone slab, origin at the middle of its foot, leaning back
+ * by TABLET.lean. Its face carries up to `capacity` tiles (instances), one per stone of the arch in
+ * ring order, coloured like the stones. No text. Two draw calls.
+ */
+export function shareTablet(stone: MeshStandardMaterial, capacity = 12): { group: Group; face: Group; tiles: InstancedMesh } {
+  const { width: w, height: h, thickness: d, lean, tile } = TABLET;
+  const group = new Group();
+  group.name = 'share-tablet';
+  const face = new Group();
+  face.rotation.x = -lean;
+  group.add(face);
+  const slab = new Mesh(prism([{ x: -w / 2, y: 0 }, { x: w / 2, y: 0 }, { x: w / 2 - 0.004, y: h }, { x: -w / 2 + 0.004, y: h }], d), stone);
+  slab.name = 'share-tablet-slab';
+  face.add(slab);
+  const tiles = new InstancedMesh(new BoxGeometry(tile, tile, 0.0025), flatMaterial(0xffffff), capacity);
+  tiles.name = 'share-tablet-tiles';
+  tiles.count = 0;
+  tiles.position.z = d / 2 + 0.001;
+  face.add(tiles);
+  group.visible = false;
+  return { group, face, tiles };
 }
 
 /** Non-indexed geometries (position, normal, uv) welded into one, so a model is one draw call. */

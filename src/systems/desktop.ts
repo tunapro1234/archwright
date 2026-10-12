@@ -3,7 +3,8 @@
 // may join; click a ghost and the stone seats there. Clicking the stone again, or the bare board,
 // puts it back; clicking the outermost stone of either half lifts it off the arch again. Drag the
 // centering's handle down the page (DRAG_PX) to pull it out and strike the arch. After a collapse
-// the rebuild stone and the level markers beside the board take a click as they take a pinch.
+// the rebuild stone and the level markers beside the board take a click as they take a pinch, and
+// so does the share tablet of Today's Span (a click copies its card).
 //
 // Picking goes through IWSDK's canvas pointer path: the page's pointer events are forwarded into
 // the scene, onto entities tagged RayInteractable (iwsdk.config.json, input.canvasPointerEvents).
@@ -14,7 +15,7 @@ import {
 } from '@iwsdk/core';
 import type { ArchRuntime, StoneView } from '../game/runtime.js';
 import type { Side } from '../game/arch-state.js';
-import { BOARD, CENTERING, strikePull, type Pose2 } from '../scene/layout.js';
+import { BOARD, CENTERING, strikePull, TABLET, type Pose2 } from '../scene/layout.js';
 import { leverPull, ndcToCss } from '../game/desktop.js';
 import type { LoopPicker } from './loop.js';
 
@@ -36,6 +37,7 @@ export class DesktopSystem extends createSystem({}) {
   private lever!: Mesh;
   private board!: Mesh;
   private rebuild!: Mesh;
+  private tablet!: Mesh;
   private proxies: Entity[] = [];
   private hovered = new Set<Object3D>();
   private downY = 0;
@@ -61,6 +63,7 @@ export class DesktopSystem extends createSystem({}) {
     // Board plus the marker columns beside it: a click here is a marker pick or "put the stone back".
     this.board = proxy(new Mesh(new BoxGeometry(BOARD.width + 0.16, 0.004, BOARD.zMax - BOARD.zMin + 0.06), hidden), 'board-hit');
     this.rebuild = proxy(new Mesh(new SphereGeometry(0.028, 12, 8), hidden), 'rebuild-hit');
+    this.tablet = proxy(new Mesh(new BoxGeometry(TABLET.width + 0.01, TABLET.height + 0.01, 0.03), hidden), 'tablet-hit');
 
     for (const side of SIDES) {
       on(this.faces[side], 'pointerdown', () => this.seat(side));
@@ -75,6 +78,12 @@ export class DesktopSystem extends createSystem({}) {
       if (at) loop!.pick(at);
     });
     this.hover(this.rebuild);
+    on(this.tablet, 'pointerdown', () => {
+      const loop = this.globals.loop as LoopPicker | undefined;
+      const at = loop?.tabletAt(this.v);
+      if (at) loop!.pick(at);
+    });
+    this.hover(this.tablet);
 
     this.canvas = this.renderer.domElement;
     this.canvas.style.touchAction = 'none'; // a touch drag works the lever instead of scrolling the page
@@ -138,6 +147,9 @@ export class DesktopSystem extends createSystem({}) {
     const at = (this.globals.loop as LoopPicker | undefined)?.rebuildAt(this.v);
     this.rebuild.visible = !!at;
     if (at) this.follow(this.rebuild, at);
+    const face = (this.globals.loop as LoopPicker | undefined)?.tabletAt(this.v);
+    this.tablet.visible = !!face;
+    if (face) this.follow(this.tablet, face);
   }
 
   private canBuild(arch: ArchRuntime): boolean {
@@ -161,7 +173,7 @@ export class DesktopSystem extends createSystem({}) {
       if (this.active) { if (!e.hasComponent(RayInteractable)) e.addComponent(RayInteractable); }
       else if (e.hasComponent(RayInteractable)) e.removeComponent(RayInteractable);
     }
-    if (!this.active) for (const m of [this.lever, this.board, this.rebuild]) m.visible = false;
+    if (!this.active) for (const m of [this.lever, this.board, this.rebuild, this.tablet]) m.visible = false;
   }
 
   private pick(arch: ArchRuntime, v: StoneView): void {
@@ -268,9 +280,12 @@ export class DesktopSystem extends createSystem({}) {
   private project(target: string): { x: number; y: number } | null {
     const arch = this.globals.arch as ArchRuntime | undefined;
     if (!arch?.state) return null;
+    const loop = this.globals.loop as LoopPicker | undefined;
     if (target === 'lever') {
       if (!arch.centering) return null;
       arch.centering.handle.getWorldPosition(this.v);
+    } else if (target === 'tablet' || target === 'marker:today') {
+      if (!(target === 'tablet' ? loop?.tabletAt(this.v) : loop?.dailyAt(this.v))) return null;
     } else if (target === 'face:left' || target === 'face:right') {
       const side: Side = target === 'face:left' ? 'left' : 'right';
       // The selected stone's face; without one, where the first tray stone that fits would go.
