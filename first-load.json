@@ -1,0 +1,175 @@
+{
+  "budgetBytes": 8000000,
+  "firstLoad": {
+    "bytes": 7491845,
+    "gzip": 2004620,
+    "files": [
+      {
+        "path": "assets/_virtual_iwsdk-disabled-bundled-fonts-CyX98Mcx.js",
+        "bytes": 776
+      },
+      {
+        "path": "assets/index-CdC2jf6V.js",
+        "bytes": 6741018
+      },
+      {
+        "path": "assets/index-xH9AEZ44.js",
+        "bytes": 6803
+      },
+      {
+        "path": "assets/msdf-worker-BUaSHgMS.js",
+        "bytes": 455987
+      },
+      {
+        "path": "assets/worker-BkRtSCqm.js",
+        "bytes": 198824
+      },
+      {
+        "path": "assets/worker-_Lh8Vt-i.js",
+        "bytes": 41907
+      },
+      {
+        "path": "assets/world-initializer-CuhsTJ-C.js",
+        "bytes": 45364
+      },
+      {
+        "path": "index.html",
+        "bytes": 421
+      },
+      {
+        "path": "scenes/main.iwsdk.scene.json",
+        "bytes": 745
+      }
+    ]
+  },
+  "onDemand": {
+    "bytes": 7650688,
+    "files": [
+      {
+        "path": "assets/HavokPhysics-BqNY-4N9.wasm",
+        "bytes": 2094563,
+        "why": "physics (first stone)"
+      },
+      {
+        "path": "assets/index-CkVix6ZW.js",
+        "bytes": 192879,
+        "why": "emulator"
+      },
+      {
+        "path": "assets/physics-runtime-HjiKn0jC.js",
+        "bytes": 39863,
+        "why": "physics (first stone)"
+      },
+      {
+        "path": "assets/physics-worker-hLJf7LUZ.js",
+        "bytes": 40724,
+        "why": "physics (first stone)"
+      },
+      {
+        "path": "input-profiles/LICENSE.md",
+        "bytes": 1094,
+        "why": "note"
+      },
+      {
+        "path": "input-profiles/generic-hand/left.glb",
+        "bytes": 94572,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/generic-hand/profile.json",
+        "bytes": 1942,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/generic-hand/right.glb",
+        "bytes": 94004,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/meta-quest-touch-plus-v2/left.glb",
+        "bytes": 804740,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/meta-quest-touch-plus-v2/profile.json",
+        "bytes": 11468,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/meta-quest-touch-plus-v2/right.glb",
+        "bytes": 806196,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/meta-quest-touch-plus/left.glb",
+        "bytes": 217984,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/meta-quest-touch-plus/profile.json",
+        "bytes": 11430,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/meta-quest-touch-plus/right.glb",
+        "bytes": 213868,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/meta-quest-touch-pro/left.glb",
+        "bytes": 297644,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/meta-quest-touch-pro/profile.json",
+        "bytes": 11427,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/meta-quest-touch-pro/right.glb",
+        "bytes": 300304,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/oculus-touch-v2/left.glb",
+        "bytes": 527940,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/oculus-touch-v2/profile.json",
+        "bytes": 10778,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/oculus-touch-v2/right.glb",
+        "bytes": 528220,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/oculus-touch-v3/left.glb",
+        "bytes": 665820,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/oculus-touch-v3/profile.json",
+        "bytes": 11412,
+        "why": "XR input profile"
+      },
+      {
+        "path": "input-profiles/oculus-touch-v3/right.glb",
+        "bytes": 665920,
+        "why": "XR input profile"
+      },
+      {
+        "path": "scenes/AGENTS.md",
+        "bytes": 3360,
+        "why": "note"
+      },
+      {
+        "path": "ui/AGENTS.md",
+        "bytes": 2536,
+        "why": "note"
+      }
+    ]
+  }
+}
