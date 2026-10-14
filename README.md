@@ -5,9 +5,10 @@ your table. You pinch wedge stones from a tray and seat them on its two open end
 the wooden centering out from under it by hand. The verdict is not scripted: a small rigid-block statics solver decides whether
 the arch carries itself or collapses across your desk. No controllers are needed at any point.
 
-> Status: work in progress. The first vertical slice is playable end to end in the emulator: ten levels, stones snap to the
-> arch, the centering is pulled, the solver judges, and a failed arch falls apart under Havok physics. Hand interaction has not
-> yet been tested on a headset.
+> Status: work in progress, playable end to end in a desktop browser and in IWER, Meta's WebXR emulator: three worlds of five
+> levels, two monument levels, Today's Span and the museum. **Archwright has not been tried on a real headset.** Everything
+> described here was tested with the emulator or with a desktop browser; hand tracking, passthrough, plane detection and
+> anchors on an actual Quest are untested.
 
 ## How to play
 
@@ -220,9 +221,9 @@ standing on the desk behind the board's right corner (part of the room, not fixe
 numbers are in `window.__archwright.perf` every frame, in XR as well.
 
 What has been checked, and where: draw calls, triangles and bodies do not depend on the device, so they are counted in headless
-Chromium (software WebGL, the XR emulator) for four desktop cases: w1-1 ready, w3-5 standing, w3-5 collapsing, and a full
-museum. Frame times from that run come from a software renderer on a shared server and say nothing about a headset, so no
-frame-rate figure is claimed here: it has not been measured on a Quest yet.
+Chromium with the XR emulator for four desktop cases (w1-1 ready, w3-5 standing, w3-5 collapsing, a full museum) and one
+emulated VR collapse. The same run was done twice, with software WebGL on a server and on a desktop RTX 3060. Neither is a
+headset: no Quest frame rate is claimed here, and none has been measured.
 
 First load: `npm run build` prints the size of everything a visit can download before the first stone goes down and writes it to
 `dist/first-load.json` (`scripts/first-load.mjs`). It counts every chunk and worker of the build (an upper bound) except what only
