@@ -118,6 +118,8 @@ export class ArchRuntime {
   bodies = 0;
   private armed = false;
   private levelEntities: Entity[] = [];
+  /** Plain objects this level built (board, shadow, piers, centering, plaque): not entities, so clear() frees them. */
+  private levelObjects: Object3D[] = [];
   readonly stoneMat = stoneMaterial();
   readonly abutmentMat = abutmentMaterial(this.stoneMat);
   private readonly ashlarMat = ashlarMaterial(this.stoneMat);
@@ -180,7 +182,7 @@ export class ArchRuntime {
     this.generation++;
     this.hook.level = def.id;
 
-    const add = (o: Object3D) => { this.site.add(o); return o; };
+    const add = (o: Object3D) => { this.site.add(o); this.levelObjects.push(o); return o; };
     add(boardMesh(this.boardMat));
     add(blobShadow(def.span + 0.16, def.depth + 0.14)).position.set(0, 0.0006, 0);
     // Two piers of cut stone, two courses each, in one mesh.
@@ -256,6 +258,19 @@ export class ArchRuntime {
     for (const e of this.levelEntities) e.dispose();
     this.levelEntities = [];
     for (const child of [...this.site.children]) if (!(child instanceof DirectionalLight) && !child.userData.keep) this.site.remove(child);
+    // Free the GPU buffers of what this level built, and their own materials and textures (the shadow's canvas,
+    // the line of thrust's material), but never the shared materials the next level reuses.
+    const shared = new Set<unknown>([this.stoneMat, this.abutmentMat, this.ashlarMat, this.woodMat, this.boardMat, this.proxyMat, ...Object.values(this.loadMats)]);
+    for (const root of this.thrustLine ? [...this.levelObjects, this.thrustLine] : this.levelObjects) root.traverse(o => {
+      if (!(o instanceof Mesh)) return;
+      o.geometry.dispose();
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        if (shared.has(m)) continue;
+        (m as MeshBasicMaterial).map?.dispose();
+        m.dispose();
+      }
+    });
+    this.levelObjects = [];
     this.stones = [];
     this.batches = [];
     this.loads = [];
