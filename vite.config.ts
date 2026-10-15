@@ -15,12 +15,15 @@ function sameOrigin(): Plugin {
     name: 'archwright-same-origin',
     apply: 'build',
     transform(code, id) {
+      // A file may have several rules (the emulator room module has two); all of them must apply.
+      let out: string | null = null;
       for (const r of rules) {
         if (!r.file.test(id)) continue;
-        if (!code.includes(r.from)) this.error(`same-origin: ${r.from} not found in ${id} (library changed?)`);
-        return { code: code.split(r.from).join(r.to), map: null };
+        out ??= code;
+        if (!out.includes(r.from)) this.error(`same-origin: ${r.from} not found in ${id} (library changed?)`);
+        out = out.split(r.from).join(r.to);
       }
-      return null;
+      return out === null ? null : { code: out, map: null };
     },
     generateBundle(_, bundle) {
       for (const [name, out] of Object.entries(bundle)) {

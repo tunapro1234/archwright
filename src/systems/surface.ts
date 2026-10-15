@@ -59,6 +59,9 @@ export class SurfaceSystem extends createSystem({
   private box = new Box3();
   private m = new Matrix4();
   private background = paint(new Color(), 'background');
+  /** Detected planes and meshes counted when __archwright.detected was last written. */
+  private seenPlanes = -1;
+  private seenMeshes = -1;
 
   init(): void {
     const desk = new Mesh(new BoxGeometry(1.3, 0.04, 0.7), flatMaterial('desk'));
@@ -94,6 +97,7 @@ export class SurfaceSystem extends createSystem({
     if (session !== this.session) this.startSession(arch, session);
     if (!session) return;
     this.elapsed += delta;
+    this.reportDetected(arch);
     // Once placed in this session, the board only moves before the first stone goes down. A level
     // already under way when the session starts still needs a place: it moves with all its stones.
     if (this.placed !== null && arch.state.placed.length > 0) { this.hideRings(); return; }
@@ -140,6 +144,7 @@ export class SurfaceSystem extends createSystem({
     this.hasPicked = false;
     this.hitTest = !!session?.enabledFeatures?.includes('hit-test') && typeof session.requestHitTestSource === 'function';
     this.input_.inXR = !!session;
+    this.seenPlanes = this.seenMeshes = -1;
     if (session) {
       unlockAudio();
       // Until a surface is chosen: the real room in passthrough, and no board (nor a stone to grab).
@@ -182,6 +187,23 @@ export class SurfaceSystem extends createSystem({
       }
     }
     arch.setShown(true);
+    const at = site.position;
+    arch.hook.board = { kind: c.kind, at: { x: at.x, y: at.y, z: at.z }, belowEyes: this.head.y - at.y };
+  }
+
+  /** __archwright.detected: the label of every plane and mesh the session reports, rewritten when their number changes. */
+  private reportDetected(arch: ArchRuntime): void {
+    let planes = 0, meshes = 0;
+    for (const _ of this.queries.planes.entities) planes++;
+    for (const _ of this.queries.meshes.entities) meshes++;
+    if (planes === this.seenPlanes && meshes === this.seenMeshes) return;
+    this.seenPlanes = planes;
+    this.seenMeshes = meshes;
+    const label = (v: unknown) => String(v ?? '').toLowerCase();
+    arch.hook.detected = {
+      planes: [...this.queries.planes.entities].map(e => label((e.getValue(XRPlane, '_plane') as { semanticLabel?: string } | undefined)?.semanticLabel)),
+      meshes: [...this.queries.meshes.entities].map(e => label(e.getValue(XRMesh, 'semanticLabel'))),
+    };
   }
 
   /** Horizontal unit vector the head faces. */

@@ -51,6 +51,9 @@ export class MuseumSystem extends createSystem({}) {
   private session: XRSession | null = null;
   private handles: AnchorHandles = {};
   private refused = new Set<string>(); // pieces this session would not anchor: not asked again
+  /** This session's anchor requests (__archwright.museum.anchors); `tallied` when the hook needs the new counts. */
+  private tally = { requested: 0, created: 0, persisted: 0, failed: 0 };
+  private tallied = true;
   private restoring = 0; // s since the session started, while restores are outstanding
   private recolor = false;
   private m = new Matrix4();
@@ -89,8 +92,9 @@ export class MuseumSystem extends createSystem({}) {
     let anchored = 0;
     for (const p of this.plinths) if (p.mode === 'anchored') anchored++;
     const hook = arch.hook.museum;
-    if (!hook || hook.anchored !== anchored || hook.plinths.length !== this.plinths.length) {
-      arch.hook.museum = { plinths: this.plinths.map(p => p.piece.id), anchored };
+    if (!hook || this.tallied || hook.anchored !== anchored || hook.plinths.length !== this.plinths.length) {
+      this.tallied = false;
+      arch.hook.museum = { plinths: this.plinths.map(p => p.piece.id), anchored, anchors: { ...this.tally } };
     }
   }
 
@@ -169,6 +173,8 @@ export class MuseumSystem extends createSystem({}) {
     this.session = session;
     this.restoring = 0;
     this.refused.clear();
+    this.tally = { requested: 0, created: 0, persisted: 0, failed: 0 };
+    this.tallied = true;
     for (const p of this.plinths) { p.mode = 'layout'; p.anchor = undefined; this.toLayout(p); }
     if (!session || !this.anchors(session)) return;
     const s = session as unknown as AnchorSession;
@@ -224,6 +230,9 @@ export class MuseumSystem extends createSystem({}) {
   /** A new persistent anchor where the plinth stands now (its place beside the board). */
   private anchorHere(session: XRSession, frame: XRFrame & AnchorFrame, ref: XRReferenceSpace, p: Plinth): void {
     if (!frame.createAnchor) return;
+    const tally = this.tally;
+    const count = (k: keyof typeof tally) => { tally[k]++; if (this.tally === tally) this.tallied = true; };
+    count('requested');
     p.mesh.updateWorldMatrix(true, false);
     // World -> reference space: undo the player rig.
     this.m.copy(this.player.matrixWorld).invert().multiply(p.mesh.matrixWorld);
@@ -235,18 +244,21 @@ export class MuseumSystem extends createSystem({}) {
     } catch {
       made = undefined;
     }
-    if (!made) { this.refused.add(p.piece.id); return; }
+    if (!made) { count('failed'); this.refused.add(p.piece.id); return; }
     p.mode = 'pending';
     made.then(async a => {
       if (this.session !== session) { a.delete?.(); return; }
+      count('created');
       p.anchor = a;
       p.mode = 'anchored';
       const handle = await a.requestPersistentHandle?.();
       if (handle && this.session === session) {
+        count('persisted');
         this.handles[p.piece.id] = handle;
         saveHandles(this.storage, this.handles);
       }
     }).catch(() => {
+      count('failed');
       // No anchor here (refused, or no persistence): the plinth simply stays on the layout.
       if (this.session === session && p.mode === 'pending') p.mode = 'layout';
       this.refused.add(p.piece.id);

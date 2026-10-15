@@ -9,6 +9,10 @@
 // - Draco and KTX2 are not used: no asset here is compressed that way (the profile models were
 //   checked), so no decoder is shipped and the decoder path points into this site, not unpkg.
 // - Avatar is never drawn; its default picture becomes an empty string.
+// - The emulator's synthetic room (?emulator=1&room=office_small, @iwer/sem, development only): its
+//   room file is copied into public/emulator/rooms/ (MIT, ASSETS.md) and handed to the module with
+//   loadEnvironment. The module's own room loader is cut off: its bundled rooms would ship as 4.5 MB
+//   of chunks, and its UMD branch fetches them from unpkg; that address now points into this site.
 //
 // SAME_ORIGIN_REWRITES are applied to those library files at build time (vite.config.ts), so the
 // built page does not even contain the other hosts; the build fails if one is left.
@@ -21,6 +25,18 @@ export type LocalProfile = (typeof LOCAL_PROFILES)[number];
 
 /** Where the copied profiles are served, under the site's base path. */
 export const PROFILES_DIR = 'input-profiles';
+
+/** Synthetic rooms of the IWER emulator copied into public/emulator/rooms/, for ?emulator=1&room=<name>. */
+export const EMULATOR_ROOMS = ['office_small'] as const;
+export type EmulatorRoom = (typeof EMULATOR_ROOMS)[number];
+
+/** Where the copied rooms are served, under the site's base path. */
+export const ROOMS_DIR = 'emulator/rooms';
+
+/** The room a ?room= value names, or null for none or one we do not serve. */
+export function emulatorRoom(param: string | null): EmulatorRoom | null {
+  return (EMULATOR_ROOMS as readonly string[]).includes(param ?? '') ? (param as EmulatorRoom) : null;
+}
 
 /** Hosts the built page must not name (checked on every build). */
 export const FOREIGN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'api.dicebear.com'] as const;
@@ -42,6 +58,19 @@ export function sameOriginRewrites(base: string): { file: RegExp; from: string; 
       file: /@pmndrs[\\/]uikit-horizon[\\/]dist[\\/]avatar[\\/]index\.js$/,
       from: '`https://api.dicebear.com/9.x/lorelei/png?seed=${Math.random()}`',
       to: "''",
+    },
+    {
+      // The emulator room module's built-in rooms: never loaded here (we pass our copy to
+      // loadEnvironment), so their import table goes and its 4.5 MB of room files stay out of the build.
+      file: /@iwer[\\/]sem[\\/]lib[\\/]src[\\/]sem\.js$/,
+      from: "import { Environments } from './registry.js';",
+      to: 'const Environments = {};',
+    },
+    {
+      // ...and its UMD fallback, which would fetch a room from unpkg, looks in this site's rooms folder.
+      file: /@iwer[\\/]sem[\\/]lib[\\/]src[\\/]sem\.js$/,
+      from: '`https://www.unpkg.com/@iwer/sem@${VERSION}/captures/${envId}.json`',
+      to: '`' + base + ROOMS_DIR + '/${envId}.json`',
     },
   ];
 }

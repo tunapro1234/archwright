@@ -18,7 +18,7 @@ import { GazeSystem } from './systems/gaze.js';
 import { OnboardSystem } from './systems/onboard.js';
 import { DebugOverlaySystem } from './systems/debug.js';
 import { browserStorage, loadProgress } from './game/progress.js';
-import { isForeign, modelFile, PROFILES_DIR, profileModel } from './net/local-assets.js';
+import { emulatorRoom, isForeign, modelFile, PROFILES_DIR, profileModel, ROOMS_DIR } from './net/local-assets.js';
 
 // The XR session, its optional features and the scene all come from iwsdk.config.json.
 // Only `local-floor` (falling back to `local`) is used as the reference space; every
@@ -69,12 +69,32 @@ function watchSessionModes(xr: XRSystem): void {
 async function main(): Promise<void> {
   // ?emulator=1: install IWER (Meta's WebXR emulator) so a desktop browser offers an XR session.
   // Loaded on demand, so it never ships in the normal first load.
+  const room = params.get('emulator') === '1' ? emulatorRoom(params.get('room')) : null;
   if (params.get('emulator') === '1') {
     const { XRDevice, metaQuest3 } = await import('iwer');
     const device = new XRDevice(metaQuest3);
     // Chromium exposes its own navigator.xr even without a headset; replace it with the emulator.
     device.installRuntime({ forceInstall: true });
+    // A seated player: eyes 1.15 m above the floor, which puts a 75 cm desk 40 cm below them.
     device.position.set(0, 1.15, 0.05);
+    // &room=office_small: Meta's synthetic room module gives the emulated headset a room to see
+    // through to, with its planes and meshes (a table among them) for the surface chain. The room
+    // file comes from this site (public/emulator/rooms/), never from the module's own loader.
+    if (room) {
+      try {
+        const [{ SyntheticEnvironmentModule }, json] = await Promise.all([
+          import('@iwer/sem'),
+          fetch(`${BASE}${ROOMS_DIR}/${room}.json`).then(r => {
+            if (!r.ok) throw new Error(`${r.status} ${r.url}`);
+            return r.json() as Promise<unknown>;
+          }),
+        ]);
+        device.installSEM(SyntheticEnvironmentModule);
+        device.sem?.loadEnvironment(json);
+      } catch (e) {
+        console.warn('archwright: no synthetic room', e);
+      }
+    }
   }
   if (navigator.xr) watchSessionModes(navigator.xr);
 
@@ -87,7 +107,7 @@ async function main(): Promise<void> {
 
   const arch = new ArchRuntime(world);
   world.globals.arch = arch;
-  arch.hook.xr = { mode: null, features: [], inputs: [] };
+  arch.hook.xr = { mode: null, features: [], inputs: [], room };
   passthrough = () => {
     const s = world.renderer.xr.getSession();
     return !!s && s.environmentBlendMode !== 'opaque';
@@ -99,10 +119,10 @@ async function main(): Promise<void> {
     const mode = sessionModes.get(s) ?? (s.environmentBlendMode === 'opaque' ? 'immersive-vr' : 'immersive-ar');
     // Each input source by its most specific profile ('meta-quest-touch-plus', 'generic-hand', ...).
     const inputs = () => [...s.inputSources].map(i => i.profiles[0] ?? 'unknown');
-    arch.hook.xr = { mode: mode === 'inline' ? null : mode, features: [...(s.enabledFeatures ?? [])], inputs: inputs() };
+    arch.hook.xr = { mode: mode === 'inline' ? null : mode, features: [...(s.enabledFeatures ?? [])], inputs: inputs(), room };
     s.addEventListener('inputsourceschange', () => { if (arch.hook.xr) arch.hook.xr.inputs = inputs(); });
   });
-  world.renderer.xr.addEventListener('sessionend', () => { arch.hook.xr = { mode: null, features: [], inputs: [] }; });
+  world.renderer.xr.addEventListener('sessionend', () => { arch.hook.xr = { mode: null, features: [], inputs: [], room }; });
   world
     .registerSystem(PerfStartSystem, { priority: -100 })
     .registerSystem(HandSystem, { priority: 0 })
