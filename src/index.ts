@@ -70,9 +70,11 @@ async function main(): Promise<void> {
   // ?emulator=1: install IWER (Meta's WebXR emulator) so a desktop browser offers an XR session.
   // Loaded on demand, so it never ships in the normal first load.
   const room = params.get('emulator') === '1' ? emulatorRoom(params.get('room')) : null;
+  let emulator: unknown;
   if (params.get('emulator') === '1') {
     const { XRDevice, metaQuest3 } = await import('iwer');
     const device = new XRDevice(metaQuest3);
+    emulator = device;
     // Chromium exposes its own navigator.xr even without a headset; replace it with the emulator.
     device.installRuntime({ forceInstall: true });
     // A seated player: eyes 1.15 m above the floor, which puts a 75 cm desk 40 cm below them.
@@ -107,6 +109,7 @@ async function main(): Promise<void> {
 
   const arch = new ArchRuntime(world);
   world.globals.arch = arch;
+  if (emulator) world.globals.emulator = emulator;
   arch.hook.xr = { mode: null, features: [], inputs: [], room };
   passthrough = () => {
     const s = world.renderer.xr.getSession();
@@ -142,6 +145,13 @@ async function main(): Promise<void> {
     .registerSystem(LoadSystem, { priority: 21 })
     .registerSystem(DebugOverlaySystem, { priority: 999 })
     .registerSystem(PerfEndSystem, { priority: 1000 });
+  // ?emulator=1&handplay=solution|trap: the emulated right hand plays the level, read by the game through its
+  // hand joints like any hand (src/systems/handplay.ts). Emulator only, loaded on demand, before the session
+  // starts so the emulated headset comes up with hands instead of controllers.
+  if (emulator && params.get('handplay')) {
+    const { HandPlaySystem } = await import('./systems/handplay.js');
+    world.registerSystem(HandPlaySystem, { priority: 0.5 });
+  }
 
   // ?autotest, then ?level=, then wherever the saved progress left off.
   const autotest = params.get('autotest')?.split(';')[0]?.split(':')[0] ?? null;

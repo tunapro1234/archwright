@@ -21,6 +21,7 @@ import {
 import { MATERIAL_COLOR } from '../scene/meshes.js';
 import { COLORS, onRepaint } from '../scene/palette.js';
 import type { SurfaceKind } from '../scene/surface-chain.js';
+import type { HandplayHook } from '../systems/handplay.js';
 import { playReject, playStone } from '../audio/synth.js';
 import { stoneNote } from '../audio/music.js';
 import { monumentOf, plaqueText } from '../levels/monuments.js';
@@ -62,6 +63,8 @@ export interface Hook {
   };
   /** The wordless first minute (src/systems/onboard.ts): the cue in force and how often the ghost hand has played. */
   onboard?: { cue: 'ghost-grab' | 'glow-centering' | 'none'; ghostShown: number };
+  /** ?emulator=1&handplay= only: how far the emulated hand got (src/systems/handplay.ts). */
+  handplay?: HandplayHook;
 }
 
 /** A load of world 3 in the scene; LoadSystem moves it (src/systems/loads.ts). */
