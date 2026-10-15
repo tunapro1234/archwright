@@ -24,10 +24,10 @@ the arch carries itself or collapses across your desk. No controllers are needed
 - If the arch stands, its line of thrust (the path the load takes through the stones) lights up as a cyan thread. If it does
   not, it opens at the joints the solver named and falls.
 - A held arch is then crossed by a small passenger, walking over its back from one pier to the other; after that, unless it
-  was the last level, its stones fade and the next level is set up. After a collapse a rebuild stone appears beside the board:
-  pinch it and the same level starts again with the same tray. Small stones beside the board open any level you have reached
-  (solid: solved, hollow: open, lifted and lit: the one on the board). Progress is saved in this browser
-  (`archwright.progress.v1`), and the game reopens on the level where you left off.
+  was the last level, its stones fade and the next level is set up. After a collapse a rebuild stone appears above the board,
+  in front of the arch: pinch it and the same level starts again with the same tray. Small stones beside the board open any
+  level you have reached (solid: solved, hollow: open, lifted and lit: the one on the board). Progress is saved in this
+  browser (`archwright.progress.v1`), and the game reopens on the level where you left off.
 
 **The first minute has no text.** On the first level a pale ghost hand pinches the first stone of the solution out of the
 tray and seats a see-through copy of it on its open end, with a soft touch sound as the fingers meet (the real stones do not
@@ -246,7 +246,7 @@ First load: `npm run build` prints the size of everything a visit can download b
 `dist/first-load.json` (`scripts/first-load.mjs`). It counts every chunk and worker of the build (an upper bound) except what only
 loads on demand: Havok's physics (about 2 MB, fetched when the first stone is placed), the emulator (`?emulator=1` only), its
 synthetic room module and room file (`?emulator=1&room=` only), code that only those import, and the controller and hand
-profiles (XR input only). Budget 8 MB. The build of 15 October 2026: 7.50 MB (7,496,482 bytes; 2.01 MB gzip) in 9 files,
+profiles (XR input only). Budget 8 MB. The build of 15 October 2026: 7.50 MB (7,496,504 bytes; 2.01 MB gzip) in 9 files,
 of which the main chunk is 6.75 MB.
 
 ## How the solver works
@@ -306,8 +306,8 @@ Nothing is fetched from another origin. Four defaults in the libraries would do 
   decoder is shipped and the decoder path points into this site.
 - The UI kit's Avatar picture (from DiceBear): no avatar is ever drawn, and the default is blanked.
 - The emulator's synthetic rooms (development only, `?emulator=1&room=`; the room module would take them from unpkg or bundle
-  all five, 4.5 MB): the one room used is copied into `public/emulator/rooms/` and handed to the module, whose own loader is cut
-  out of the build and points into this site.
+  all five, 4.5 MB): the one room used is copied into `public/emulator/rooms/` and handed to the module; the build empties the
+  module's table of built-in rooms and points its own loader's address into this site.
 
 The build rewrites those four library defaults and fails if the output still names any of those hosts.
 

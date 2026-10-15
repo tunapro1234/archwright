@@ -268,7 +268,9 @@ export class MuseumSystem extends createSystem({}) {
       count('created');
       p.anchor = a;
       p.mode = 'anchored';
-      const handle = await a.requestPersistentHandle?.();
+      // The anchor holds the plinth for this session even if it cannot be kept for the next one;
+      // a refused handle is not a failed anchor.
+      const handle = await Promise.resolve(a.requestPersistentHandle?.()).catch(() => undefined);
       if (handle && this.session === session) {
         count('persisted');
         this.handles[p.piece.id] = handle;

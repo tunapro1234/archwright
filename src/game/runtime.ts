@@ -51,8 +51,8 @@ export interface Hook {
   xr?: { mode: 'immersive-ar' | 'immersive-vr' | null; features: string[]; inputs: string[]; room: string | null };
   /** What the XR session reports of the room (SurfaceSystem): the semantic label of each detected plane and mesh. */
   detected?: { planes: string[]; meshes: string[] };
-  /** Where the board went last (SurfaceSystem): the surface kind, the board's top in world space, and how far below the eyes. */
-  board?: { kind: SurfaceKind; at: { x: number; y: number; z: number }; belowEyes: number };
+  /** Where the board went last (SurfaceSystem): the surface kind, the board's top in world space, and how far below the eyes (null outside XR). */
+  board?: { kind: SurfaceKind; at: { x: number; y: number; z: number }; belowEyes: number | null };
   /** The desk museum (src/systems/museum.ts): plinth ids shown, how many follow an XR anchor, and this session's
    *  anchors: new ones asked for, created by the runtime, given a persistent handle, refused or failed; saved ones
    *  that came back, and saved ones that did not. */

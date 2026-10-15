@@ -188,14 +188,13 @@ export class SurfaceSystem extends createSystem({
     }
     arch.setShown(true);
     const at = site.position;
-    arch.hook.board = { kind: c.kind, at: { x: at.x, y: at.y, z: at.z }, belowEyes: this.head.y - at.y };
+    // Outside XR there is no head pose to measure from: the desk board has no height below the eyes.
+    arch.hook.board = { kind: c.kind, at: { x: at.x, y: at.y, z: at.z }, belowEyes: c.kind === 'desk' ? null : this.head.y - at.y };
   }
 
   /** __archwright.detected: the label of every plane and mesh the session reports, rewritten when their number changes. */
   private reportDetected(arch: ArchRuntime): void {
-    let planes = 0, meshes = 0;
-    for (const _ of this.queries.planes.entities) planes++;
-    for (const _ of this.queries.meshes.entities) meshes++;
+    const planes = this.queries.planes.entities.size, meshes = this.queries.meshes.entities.size;
     if (planes === this.seenPlanes && meshes === this.seenMeshes) return;
     this.seenPlanes = planes;
     this.seenMeshes = meshes;
