@@ -23,6 +23,11 @@ the arch carries itself or collapses across your desk. No controllers are needed
   onto that stone's back, and the arch has to carry it as well as itself. A heavier load is drawn a little bigger.
 - If the arch stands, its line of thrust (the path the load takes through the stones) lights up as a cyan thread. If it does
   not, it opens at the joints the solver named and falls.
+- A held arch is then crossed by a small passenger, walking over its back from one pier to the other; after that, unless it
+  was the last level, its stones fade and the next level is set up. After a collapse a rebuild stone appears beside the board:
+  pinch it and the same level starts again with the same tray. Small stones beside the board open any level you have reached
+  (solid: solved, hollow: open, lifted and lit: the one on the board). Progress is saved in this browser
+  (`archwright.progress.v1`), and the game reopens on the level where you left off.
 
 **The first minute has no text.** On the first level a pale ghost hand pinches the first stone of the solution out of the
 tray and seats a see-through copy of it on its open end, with a soft touch sound as the fingers meet (the real stones do not
@@ -72,6 +77,12 @@ your hand's ray over real surfaces and you pinch to pick a spot on your desk; a 
 a picked spot gives way if a real desk is detected before the first stone goes down; after that the board stays put. In an
 opaque VR session (no passthrough) you sit in the atelier, a plain virtual room with a walnut desk, a shelf and a window.
 
+The chain has run on room data in the emulator, not yet on a headset. With Meta's synthetic office room loaded into IWER
+(`?emulator=1&room=office_small`, the emulated headset at a seated eye height of 1.15 m), the session reported ten planes
+(walls, floor, ceiling, door, window, wall art and a table) and four meshes (table, screen, plant and the room's overall mesh).
+The table mesh passed the desk test and the board went onto it, 40 cm below the eyes; `?autotest=w1-1:hold` then built the
+arch there and it held, with no console error and no request to another origin (headless Chromium, 15 October 2026).
+
 ## The desk museum
 
 Finish every level of a world and a stone plinth appears behind the board, with a small copy of that world's last arch on it.
@@ -86,8 +97,10 @@ In a mixed reality session where the headset grants anchors (an optional WebXR f
 plinth is also tied to a persistent anchor once the board is in place and the first stone is down, and the anchor's handle
 is saved (`archwright.museum.v1`). Next time, the saved anchors are restored and the plinths stand where they stood in your
 room, wherever the board goes. An anchor that is not back within 3 s is deleted and its plinth returns to the row beside the
-board. Without anchors, and in the browser, the plinths simply follow the board. The anchor path has not been run on a
-headset yet.
+board (a slow frame, such as the one that enters XR, counts as at most 0.1 s of that wait). Without anchors, and in the browser,
+the plinths simply follow the board. In IWER with the synthetic office room, the world 1 plinth got an anchor and a
+persistent handle once the first stone was down, and after a page reload in the same browser the next session restored it.
+The anchor path has not been run on a headset yet.
 
 ## Monuments
 
@@ -184,6 +197,7 @@ URL parameters, for development and tests:
 | `?level=today` | Today's Span for the local date; `?level=daily-2026-11-05` opens another day's (also `?autotest=today:hold`) |
 | `?emulator=1` | install IWER, Meta's WebXR emulator, so a desktop browser can run an XR session |
 | `?emulator=1&autoxr=ar` | with the emulator only: the page requests the XR session itself (`ar` or `vr`), no click; ignored on a real headset |
+| `?emulator=1&room=office_small` | with the emulator only: load Meta's synthetic office room (`@iwer/sem`), so an AR session sees walls, floor and a table as planes and meshes; the room file comes from this site |
 | `?surface=lap` | force a surface in an XR session: `mesh`, `plane`, `pick`, `lap` or `atelier` |
 | `?a11y=gaze,contrast` | turn accessibility settings on: `gaze`, `onehand`, `contrast` (saved ones stay on) |
 | `?debug=1` | show the performance numbers: a text box in the page corner, or a small slate on the desk in an XR session (see Performance) |
@@ -198,7 +212,10 @@ code as a hand, but it is not a hand simulation. For desktop-mode tests the hook
 `'marker:today'` or a panel icon (`'a11y:gaze'`, `'a11y:onehand'`, `'a11y:contrast'`) as a point on the
 page in CSS pixels, so a test can click it with real mouse events. `a11y` holds the accessibility settings in force.
 On a daily level `daily` holds the day's number and, once the arch is struck, its share card.
-`xr` gives the session mode (`immersive-ar`, `immersive-vr`, or null outside XR) and its enabled WebXR features. The XR smoke
+`xr` gives the session mode (`immersive-ar`, `immersive-vr`, or null outside XR), its enabled WebXR features, its input
+profiles and the emulator room (`room`). `detected` lists the semantic label of every plane and mesh the session reports,
+`board` where the board went (surface kind, its top, and how far below the eyes), and `museum` the plinths, how many follow an
+anchor and this session's anchor counts (requested, created, persisted, failed, restored, lost). The XR smoke
 test opens `?emulator=1&autoxr=ar&autotest=w1-1:hold` and `?emulator=1&autoxr=vr`: a real (emulated) session, the surface
 chain inside it, and in AR the autotest, which waits for the board to find its surface before the first stone goes down.
 
@@ -227,8 +244,10 @@ headset: no Quest frame rate is claimed here, and none has been measured.
 
 First load: `npm run build` prints the size of everything a visit can download before the first stone goes down and writes it to
 `dist/first-load.json` (`scripts/first-load.mjs`). It counts every chunk and worker of the build (an upper bound) except what only
-loads on demand: Havok's physics (about 2 MB, fetched when the first stone is placed), the emulator (`?emulator=1` only) and the
-controller and hand profiles (XR input only). Budget 8 MB.
+loads on demand: Havok's physics (about 2 MB, fetched when the first stone is placed), the emulator (`?emulator=1` only), its
+synthetic room module and room file (`?emulator=1&room=` only), code that only those import, and the controller and hand
+profiles (XR input only). Budget 8 MB. The build of 15 October 2026: 7.50 MB (7,496,482 bytes; 2.01 MB gzip) in 9 files,
+of which the main chunk is 6.75 MB.
 
 ## How the solver works
 
@@ -277,7 +296,7 @@ Source: J. Heyman, *The Stone Skeleton: Structural Engineering of Masonry Archit
 
 Every stone is drawn by one instanced mesh per stone shape with a single material, and shadows are a soft blob under the board,
 not real-time shadow maps. Havok's physics WASM is not part of the first load: it is fetched when the first stone is placed.
-Nothing is fetched from another origin. Three defaults in the libraries would do it, and each is redirected
+Nothing is fetched from another origin. Four defaults in the libraries would do it, and each is redirected
 (`src/net/local-assets.ts`):
 
 - Controller and hand models (the input layer would take them from jsDelivr): the WebXR input profiles of the Quest controllers
@@ -286,8 +305,11 @@ Nothing is fetched from another origin. Three defaults in the libraries would do
 - Draco and KTX2 decoders (the glTF loader would take them from unpkg): not used, no model here is compressed that way, so no
   decoder is shipped and the decoder path points into this site.
 - The UI kit's Avatar picture (from DiceBear): no avatar is ever drawn, and the default is blanked.
+- The emulator's synthetic rooms (development only, `?emulator=1&room=`; the room module would take them from unpkg or bundle
+  all five, 4.5 MB): the one room used is copied into `public/emulator/rooms/` and handed to the module, whose own loader is cut
+  out of the build and points into this site.
 
-The build rewrites those three library defaults and fails if the output still names any of those hosts.
+The build rewrites those four library defaults and fails if the output still names any of those hosts.
 
 ## Built with
 

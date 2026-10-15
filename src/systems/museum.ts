@@ -25,6 +25,14 @@ import { monumentOf, plaqueText } from '../levels/monuments.js';
 import { onRepaint } from '../scene/palette.js';
 
 export const RESTORE_WAIT = 3; // s a saved anchor has to come back at session start
+/** One frame counts as at most this much of RESTORE_WAIT: the frame that enters XR can take seconds (shaders,
+ *  the session handshake), and the runtime only answers a restore on a frame after it was asked. */
+const RESTORE_STEP = 0.1;
+
+/** This session's anchors (__archwright.museum.anchors): new ones asked for, created by the runtime, given a
+ *  persistent handle, refused or failed; saved ones that came back, and saved ones that did not (handle dropped). */
+type AnchorTally = { requested: number; created: number; persisted: number; failed: number; restored: number; lost: number };
+const emptyTally = (): AnchorTally => ({ requested: 0, created: 0, persisted: 0, failed: 0, restored: 0, lost: 0 });
 
 // The parts of WebXR anchors used here (not in every lib.dom). All optional: feature-detected.
 interface Anchor { anchorSpace: XRSpace; requestPersistentHandle?(): Promise<string>; delete?(): void }
@@ -52,7 +60,7 @@ export class MuseumSystem extends createSystem({}) {
   private handles: AnchorHandles = {};
   private refused = new Set<string>(); // pieces this session would not anchor: not asked again
   /** This session's anchor requests (__archwright.museum.anchors); `tallied` when the hook needs the new counts. */
-  private tally = { requested: 0, created: 0, persisted: 0, failed: 0 };
+  private tally = emptyTally();
   private tallied = true;
   private restoring = 0; // s since the session started, while restores are outstanding
   private recolor = false;
@@ -87,8 +95,10 @@ export class MuseumSystem extends createSystem({}) {
     this.root.visible = arch.shown;
 
     const session = this.renderer.xr.isPresenting ? this.renderer.xr.getSession() : null;
-    if (session !== this.session) this.startSession(session);
-    if (session && this.anchors(session)) this.trackAnchors(arch, session, delta);
+    const started = session !== this.session;
+    if (started) this.startSession(session);
+    // The restores are asked for in the frame the session starts; their wait begins with the next one.
+    if (session && this.anchors(session)) this.trackAnchors(arch, session, started ? 0 : delta);
     let anchored = 0;
     for (const p of this.plinths) if (p.mode === 'anchored') anchored++;
     const hook = arch.hook.museum;
@@ -165,6 +175,12 @@ export class MuseumSystem extends createSystem({}) {
 
   // --- XR anchors -----------------------------------------------------------------------------
 
+  /** Counts into this session's tally; a count arriving after the session changed goes nowhere. */
+  private counter(): (k: keyof AnchorTally) => void {
+    const tally = this.tally;
+    return k => { tally[k]++; if (this.tally === tally) this.tallied = true; };
+  }
+
   private anchors(session: XRSession): boolean {
     return !!session.enabledFeatures?.includes('anchors');
   }
@@ -173,18 +189,19 @@ export class MuseumSystem extends createSystem({}) {
     this.session = session;
     this.restoring = 0;
     this.refused.clear();
-    this.tally = { requested: 0, created: 0, persisted: 0, failed: 0 };
+    this.tally = emptyTally();
     this.tallied = true;
     for (const p of this.plinths) { p.mode = 'layout'; p.anchor = undefined; this.toLayout(p); }
     if (!session || !this.anchors(session)) return;
     const s = session as unknown as AnchorSession;
+    const count = this.counter();
     for (const p of this.plinths) {
       const handle = this.handles[p.piece.id];
       if (!handle || !s.restorePersistentAnchor) continue;
       p.mode = 'pending';
       s.restorePersistentAnchor(handle).then(
         a => {
-          if (this.session === session && p.mode === 'pending') { p.anchor = a; p.mode = 'anchored'; }
+          if (this.session === session && p.mode === 'pending') { p.anchor = a; p.mode = 'anchored'; count('restored'); }
           else a.delete?.(); // back too late: the plinth was anchored afresh
         },
         () => { if (this.session === session && p.mode === 'pending') this.forget(session, p); },
@@ -196,6 +213,7 @@ export class MuseumSystem extends createSystem({}) {
   private forget(session: XRSession, p: Plinth): void {
     const handle = this.handles[p.piece.id];
     if (handle) {
+      this.counter()('lost');
       delete this.handles[p.piece.id];
       saveHandles(this.storage, this.handles);
       (session as unknown as AnchorSession).deletePersistentAnchor?.(handle).catch(() => {});
@@ -209,7 +227,7 @@ export class MuseumSystem extends createSystem({}) {
     const frame = this.xrFrame as (XRFrame & AnchorFrame) | undefined;
     const ref = this.renderer.xr.getReferenceSpace();
     if (!frame || !ref) return;
-    this.restoring += delta;
+    this.restoring += Math.min(delta, RESTORE_STEP);
     // The board only stays put once a stone is down (SurfaceSystem may still move it before that).
     const settled = arch.shown && arch.state.placed.length > 0;
     for (const p of this.plinths) {
@@ -230,8 +248,7 @@ export class MuseumSystem extends createSystem({}) {
   /** A new persistent anchor where the plinth stands now (its place beside the board). */
   private anchorHere(session: XRSession, frame: XRFrame & AnchorFrame, ref: XRReferenceSpace, p: Plinth): void {
     if (!frame.createAnchor) return;
-    const tally = this.tally;
-    const count = (k: keyof typeof tally) => { tally[k]++; if (this.tally === tally) this.tallied = true; };
+    const count = this.counter();
     count('requested');
     p.mesh.updateWorldMatrix(true, false);
     // World -> reference space: undo the player rig.

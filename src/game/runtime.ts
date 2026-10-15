@@ -54,8 +54,12 @@ export interface Hook {
   /** Where the board went last (SurfaceSystem): the surface kind, the board's top in world space, and how far below the eyes. */
   board?: { kind: SurfaceKind; at: { x: number; y: number; z: number }; belowEyes: number };
   /** The desk museum (src/systems/museum.ts): plinth ids shown, how many follow an XR anchor, and this session's
-   *  anchor requests: asked for, created by the runtime, given a persistent handle, refused or failed. */
-  museum?: { plinths: string[]; anchored: number; anchors: { requested: number; created: number; persisted: number; failed: number } };
+   *  anchors: new ones asked for, created by the runtime, given a persistent handle, refused or failed; saved ones
+   *  that came back, and saved ones that did not. */
+  museum?: {
+    plinths: string[]; anchored: number;
+    anchors: { requested: number; created: number; persisted: number; failed: number; restored: number; lost: number };
+  };
   /** The wordless first minute (src/systems/onboard.ts): the cue in force and how often the ghost hand has played. */
   onboard?: { cue: 'ghost-grab' | 'glow-centering' | 'none'; ghostShown: number };
 }
