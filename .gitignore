@@ -47,6 +47,7 @@ pids/
 # Test artifacts
 test-results/
 playwright-report/
+browser-reports/
 
 # laptop-only video recorder, kept out of the repo
 scripts/record-video.mjs

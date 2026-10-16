@@ -184,9 +184,15 @@ npm run level-check  # solve every level: solution, trap and how many arrangemen
 npm run daily-pool   # generate and check the pool of daily levels again (src/levels/daily-pool.ts)
 npm run build      # static site in dist/, built for the /archwright/ sub-path
 npm run preview    # serve dist/ at http://127.0.0.1:4173/archwright/
+npm run build && npm run browser-check   # headless Chromium + IWER checks of the built site
 ```
 
-On a Quest, open the hosted page in the Quest Browser and press **Enter AR**. Hand tracking, plane detection, anchors, hit-test
+`npm run browser-check` runs the scripts in `scripts/browser/` one after another in headless Chromium with software WebGL:
+autotest and real mouse play on the desktop, emulated AR and VR sessions, the synthetic office room, the emulated hand, the
+first-minute lesson and the performance budget, each also failing on any console error. Reports and screenshots land in
+`browser-reports/`; the numbers are from the emulator, not from a headset (details in `scripts/browser/README.md`).
+
+On a Quest, open the hosted page in the Quest Browser and accept its offer to enter AR. Hand tracking, plane detection, anchors, hit-test
 and mesh detection are all requested as optional features, so the session starts on any setup.
 
 URL parameters, for development and tests:

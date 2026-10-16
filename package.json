@@ -13,7 +13,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "level-check": "tsx scripts/level-check.ts",
-    "daily-pool": "tsx scripts/daily-pool.ts"
+    "daily-pool": "tsx scripts/daily-pool.ts",
+    "browser-check": "node scripts/browser/run-all.mjs"
   },
   "dependencies": {
     "@iwsdk/core": "1.0.1",
