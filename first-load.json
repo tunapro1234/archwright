@@ -1,16 +1,16 @@
 {
   "budgetBytes": 8000000,
   "firstLoad": {
-    "bytes": 7491845,
-    "gzip": 2004620,
+    "bytes": 7496736,
+    "gzip": 2006763,
     "files": [
       {
         "path": "assets/_virtual_iwsdk-disabled-bundled-fonts-CyX98Mcx.js",
         "bytes": 776
       },
       {
-        "path": "assets/index-CdC2jf6V.js",
-        "bytes": 6741018
+        "path": "assets/index-S-A8t2S5.js",
+        "bytes": 6745895
       },
       {
         "path": "assets/index-xH9AEZ44.js",
@@ -29,8 +29,8 @@
         "bytes": 41907
       },
       {
-        "path": "assets/world-initializer-CuhsTJ-C.js",
-        "bytes": 45364
+        "path": "assets/world-initializer-BR98Ot4x.js",
+        "bytes": 45378
       },
       {
         "path": "index.html",
@@ -43,7 +43,7 @@
     ]
   },
   "onDemand": {
-    "bytes": 7650688,
+    "bytes": 7804960,
     "files": [
       {
         "path": "assets/HavokPhysics-BqNY-4N9.wasm",
@@ -51,12 +51,27 @@
         "why": "physics (first stone)"
       },
       {
-        "path": "assets/index-CkVix6ZW.js",
-        "bytes": 192879,
+        "path": "assets/XRRigidTransform-BuqVbKi6.js",
+        "bytes": 12252,
+        "why": "shared by on-demand chunks (emulator room module, emulator)"
+      },
+      {
+        "path": "assets/handplay-CQlKPmZi.js",
+        "bytes": 4837,
+        "why": "emulated hand"
+      },
+      {
+        "path": "assets/index-7PTTvspR.js",
+        "bytes": 45479,
+        "why": "emulator room module"
+      },
+      {
+        "path": "assets/index-BzXAq6X4.js",
+        "bytes": 182036,
         "why": "emulator"
       },
       {
-        "path": "assets/physics-runtime-HjiKn0jC.js",
+        "path": "assets/physics-runtime-BV_C4TH1.js",
         "bytes": 39863,
         "why": "physics (first stone)"
       },
@@ -64,6 +79,16 @@
         "path": "assets/physics-worker-hLJf7LUZ.js",
         "bytes": 40724,
         "why": "physics (first stone)"
+      },
+      {
+        "path": "emulator/rooms/LICENSE.md",
+        "bytes": 1088,
+        "why": "note"
+      },
+      {
+        "path": "emulator/rooms/office_small.json",
+        "bytes": 101459,
+        "why": "emulator room"
       },
       {
         "path": "input-profiles/LICENSE.md",
