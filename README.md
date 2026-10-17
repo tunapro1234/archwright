@@ -79,7 +79,7 @@ rather than in the air in front of you. A real table is rarely square to the hea
 smallest rectangle round its mesh vertices or plane outline seen from above, turned the way the table stands; the size test, the
 10 cm margin and the move onto the desk all work in that rectangle (unit tests: a 1.2 × 0.6 m desk turned 30° or 45° keeps the
 board's centre inside its margin for every way you face, and a 0.6 × 0.15 m shelf turned 45° is still too narrow to count).
-The table in the emulator's synthetic office stands within a degree of square to the room's axes, so the turned case is covered
+The table in the emulator's synthetic office stands half a degree off square to the room's axes, so the turned case is covered
 by those tests alone. If no desk turns up within 1.5 s and hit-test is available, a ring follows
 your hand's ray over real surfaces and you pinch to pick a spot on your desk; a spot at floor or shelf height is refused. After
 9.5 s with no pick, or without hit-test, the board sits on a lap tray 40 cm in front of you, 42 cm below the eyes. A lap tray or
@@ -103,6 +103,8 @@ tray and the browser's desk do not). Once every falling stone has been slower th
 strike, `__archwright.collapse.rest` counts where they lie: on the board, on the desk, or below. In IWER with the synthetic
 office room (17 October 2026), the trap of w1-1 and of w3-1 each brought 5 stones down, all 5 coming to rest on the board
 (after 2.4 and 2.9 s); the trap of w3-5 brought 7 down, 6 on the board and 1 on the table beside it. None went below the table.
+The table there was read as a 1.60 × 0.75 m top turned half a degree from the room's axes. In the emulated VR atelier, w3-1's
+5 stones all stayed on the board; in the browser, with no desk collider, 4 of 5 stayed on the board and 1 fell to the floor.
 
 ## The desk museum
 
