@@ -78,6 +78,9 @@ export const ROOM_WAIT = 1.5;
 export const PICK_UNTIL = 9.5;
 export const LAP_FORWARD = 0.4;
 export const LAP_BELOW_EYES = 0.42;
+/** Atelier (opaque VR): the virtual desk top sits this far below the eyes, the arch this far ahead. */
+export const ATELIER_BELOW_EYES = 0.45;
+export const ATELIER_FORWARD = 0.5;
 
 const inBand = (head: Vec3, y: number) => {
   const below = head.y - y;

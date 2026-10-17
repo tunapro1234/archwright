@@ -241,6 +241,9 @@ export function a11yIconSpot(i: number): { x: number; y: number; z: number } {
  */
 export const PLAQUE = { x: 0, z: BOARD.zMax + 0.032, width: 0.17, depth: 0.036, height: 0.008, lean: 0.35 };
 
+/** The rebuild stone a collapsed arch offers (site frame): above the board, in front of the arch. */
+export const REBUILD = { x: 0, y: 0.1, z: 0.09 } as const;
+
 /** Pull distance at which the centering clears the stones and the arch is struck. */
 export const strikePull = (depth: number): number => depth + CENTERING.strikeExtra;
 
@@ -325,6 +328,34 @@ export function viewPoints(def: LevelDef, ids: string[]): { x: number; y: number
   }
   const handle = { y: 0.022, z: def.depth * 0.46 + CENTERING.handleDepth };
   for (const pull of [0, CENTERING.maxPull]) out.push({ x: 0, y: handle.y, z: handle.z + pull });
+  return out;
+}
+
+/** Something a hand reaches for, by kind. */
+export type ReachKind = 'tray stone' | 'open end' | 'centering handle' | 'rebuild stone' | 'level marker' | 'share tablet' | 'panel icon';
+
+/**
+ * Every point (site frame) a player's hand goes to in a level: the centre of each tray stone, of each open end as the
+ * reference solution fills them, of the centering's handle at rest and fully pulled, of the rebuild stone, of each
+ * level marker (Today's Span's too), of the share tablet's face and of the accessibility panel's icons.
+ */
+export function reachPoints(def: LevelDef, ids: string[]): { kind: ReachKind; x: number; y: number; z: number }[] {
+  const out: { kind: ReachKind; x: number; y: number; z: number }[] = [];
+  for (const p of trayPoses(def)) out.push({ kind: 'tray stone', x: p.x, y: p.y, z: p.z });
+  let s = createLevel(def);
+  for (const step of def.solution) {
+    const stone = def.tray.find(t => t.id === step.stone)!;
+    const p = facePose(s, stone, step.side);
+    out.push({ kind: 'open end', x: p.x, y: p.y, z: p.z });
+    s = placeStone(s, step.stone, step.side);
+  }
+  const handle = { y: 0.022, z: def.depth * 0.46 + CENTERING.handleDepth / 2 };
+  for (const pull of [0, CENTERING.maxPull]) out.push({ kind: 'centering handle', x: 0, y: handle.y, z: handle.z + pull });
+  out.push({ kind: 'rebuild stone', ...REBUILD });
+  for (const m of [...markerSpots(ids), dailySpot(ids)]) out.push({ kind: 'level marker', x: m.x, y: MARKER.size / 2, z: m.z });
+  out.push({ kind: 'share tablet', x: TABLET.x, y: TABLET.height / 2, z: TABLET.z });
+  const top = A11Y_PANEL.height + (A11Y_PANEL.depth * Math.tan(A11Y_PANEL.lean)) / 2;
+  A11Y_ICONS.forEach((_, i) => out.push({ kind: 'panel icon', x: A11Y_PANEL.x + a11yIconSpot(i).x, y: top, z: A11Y_PANEL.z }));
   return out;
 }
 

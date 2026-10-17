@@ -56,7 +56,7 @@ describe('emulator rooms', () => {
   });
   it('?room= names a served room or nothing', () => {
     expect(emulatorRoom('office_small')).toBe('office_small');
-    for (const v of [null, '', 'office_large', '../office_small', 'OFFICE_SMALL']) expect(emulatorRoom(v)).toBeNull();
+    for (const v of [null, '', 'kitchen', '../office_small', 'OFFICE_SMALL']) expect(emulatorRoom(v)).toBeNull();
   });
 });
 

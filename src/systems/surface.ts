@@ -14,15 +14,12 @@ import type { HandState } from './hands.js';
 import { atelier, ATELIER_DESK, flatMaterial, pickRing } from '../scene/models.js';
 import { paint } from '../scene/palette.js';
 import {
-  chooseSurface, DESK_BELOW_EYES, deskRect, placeOnDesk, type SurfaceCandidate, type SurfaceChoice, type SurfaceInput, type SurfaceKind,
+  ATELIER_BELOW_EYES, ATELIER_FORWARD, chooseSurface, DESK_BELOW_EYES, deskRect, placeOnDesk, type SurfaceCandidate, type SurfaceChoice, type SurfaceInput, type SurfaceKind,
 } from '../scene/surface-chain.js';
 import { playReject, playTick, unlockAudio } from '../audio/synth.js';
 import { BOARD } from '../scene/layout.js';
 
 export const DESK_HEIGHT = 0.75;
-/** Atelier: the virtual desk top sits this far below the eyes, the arch this far ahead. */
-const ATELIER_BELOW_EYES = 0.45;
-const ATELIER_FORWARD = 0.5;
 const MAX_CANDIDATES = 24;
 const FORCE = new Set<SurfaceInput['force']>(['mesh', 'plane', 'pick', 'lap', 'atelier']);
 /** Scene-mesh labels that are worth building on (Quest semantic labels). */

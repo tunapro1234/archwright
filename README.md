@@ -99,14 +99,44 @@ went onto the table mesh with its centre 10 cm in from the table's near edge; tu
 behind was skipped and, with no pick, the board went to the lap tray. `?autotest=w1-1:hold` held in all four, with no console
 error and no request to another origin.
 
+All five of Meta's synthetic rooms (`office_small`, `office_large`, `living_room`, `meeting_room`, `music_room`; 17 October 2026,
+the emulated headset at the room's origin facing its −z axis, eyes at 1.15 m): in `office_small` the board went onto the table
+mesh, 40 cm below the eyes. The other four rooms report 15 to 24 planes and 3 to 14 meshes, tables among them, but in their
+room files the nearest table's centre is 1.2 to 1.6 m from that seat, past the 75 cm reach, so none counted as a desk and, with
+no pick, the board went to the lap tray. Standing (eyes at 1.6 m), the board went to the lap tray in both rooms tried: in
+`office_small` the table top was 85.5 cm below the eyes, just past the 85 cm limit, and `living_room` has no table near that spot. Seated in `office_small` turned 90°, the board went onto the
+table with its centre inside the 10 cm margin. `?autotest=w1-1:hold` held in all eight runs, with no console error and no
+request to another origin. Picking with an emulated controller ray (`?surface=pick`: aimed at the table's centre, trigger
+pulled) put the board 0.3 cm from the aimed point, 40 cm below the eyes.
+
 When an arch falls on a detected desk, the stones land on that desk: the collapse gets one static box the size of the desk's
 top, turned as the desk stands, besides the board, the piers and the floor (the atelier's walnut desk gets the same; the lap
 tray and the browser's desk do not). Once every falling stone has been slower than 2 cm/s for half a second, or 6 s after the
-strike, `__archwright.collapse.rest` counts where they lie: on the board, on the desk, or below. In IWER with the synthetic
-office room (17 October 2026), the trap of w1-1 and of w3-1 each brought 5 stones down, all 5 coming to rest on the board
-(after 2.4 and 2.9 s); the trap of w3-5 brought 7 down, 6 on the board and 1 on the table beside it. None went below the table.
-The table there was read as a 1.60 × 0.75 m top turned half a degree from the room's axes. In the emulated VR atelier, w3-1's
-5 stones all stayed on the board; in the browser, with no desk collider, 4 of 5 stayed on the board and 1 fell to the floor.
+strike, `__archwright.collapse.rest` counts where they lie: on the board, on the desk, or below. The collapse steps with the
+frame time, so where a stone ends up varies from run to run; here are two runs in IWER with the synthetic office room
+(17 October 2026). The trap of w1-1 brought 5 stones down, all 5 on the board in both runs (settled after 2.4 and 3.5 s); the
+trap of w3-1 brought 5 down, 4 to 5 on the board and the rest on the table beside it; the trap of w3-5 brought 7 down, 6 on the
+board and 1 on the table, in both runs. In neither run did a stone go below the table. The table there was read as a
+1.60 × 0.75 m top turned half a degree from the room's axes. In the emulated VR atelier, w3-1's 5 stones stayed on the board in
+both runs; in the browser, with no desk collider, 3 to 4 of 5 stayed on the board and the rest fell to the floor.
+
+## Seated reach
+
+Archwright is played sitting down, so nothing a hand goes to may be out of a seated reach. `tests/reach.test.ts` checks it from
+the board's layout for every level: from the eyes of a seated player (1.15 m above the floor, looking straight ahead) to the
+centre of every tray stone, every open end as the level's solution fills it, the centering's handle at rest and fully pulled,
+the rebuild stone, every level marker, the share tablet and the accessibility panel's icons, on a 0.75 m desk (the board 50 cm
+ahead, or moved onto a desk whose centre is 60 cm off to the left), on the lap tray and in the atelier. Everything must be within
+0.8 m; the test fails otherwise. The largest values (angles from straight ahead; the side angle is how far the head turns):
+
+| Where the board is | Tray, open ends, handle | Anything | Widest to the side | Lowest below eye level |
+|---|---|---|---|---|
+| Desk ahead | 0.62 m | 0.72 m (a level marker) | 53° | 55° |
+| Desk off to the side | 0.56 m | 0.67 m (a level marker) | 82° | 64° |
+| Lap tray | 0.55 m | 0.66 m (a level marker) | 67° | 68° |
+| Atelier | 0.65 m | 0.75 m (a level marker) | 53° | 59° |
+
+These are distances worked out from the layout, not reaches measured on people or on a headset.
 
 ## The desk museum
 
@@ -241,7 +271,7 @@ URL parameters, for development and tests:
 | `?level=today` | Today's Span for the local date; `?level=daily-2026-11-05` opens another day's (also `?autotest=today:hold`) |
 | `?emulator=1` | install IWER, Meta's WebXR emulator, so a desktop browser can run an XR session |
 | `?emulator=1&autoxr=ar` | with the emulator only: the page requests the XR session itself (`ar` or `vr`), no click; ignored on a real headset |
-| `?emulator=1&room=office_small` | with the emulator only: load Meta's synthetic office room (`@iwer/sem`), so an AR session sees walls, floor and a table as planes and meshes; the room file comes from this site |
+| `?emulator=1&room=office_small` | with the emulator only: load one of Meta's synthetic rooms (`@iwer/sem`: `office_small`, `office_large`, `living_room`, `meeting_room`, `music_room`), so an AR session sees its walls, floor, tables and furniture as planes and meshes; the room file comes from this site |
 | `?emulator=1&head=90,1.6` | with the emulator only: the emulated headset starts turned by that many degrees (positive turns left) with its eyes that many metres above the floor (default 0°, 1.15 m) |
 | `?surface=lap` | force a surface in an XR session: `mesh`, `plane`, `pick`, `lap` or `atelier` |
 | `?a11y=gaze,contrast` | turn accessibility settings on: `gaze`, `onehand`, `contrast` (saved ones stay on) |
@@ -297,7 +327,7 @@ headset: no Quest frame rate is claimed here, and none has been measured.
 First load: `npm run build` prints the size of everything a visit can download before the first stone goes down and writes it to
 `dist/first-load.json` (`scripts/first-load.mjs`). It counts every chunk and worker of the build (an upper bound) except what only
 loads on demand: Havok's physics (about 2 MB, fetched when the first stone is placed), the emulator (`?emulator=1` only), its
-synthetic room module and room file (`?emulator=1&room=` only), code that only those import, and the controller and hand
+synthetic room module and room files (`?emulator=1&room=` only), code that only those import, and the controller and hand
 profiles (XR input only). Budget 8 MB. The build of 15 October 2026: 7.50 MB (7,496,504 bytes; 2.01 MB gzip) in 9 files,
 of which the main chunk is 6.75 MB.
 
@@ -358,8 +388,9 @@ Nothing is fetched from another origin. Four defaults in the libraries would do 
   decoder is shipped and the decoder path points into this site.
 - The UI kit's Avatar picture (from DiceBear): no avatar is ever drawn, and the default is blanked.
 - The emulator's synthetic rooms (development only, `?emulator=1&room=`; the room module would take them from unpkg or bundle
-  all five, 4.5 MB): the one room used is copied into `public/emulator/rooms/` and handed to the module; the build empties the
-  module's table of built-in rooms and points its own loader's address into this site.
+  all five, 4.5 MB, into the code): the five room files are copied into `public/emulator/rooms/`, and only the one named by
+  `?room=` is fetched and handed to the module; the build empties the module's table of built-in rooms and points its own
+  loader's address into this site.
 
 The build rewrites those four library defaults and fails if the output still names any of those hosts.
 

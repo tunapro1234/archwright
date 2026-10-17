@@ -20,7 +20,7 @@ import {
 import { LEVELS } from '../levels/index.js';
 import { dailyDate, dailyHeld, dailyNumber, localDateISO, saveDailyHeld, shareCard } from '../game/daily.js';
 import { ringOrder } from '../game/arch-state.js';
-import { along, dailySpot, markerSpots, passengerPath, TABLET } from '../scene/layout.js';
+import { along, dailySpot, markerSpots, passengerPath, REBUILD, TABLET } from '../scene/layout.js';
 import type { Vec2 } from '../statics/index.js';
 import { dailyMarker, levelMarkers, passengerMesh, rebuildStone, shareTablet } from '../scene/models.js';
 import { MATERIAL_COLOR } from '../scene/meshes.js';
@@ -33,7 +33,7 @@ export const PASSENGER_WALK = 3.0;
 export const FADE_OUT = 0.6;
 export const REBUILD_AFTER = 2.0;
 export const PICK_RADIUS = 0.03;              // a pinch this close to a marker or the rebuild stone takes it
-const REBUILD_AT = new Vector3(0, 0.1, 0.09);  // site frame: above the board, in front of the arch
+const REBUILD_AT = new Vector3(REBUILD.x, REBUILD.y, REBUILD.z);
 const MARKER_LIFT = 0.006;
 const TABLET_AFTER = 1.6;                      // s after the verdict: the tablet rises
 const TABLET_RISE = 0.4;

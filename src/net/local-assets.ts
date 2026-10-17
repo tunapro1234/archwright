@@ -9,8 +9,8 @@
 // - Draco and KTX2 are not used: no asset here is compressed that way (the profile models were
 //   checked), so no decoder is shipped and the decoder path points into this site, not unpkg.
 // - Avatar is never drawn; its default picture becomes an empty string.
-// - The emulator's synthetic room (?emulator=1&room=office_small, @iwer/sem, development only): its
-//   room file is copied into public/emulator/rooms/ (MIT, ASSETS.md) and handed to the module with
+// - The emulator's synthetic rooms (?emulator=1&room=office_small and four more, @iwer/sem, development only):
+//   each room file is copied into public/emulator/rooms/ (MIT, ASSETS.md) and handed to the module with
 //   loadEnvironment. The module's own room loader is cut off: its bundled rooms would ship as 4.5 MB
 //   of chunks, and its UMD branch fetches them from unpkg; that address now points into this site.
 //
@@ -27,7 +27,7 @@ export type LocalProfile = (typeof LOCAL_PROFILES)[number];
 export const PROFILES_DIR = 'input-profiles';
 
 /** Synthetic rooms of the IWER emulator copied into public/emulator/rooms/, for ?emulator=1&room=<name>. */
-export const EMULATOR_ROOMS = ['office_small'] as const;
+export const EMULATOR_ROOMS = ['office_small', 'office_large', 'living_room', 'meeting_room', 'music_room'] as const;
 export type EmulatorRoom = (typeof EMULATOR_ROOMS)[number];
 
 /** Where the copied rooms are served, under the site's base path. */
