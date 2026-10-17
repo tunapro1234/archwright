@@ -17,6 +17,7 @@ import { A11ySystem } from './systems/a11y.js';
 import { GazeSystem } from './systems/gaze.js';
 import { OnboardSystem } from './systems/onboard.js';
 import { DebugOverlaySystem } from './systems/debug.js';
+import { installPause } from './systems/pause.js';
 import { browserStorage, loadProgress } from './game/progress.js';
 import { isForeign, modelFile, PROFILES_DIR, profileModel } from './net/local-assets.js';
 
@@ -106,6 +107,11 @@ async function main(): Promise<void> {
     s.addEventListener('inputsourceschange', () => { if (arch.hook.xr) arch.hook.xr.inputs = inputs(); });
   });
   world.renderer.xr.addEventListener('sessionend', () => { arch.hook.xr = { mode: null, features: [], inputs: [], room, head: null }; });
+  // Every system that runs game time; drawing (StoneRenderSystem), the performance numbers and the overlay go on through a pause.
+  const game: unknown[] = [
+    HandSystem, AutotestSystem, SurfaceSystem, A11ySystem, DesktopSystem, GazeSystem, GrabSnapSystem, CenteringSystem,
+    StaticsSystem, CollapseSystem, GameLoopSystem, OnboardSystem, MuseumSystem, LoadSystem,
+  ];
   world
     .registerSystem(PerfStartSystem, { priority: -100 })
     .registerSystem(HandSystem, { priority: 0 })
@@ -131,7 +137,10 @@ async function main(): Promise<void> {
   if (emulator && params.get('handplay')) {
     const { HandPlaySystem } = await import('./systems/handplay.js');
     world.registerSystem(HandPlaySystem, { priority: 0.5 });
+    game.push(HandPlaySystem);
   }
+  // Clean pause: these and Havok stop under the system menu, with the headset off or in a hidden tab (src/systems/pause.ts).
+  installPause(world, arch, game);
 
   // ?autotest, then ?level=, then wherever the saved progress left off.
   const autotest = params.get('autotest')?.split(';')[0]?.split(':')[0] ?? null;

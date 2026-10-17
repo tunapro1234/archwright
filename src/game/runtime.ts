@@ -74,8 +74,14 @@ export interface Hook {
   emulator?: EmulatorHook;
   /** The last collapse (src/systems/collapse.ts): where its stones came to rest (src/game/rest.ts), counted once, when
    *  every falling stone has been slower than 2 cm/s for half a second or 6 s after the strike, whichever comes first
-   *  (null until then). */
-  collapse?: { rest: CollapseRest | null };
+   *  (null until then), and simTime, the game seconds it has run since it began (still while the game is paused). */
+  collapse?: { rest: CollapseRest | null; simTime: number };
+  /** Clean pause (src/systems/pause.ts): the game is paused now (system menu, headset off, hidden tab), and how often
+   *  it has paused since the page loaded. */
+  paused?: boolean;
+  pauses?: number;
+  /** The sound (src/audio/synth.ts): the AudioContext's state ('none' before it exists) and whether the limiter is in. */
+  audio?: { state: AudioContextState | 'none'; limiter: boolean };
   /** The desk museum (src/systems/museum.ts): plinth ids shown, how many follow an XR anchor, and this session's
    *  anchors: new ones asked for, created by the runtime, given a persistent handle, refused or failed; saved ones
    *  that came back, and saved ones that did not. */

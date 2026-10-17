@@ -33,6 +33,8 @@ export interface Cue { t: number; dur: number; gain: number; layer: CueLayer; hz
 
 export const CUE_MAX_SECONDS = 3.5;
 export const CUE_MAX_VOICES = 16;
+/** The limiter before the speakers (a DynamicsCompressorNode): dB, dB, ratio, s, s. */
+export const LIMITER = { threshold: -6, knee: 0, ratio: 20, attack: 0.003, release: 0.1 } as const;
 const LAYER_ORDER: Record<CueLayer, number> = { creak: 0, crack: 1, slide: 2, impact: 3, pebble: 4 };
 
 /** mulberry32: a small seeded generator, so a seed always gives the same collapse. */

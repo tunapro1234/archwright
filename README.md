@@ -178,6 +178,17 @@ The gaze pick (a ray against a sphere round each target, nearest hit within 1.5 
 tests. The gaze and one-hand modes have not been tried on a headset yet, nor with players who need them; we have no
 user-study numbers to report.
 
+## Clean pause
+
+When the headset's system menu comes up (the XR session turns `visible-blurred`), the headset comes off (`hidden`) or the tab
+is hidden, the game stops: every system that runs game time (the surface pick, grabbing, the centering, the verdict, the
+collapse, the passer-by, level changes, the first-minute cues, the museum's anchor wait, the autotest) and Havok skip their
+update, and the sound is suspended, a collapse's score included. Drawing goes on. Back in view, the first frame steps at most
+0.1 s, so nothing jumps by the time spent away. In IWER (17 October 2026), w3-1's trap was collapsing in the VR atelier when
+the emulated session was set to `visible-blurred`: the game paused, the collapse's clock stayed at 1.398 s over 1.5 s of
+waiting and the sound was suspended; set back to `visible`, it went on (3.19 s 1.5 s later) and the 5 stones came to rest on
+the board, with no console error.
+
 ## Sound
 
 The arch is a lithophone, a set of tuned stones. Each stone rings one note when it lands, picked by where it sits in the ring:
@@ -192,7 +203,9 @@ than 16 sounds at once. The same arch always falls with the same sound: the scor
 What to play is plain data (`src/audio/music.ts`, with unit tests); `src/audio/synth.ts` only plays it with the Web Audio API.
 Every sound is synthesised in code: a stone is a sine with the two overtones of a struck bar (2.76 and 5.40 times the
 fundamental), the rest is filtered noise and short tones. There are no recordings, of stone, wood or anything else. Sound only
-starts after a click, a key, a pinch or the start of an XR session, and it stops while the tab is hidden.
+starts after a click, a key, a pinch or the start of an XR session, and it waits while the game is paused (see Clean pause).
+Every sound goes through one master gain and a limiter before the speakers (a compressor at −6 dB, hard knee, 20:1, 3 ms
+attack, 100 ms release), so a pile of collapse voices cannot clip.
 
 ## How to run
 
@@ -248,6 +261,9 @@ profiles, the emulator room (`room`) and the head (`head`: where the eyes are an
 top, how far below the eyes, the board's centre and, on a detected desk, that desk's top: its own rectangle as `cx`, `cz`,
 `width`, `depth` and `yaw`, and the world box round it as `minX` to `maxZ`), and `museum` the
 plinths, how many follow an anchor and this session's anchor counts (requested, created, persisted, failed, restored, lost).
+`collapse` holds the last collapse's `rest` and `simTime` (the game seconds it has run), `paused` whether the game is paused
+now and `pauses` how often it has paused, and `audio` the sound's state (`none` before it starts, then the AudioContext's) and
+whether the limiter is in.
 With `?emulator=1` the hook also has `emulator`, whose `setVisibility(state)`, `aim(hand, point)` and `pinch(hand, value)` set
 the emulated session's visibility, turn a hand's or controller's ray to a point, and pinch (a controller's trigger). The XR smoke
 test opens `?emulator=1&autoxr=ar&autotest=w1-1:hold` and `?emulator=1&autoxr=vr`: a real (emulated) session, the surface

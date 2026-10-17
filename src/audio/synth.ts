@@ -1,12 +1,17 @@
 // Every sound in the game, synthesised with WebAudio: no recordings, no files, nothing to license.
 // What to play is decided in music.ts (pure data); this file only renders it. The AudioContext is
 // only created after a user gesture or an XR session start, so a page that nobody touched
-// (autotest, headless checks) stays silent and logs nothing. A hidden tab is silent too.
-import { CUE_MAX_VOICES, type Cue } from './music.js';
+// (autotest, headless checks) stays silent and logs nothing. While the game is paused (src/systems/pause.ts:
+// the system menu, the headset off, a hidden tab) the context is suspended. Every sound goes through one
+// master gain and a limiter (music.LIMITER) before the speakers, so a pile of collapse voices cannot clip.
+import { CUE_MAX_VOICES, LIMITER, type Cue } from './music.js';
 
 let ctx: AudioContext | undefined;
+let out: AudioNode | undefined;          // master gain, into the limiter
 let noise: AudioBuffer | undefined;
-let hidden = false;
+let held = false;
+/** __archwright.audio: the context's state ('none' before it exists) and whether the limiter is in the output. */
+export const audioState: { state: AudioContextState | 'none'; limiter: boolean } = { state: 'none', limiter: false };
 const MAX_NODES = 2 * CUE_MAX_VOICES; // sources sounding at once, whatever asked for them
 let ends: number[] = [];                // when each sounding source stops
 
@@ -25,6 +30,19 @@ export function unlockAudio(): void {
     const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AC) return;
     ctx = new AC();
+    const c = ctx;
+    const limiter = c.createDynamicsCompressor();
+    limiter.threshold.value = LIMITER.threshold;
+    limiter.knee.value = LIMITER.knee;
+    limiter.ratio.value = LIMITER.ratio;
+    limiter.attack.value = LIMITER.attack;
+    limiter.release.value = LIMITER.release;
+    const master = c.createGain();
+    master.connect(limiter).connect(c.destination);
+    out = master;
+    audioState.limiter = true;
+    audioState.state = c.state;
+    c.addEventListener('statechange', () => { audioState.state = c.state; });
     // One second of deterministic white noise (xorshift), reused by every burst.
     noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = noise.getChannelData(0);
@@ -34,16 +52,15 @@ export function unlockAudio(): void {
       d[i] = ((x >>> 0) / 0xffffffff) * 2 - 1;
     }
   }
-  if (ctx.state === 'suspended' && !hidden) void ctx.resume();
+  if (ctx.state === 'suspended' && !held) void ctx.resume();
 }
 
-if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => {
-    hidden = document.visibilityState === 'hidden';
-    if (!ctx) return;
-    if (hidden) void ctx.suspend();
-    else void ctx.resume();
-  });
+/** The game paused (true) or went on (false): suspend or resume the sound, scheduled sounds included. */
+export function holdAudio(pause: boolean): void {
+  held = pause;
+  if (!ctx) return;
+  if (pause) void ctx.suspend();
+  else void ctx.resume();
 }
 
 function ready(): AudioContext | undefined {
@@ -63,7 +80,7 @@ function burst(c: AudioContext, at: number, dur: number, gain: number, type: Biq
   const g = c.createGain();
   g.gain.setValueAtTime(gain, at);
   g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-  src.connect(f).connect(g).connect(c.destination);
+  src.connect(f).connect(g).connect(out!);
   src.start(at, (at * 7.3) % 0.9, dur + 0.05);
 }
 
@@ -79,7 +96,7 @@ function tone(c: AudioContext, at: number, freq: number, dur: number, gain: numb
   g.gain.setValueAtTime(0.0001, at);
   g.gain.exponentialRampToValueAtTime(gain, at + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-  o.connect(g).connect(c.destination);
+  o.connect(g).connect(out!);
   o.start(at); o.stop(at + dur + 0.05);
 }
 
@@ -158,7 +175,7 @@ export function playCue(cue: readonly Cue[]): void {
         g.gain.setValueAtTime(0.0001, at);
         g.gain.exponentialRampToValueAtTime(e.gain, at + 0.02);
         g.gain.exponentialRampToValueAtTime(0.0001, at + e.dur);
-        o.connect(f).connect(g).connect(c.destination);
+        o.connect(f).connect(g).connect(out!);
         o.start(at); o.stop(at + e.dur + 0.05);
         break;
       }

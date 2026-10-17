@@ -3,7 +3,7 @@
 // lazily (when the first stone is placed), so Havok's WASM is not part of the first load.
 // They fall onto the board, the abutments, any stone left in the tray, the desk under the board (a detected
 // desk or the atelier's, one static box turned as the desk stands) and the floor. Once they have come to rest,
-// __archwright.collapse.rest counts where.
+// __archwright.collapse.rest counts where; __archwright.collapse.simTime is the game time it has run.
 import {
   BoxGeometry, createSystem, Mesh, MeshBasicMaterial, PhysicsBody, PhysicsManipulation, PhysicsShape,
   PhysicsShapeType, PhysicsState, PhysicsSystem, Quaternion, Vector3, type Entity,
@@ -37,19 +37,22 @@ export class CollapseSystem extends createSystem({}) {
   private falling: StoneView[] = [];
   private since = 0;
   private quiet = 0;
+  /** A collapse is running on this level: its simTime counts. */
+  private live = false;
   private w = new Vector3();
   private l = new Vector3();
 
   update(delta: number): void {
     const arch = this.globals.arch as ArchRuntime | undefined;
     if (!arch?.state) return;
-    if (arch.generation !== this.generation) { this.generation = arch.generation; this.kicks = []; this.falling = []; }
+    if (arch.generation !== this.generation) { this.generation = arch.generation; this.kicks = []; this.falling = []; this.live = false; }
     if (!arch.physicsRegistered && arch.state.placed.length > 0) this.registerPhysics(arch);
     if (arch.collapseRequested && arch.physicsRegistered) {
       arch.collapseRequested = false;
       this.begin(arch);
     }
     this.frame++;
+    if (this.live) arch.hook.collapse!.simTime += delta;
     // Bodies are created asynchronously; keep offering the kick until the body has picked it up, for KICK_FOR
     // seconds of game time at most (a slow frame or a slow physics start does not use the offer up).
     for (let i = this.kicks.length - 1; i >= 0; i--) {
@@ -86,7 +89,7 @@ export class CollapseSystem extends createSystem({}) {
       v.mesh.getWorldPosition(this.w);
       rest[restPlace(arch.site.worldToLocal(this.l.copy(this.w)), this.w, arch.desk)]++;
     }
-    (arch.hook.collapse ??= { rest: null }).rest = rest;
+    (arch.hook.collapse ??= { rest: null, simTime: 0 }).rest = rest;
     this.falling = [];
   }
 
@@ -142,7 +145,10 @@ export class CollapseSystem extends createSystem({}) {
     const order = ringOrder(arch.state);
     const views = order.map(p => arch.stoneById(p.stone.id)!);
     const kicks = this.hingeKicks(arch, views);
-    (arch.hook.collapse ??= { rest: null }).rest = null;
+    const hook = (arch.hook.collapse ??= { rest: null, simTime: 0 });
+    hook.rest = null;
+    hook.simTime = 0;
+    this.live = true;
     this.falling = [];
     // The verdict comes SILENCE after the strike: the rest clock counts from the strike.
     this.since = SILENCE;
