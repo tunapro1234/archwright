@@ -69,9 +69,13 @@ down the page (120 px) to strike. The rebuild stone, the level markers beside th
 down from 35° and frames each level: as close as it can be with the arch, its tray, the centering's handle and the markers in
 view, so a tall pointed arch pulls it back (`frameView`, src/game/desktop.ts).
 
-Where the board goes (`src/scene/surface-chain.ts`, a pure function with its own tests): if the headset's scene data has a
-table mesh or a horizontal plane at desk height within reach (25 to 85 cm below the eyes, at most 75 cm away, at least
-30 × 20 cm), the board goes on it, scene meshes first. If none turns up within 1.5 s and hit-test is available, a ring follows
+Where the board goes (`src/scene/surface-chain.ts`, pure functions with their own tests): if the headset's scene data has a
+table mesh or a horizontal plane at desk height within reach (25 to 85 cm below the eyes, centre at most 75 cm away, at least
+30 × 20 cm) and not behind you (its centre within 100° of the way you face, or under your head), the board goes on it, scene
+meshes first. On that desk the board stands 50 cm ahead of your eyes, facing the way you face, as long as its centre is then at
+least 10 cm in from every edge of the desk (or on the middle line of a desk narrower than 20 cm). If not, the centre moves to the
+nearest point that is, and the board turns to face you from there: a desk off to one side gets the board on it, square to you,
+rather than in the air in front of you. If no desk turns up within 1.5 s and hit-test is available, a ring follows
 your hand's ray over real surfaces and you pinch to pick a spot on your desk; a spot at floor or shelf height is refused. After
 9.5 s with no pick, or without hit-test, the board sits on a lap tray 40 cm in front of you, 42 cm below the eyes. A lap tray or
 a picked spot gives way if a real desk is detected before the first stone goes down; after that the board stays put. In an
@@ -204,6 +208,7 @@ URL parameters, for development and tests:
 | `?emulator=1` | install IWER, Meta's WebXR emulator, so a desktop browser can run an XR session |
 | `?emulator=1&autoxr=ar` | with the emulator only: the page requests the XR session itself (`ar` or `vr`), no click; ignored on a real headset |
 | `?emulator=1&room=office_small` | with the emulator only: load Meta's synthetic office room (`@iwer/sem`), so an AR session sees walls, floor and a table as planes and meshes; the room file comes from this site |
+| `?emulator=1&head=90,1.6` | with the emulator only: the emulated headset starts turned by that many degrees (positive turns left) with its eyes that many metres above the floor (default 0°, 1.15 m) |
 | `?surface=lap` | force a surface in an XR session: `mesh`, `plane`, `pick`, `lap` or `atelier` |
 | `?a11y=gaze,contrast` | turn accessibility settings on: `gaze`, `onehand`, `contrast` (saved ones stay on) |
 | `?debug=1` | show the performance numbers: a text box in the page corner, or a small slate on the desk in an XR session (see Performance) |
@@ -219,9 +224,12 @@ code as a hand, but it is not a hand simulation. For desktop-mode tests the hook
 page in CSS pixels, so a test can click it with real mouse events. `a11y` holds the accessibility settings in force.
 On a daily level `daily` holds the day's number and, once the arch is struck, its share card.
 `xr` gives the session mode (`immersive-ar`, `immersive-vr`, or null outside XR), its enabled WebXR features, its input
-profiles and the emulator room (`room`). `detected` lists the semantic label of every plane and mesh the session reports,
-`board` where the board went (surface kind, its top, and how far below the eyes), and `museum` the plinths, how many follow an
-anchor and this session's anchor counts (requested, created, persisted, failed, restored, lost). The XR smoke
+profiles, the emulator room (`room`) and the head (`head`: where the eyes are and the yaw they face, in degrees, every XR frame).
+`detected` lists the semantic label of every plane and mesh the session reports, `board` where the board went (surface kind, its
+top, how far below the eyes, the board's centre and, on a detected desk, that desk's top as a rectangle), and `museum` the
+plinths, how many follow an anchor and this session's anchor counts (requested, created, persisted, failed, restored, lost).
+With `?emulator=1` the hook also has `emulator`, whose `setVisibility(state)`, `aim(hand, point)` and `pinch(hand, value)` set
+the emulated session's visibility, turn a hand's or controller's ray to a point, and pinch (a controller's trigger). The XR smoke
 test opens `?emulator=1&autoxr=ar&autotest=w1-1:hold` and `?emulator=1&autoxr=vr`: a real (emulated) session, the surface
 chain inside it, and in AR the autotest, which waits for the board to find its surface before the first stone goes down.
 

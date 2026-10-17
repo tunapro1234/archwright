@@ -1,7 +1,7 @@
 // First-load size of the built site (run after `vite build`; `npm run build` does it).
 // Counts what a desktop or headset visit can download before the first stone goes down: dist/
 // minus what only loads on demand: Havok's physics (WASM and its worker/runtime chunks, fetched when
-// the first stone is placed), the IWER emulator chunk (?emulator=1 only), the emulator's synthetic
+// the first stone is placed), the IWER emulator chunks (?emulator=1 only), the emulator's synthetic
 // room module and room files (?emulator=1&room= only), the emulated-hand driver (?emulator=1&handplay= only),
 // the controller and hand input profiles (only when an XR input asks for its model), source maps and the .md
 // notes the public/ folder copies along.
@@ -38,6 +38,8 @@ function onDemand(path) {
   if (path.startsWith('emulator/')) return 'emulator room';
   // src/systems/handplay.ts, imported only under ?emulator=1&handplay= (Rollup names the chunk after the file).
   if (/^assets\/handplay-[\w-]+\.js$/.test(path)) return 'emulated hand';
+  // src/emulator/emulator.ts, imported only under ?emulator=1 (IWER's set-up, ?head=, __archwright.emulator).
+  if (/^assets\/emulator-[\w-]+\.js$/.test(path)) return 'emulator';
   // The synthetic room module (@iwer/sem): the only code that announces an 'environmentchange'.
   if (/^assets\/.*\.js$/.test(path) && /["'`]environmentchange["'`]/.test(readFileSync(join(DIST, path), 'utf8'))) return 'emulator room module';
   return null;

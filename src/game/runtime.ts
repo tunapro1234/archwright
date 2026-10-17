@@ -22,6 +22,7 @@ import { MATERIAL_COLOR } from '../scene/meshes.js';
 import { COLORS, onRepaint } from '../scene/palette.js';
 import type { SurfaceKind } from '../scene/surface-chain.js';
 import type { HandplayHook } from '../systems/handplay.js';
+import type { EmulatorHook } from '../emulator/emulator.js';
 import { playReject, playStone } from '../audio/synth.js';
 import { stoneNote } from '../audio/music.js';
 import { monumentOf, plaqueText } from '../levels/monuments.js';
@@ -48,12 +49,24 @@ export interface Hook {
   /** Accessibility settings in force (src/game/a11y.ts). */
   a11y?: A11ySettings;
   /** The XR session: the mode it was requested in (null outside XR), its enabled features, each input source's
-   *  profile, and the emulator's synthetic room (?emulator=1&room=, null without one). */
-  xr?: { mode: 'immersive-ar' | 'immersive-vr' | null; features: string[]; inputs: string[]; room: string | null };
+   *  profile, the emulator's synthetic room (?emulator=1&room=, null without one) and the head: where the eyes are
+   *  (world m) and the way they face, as a yaw in degrees (0 = -z, positive turns left), every frame in XR. */
+  xr?: {
+    mode: 'immersive-ar' | 'immersive-vr' | null; features: string[]; inputs: string[]; room: string | null;
+    head?: { x: number; y: number; z: number; yaw: number } | null;
+  };
   /** What the XR session reports of the room (SurfaceSystem): the semantic label of each detected plane and mesh. */
   detected?: { planes: string[]; meshes: string[] };
-  /** Where the board went last (SurfaceSystem): the surface kind, the board's top in world space, and how far below the eyes (null outside XR). */
-  board?: { kind: SurfaceKind; at: { x: number; y: number; z: number }; belowEyes: number | null };
+  /** Where the board went last (SurfaceSystem): the surface kind, the board's top in world space, how far below the eyes
+   *  (null outside XR), the board's centre (world x, z) and, on a detected desk (mesh, plane), that desk's top as a world
+   *  rectangle (null otherwise). */
+  board?: {
+    kind: SurfaceKind; at: { x: number; y: number; z: number }; belowEyes: number | null;
+    centre: { x: number; z: number } | null;
+    desk: { minX: number; maxX: number; minZ: number; maxZ: number; y: number } | null;
+  };
+  /** ?emulator=1 only: drive the emulated headset (src/emulator/emulator.ts). */
+  emulator?: EmulatorHook;
   /** The desk museum (src/systems/museum.ts): plinth ids shown, how many follow an XR anchor, and this session's
    *  anchors: new ones asked for, created by the runtime, given a persistent handle, refused or failed; saved ones
    *  that came back, and saved ones that did not. */

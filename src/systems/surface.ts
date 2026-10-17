@@ -1,8 +1,9 @@
 // Puts the board on a real surface. The decision is chooseSurface (src/scene/surface-chain.ts):
 // outside XR the page's virtual desk; in opaque VR the atelier (a virtual room and desk); in
-// passthrough a detected desk (scene mesh first, then plane), else a spot the player pinches through
-// hit-test, else a lap tray. This system only gathers the inputs and carries the choice out.
-// ?surface=mesh|plane|pick|lap|atelier forces a kind; __archwright.surface reports the last one.
+// passthrough a detected desk in front of the player (scene mesh first, then plane; placeOnDesk puts the board
+// on it), else a spot the player pinches through hit-test, else a lap tray. This system only gathers the inputs
+// and carries the choice out. ?surface=mesh|plane|pick|lap|atelier forces a kind; __archwright.surface reports
+// the last one, __archwright.board where it went, and __archwright.xr.head the head every XR frame.
 import {
   Box3, BoxGeometry, Color, createSystem, Matrix4, Mesh, Vector3, XRMesh, XRPlane, type Group,
 } from '@iwsdk/core';
@@ -12,14 +13,12 @@ import type { HandState } from './hands.js';
 import { atelier, flatMaterial, pickRing } from '../scene/models.js';
 import { paint } from '../scene/palette.js';
 import {
-  chooseSurface, DESK_BELOW_EYES, type SurfaceCandidate, type SurfaceChoice, type SurfaceInput, type SurfaceKind,
+  chooseSurface, DESK_BELOW_EYES, placeOnDesk, type SurfaceCandidate, type SurfaceChoice, type SurfaceInput, type SurfaceKind,
 } from '../scene/surface-chain.js';
 import { playReject, playTick, unlockAudio } from '../audio/synth.js';
 import { BOARD } from '../scene/layout.js';
 
 export const DESK_HEIGHT = 0.75;
-/** On a real desk the arch goes this far ahead of the eyes (the desk centre may be further off). */
-const DESK_FORWARD = 0.5;
 /** Atelier: the virtual desk top sits this far below the eyes, the arch this far ahead. */
 const ATELIER_BELOW_EYES = 0.45;
 const ATELIER_FORWARD = 0.5;
@@ -98,16 +97,17 @@ export class SurfaceSystem extends createSystem({
     if (!session) return;
     this.elapsed += delta;
     this.reportDetected(arch);
+    this.player.head.getWorldPosition(this.head);
+    if (this.head.lengthSq() === 0) return; // no viewer pose yet
+    this.facing();
+    this.reportHead(arch);
     // Once placed in this session, the board only moves before the first stone goes down. A level
     // already under way when the session starts still needs a place: it moves with all its stones.
     if (this.placed !== null && arch.state.placed.length > 0) { this.hideRings(); return; }
-    this.player.head.getWorldPosition(this.head);
-    if (this.head.lengthSq() === 0) return; // no viewer pose yet
 
     const i = this.input_;
     i.passthrough = session.environmentBlendMode !== 'opaque';
     i.head.x = this.head.x; i.head.y = this.head.y; i.head.z = this.head.z;
-    this.facing();
     i.fwd.x = this.fwd.x; i.fwd.z = this.fwd.z;
     i.candidates = this.gatherCandidates();
     i.elapsed = this.elapsed;
@@ -180,16 +180,35 @@ export class SurfaceSystem extends createSystem({
         // The desk centre a little behind the arch, so the tray in front of it is on the desk too.
         this.atelier.position.set(site.position.x + this.fwd.x * 0.05, y - BOARD.thickness, site.position.z + this.fwd.z * 0.05);
         this.atelier.rotation.set(0, yaw, 0);
-      } else if (c.kind === 'mesh' || c.kind === 'plane') {
-        site.position.set(this.head.x + this.fwd.x * DESK_FORWARD, c.position!.y, this.head.z + this.fwd.z * DESK_FORWARD);
+      } else if ((c.kind === 'mesh' || c.kind === 'plane') && c.desk) {
+        // Ahead of the eyes if the board's centre lands on the desk from there, else on the desk, turned to the player.
+        const p = placeOnDesk(this.head, this.fwd, c.desk);
+        site.position.set(p.x, c.desk.y, p.z);
+        site.rotation.set(0, p.yaw, 0);
       } else {
         site.position.set(c.position!.x, c.position!.y, c.position!.z);
       }
     }
     arch.setShown(true);
-    const at = site.position;
-    // Outside XR there is no head pose to measure from: the desk board has no height below the eyes.
-    arch.hook.board = { kind: c.kind, at: { x: at.x, y: at.y, z: at.z }, belowEyes: c.kind === 'desk' ? null : this.head.y - at.y };
+    const at = site.position, d = c.desk;
+    // The board's centre: half way along its depth, from the site towards the player (site +z).
+    const mid = (BOARD.zMin + BOARD.zMax) / 2, yaw = site.rotation.y;
+    arch.hook.board = {
+      kind: c.kind, at: { x: at.x, y: at.y, z: at.z },
+      // Outside XR there is no head pose to measure from: the desk board has no height below the eyes.
+      belowEyes: c.kind === 'desk' ? null : this.head.y - at.y,
+      centre: { x: at.x + Math.sin(yaw) * mid, z: at.z + Math.cos(yaw) * mid },
+      desk: d ? { minX: d.x - d.width / 2, maxX: d.x + d.width / 2, minZ: d.z - d.depth / 2, maxZ: d.z + d.depth / 2, y: d.y } : null,
+    };
+  }
+
+  /** __archwright.xr.head: where the eyes are and the yaw they face (degrees, 0 = -z, positive = left), every XR frame. */
+  private reportHead(arch: ArchRuntime): void {
+    const xr = arch.hook.xr;
+    if (!xr) return;
+    const h = xr.head ?? (xr.head = { x: 0, y: 0, z: 0, yaw: 0 });
+    h.x = this.head.x; h.y = this.head.y; h.z = this.head.z;
+    h.yaw = (Math.atan2(-this.fwd.x, -this.fwd.z) * 180) / Math.PI;
   }
 
   /** __archwright.detected: the label of every plane and mesh the session reports, rewritten when their number changes. */
@@ -238,16 +257,18 @@ export class SurfaceSystem extends createSystem({
       const plane = e.getValue(XRPlane, '_plane') as XRPlane | undefined;
       const obj = e.object3D;
       if (!plane || !obj) continue;
-      // The polygon lies in the plane's x-z; its bounds give the size, their middle the centre.
-      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+      // The polygon lies in the plane's x-z. Its world bounds give the size (as for a mesh, a world x by z
+      // rectangle, which is what placeOnDesk keeps the board inside), their middle the centre.
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, y = 0;
       for (const q of plane.polygon) {
-        if (q.x < x0) x0 = q.x; if (q.x > x1) x1 = q.x;
-        if (q.z < z0) z0 = q.z; if (q.z > z1) z1 = q.z;
+        obj.localToWorld(this.p.set(q.x, q.y, q.z));
+        if (this.p.x < x0) x0 = this.p.x; if (this.p.x > x1) x1 = this.p.x;
+        if (this.p.z < z0) z0 = this.p.z; if (this.p.z > z1) z1 = this.p.z;
+        y += this.p.y;
       }
       if (!(x1 > x0)) continue;
-      obj.localToWorld(this.p.set((x0 + x1) / 2, 0, (z0 + z1) / 2));
       const c = out[n++];
-      c.x = this.p.x; c.y = this.p.y; c.z = this.p.z;
+      c.x = (x0 + x1) / 2; c.y = y / plane.polygon.length; c.z = (z0 + z1) / 2;
       c.width = x1 - x0;
       c.depth = z1 - z0;
       c.horizontal = plane.orientation === 'horizontal';

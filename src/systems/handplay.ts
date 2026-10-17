@@ -65,12 +65,18 @@ export class HandPlaySystem extends createSystem({}) {
     const device = this.globals.emulator as XRDevice | undefined;
     if (!device) return;
     device.primaryInputMode = 'hand';
-    // Anyone placing stones looks at them: the head pitches down so the board is mid-view. The surface chain
-    // only uses the head's position and its horizontal heading, so the board lands where it would anyway.
-    device.quaternion.set(Math.sin(LOOK / 2), 0, 0, Math.cos(LOOK / 2));
-    const s = Math.sin(TILT / 2), c = Math.cos(TILT / 2);
-    device.hands.right?.quaternion.set(s, 0, 0, c);
-    device.hands.left?.quaternion.set(s, 0, 0, c);
+    // Anyone placing stones looks at them: the head pitches down so the board is mid-view, on top of whatever
+    // way ?head= turned it. The surface chain only uses the head's position and its horizontal heading, so the
+    // board lands where it would anyway. The hands turn with the head.
+    const d = device.quaternion, turn = this.q.set(d.x, d.y, d.z, d.w);
+    const look = turn.clone().multiply(this.pitch(LOOK)), tilt = turn.clone().multiply(this.pitch(TILT));
+    d.set(look.x, look.y, look.z, look.w);
+    device.hands.right?.quaternion.set(tilt.x, tilt.y, tilt.z, tilt.w);
+    device.hands.left?.quaternion.set(tilt.x, tilt.y, tilt.z, tilt.w);
+  }
+
+  private pitch(rad: number): Quaternion {
+    return new Quaternion(Math.sin(rad / 2), 0, 0, Math.cos(rad / 2));
   }
 
   update(delta: number): void {
