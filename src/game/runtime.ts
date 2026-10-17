@@ -2,7 +2,7 @@
 // drive it through world.globals.arch; the rules themselves stay in arch-state.ts.
 import {
   Color, DirectionalLight, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Object3D, Quaternion, Vector3,
-  type Entity, type World,
+  type Entity, type Material, type World,
 } from '@iwsdk/core';
 import {
   createLevel, placeStone, takeBack, whyNot, type GameState, type LevelDef, type Load, type Side, type Step, type StoneDef,
@@ -18,6 +18,7 @@ import {
   abutmentMaterial, ashlarMaterial, ashlarMesh, blobShadow, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, loadMaterials, loadMesh, plaqueMesh, prism, stoneMaterial,
   woodMaterial,
 } from '../scene/models.js';
+import { freeObjects } from '../scene/free.js';
 import { MATERIAL_COLOR } from '../scene/meshes.js';
 import { COLORS, onRepaint } from '../scene/palette.js';
 import type { SurfaceKind } from '../scene/surface-chain.js';
@@ -299,21 +300,16 @@ export class ArchRuntime {
   private clear(): void {
     this.hideGhost('left');
     this.hideGhost('right');
-    for (const e of this.levelEntities) e.dispose();
+    const roots = this.levelEntities.flatMap(e => e.object3D ? [e.object3D] : []);
+    for (const e of this.levelEntities) e.dispose({ disposeResources: false });
     this.levelEntities = [];
     for (const child of [...this.site.children]) if (!(child instanceof DirectionalLight) && !child.userData.keep) this.site.remove(child);
-    // Free the GPU buffers of what this level built, and their own materials and textures (the shadow's canvas,
-    // the line of thrust's material), but never the shared materials the next level reuses.
-    const shared = new Set<unknown>([this.stoneMat, this.abutmentMat, this.ashlarMat, this.woodMat, this.boardMat, this.proxyMat, ...Object.values(this.loadMats)]);
-    for (const root of this.thrustLine ? [...this.levelObjects, this.thrustLine] : this.levelObjects) root.traverse(o => {
-      if (!(o instanceof Mesh)) return;
-      o.geometry.dispose();
-      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
-        if (shared.has(m)) continue;
-        (m as MeshBasicMaterial).map?.dispose();
-        m.dispose();
-      }
-    });
+    // Free the GPU buffers of what this level built (the stone batches' instance buffers too), and their own
+    // materials and textures (the shadow's canvas, the line of thrust's material), but never the shared
+    // materials the next level reuses (src/scene/free.ts).
+    roots.push(...this.levelObjects);
+    if (this.thrustLine) roots.push(this.thrustLine);
+    freeObjects(roots, new Set<Material>([this.stoneMat, this.abutmentMat, this.ashlarMat, this.woodMat, this.boardMat, this.proxyMat, ...Object.values(this.loadMats)]));
     this.levelObjects = [];
     this.stones = [];
     this.batches = [];
