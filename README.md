@@ -73,9 +73,10 @@ Where the board goes (`src/scene/surface-chain.ts`, pure functions with their ow
 table mesh or a horizontal plane at desk height within reach (25 to 85 cm below the eyes, centre at most 75 cm away, at least
 30 × 20 cm) and not behind you (its centre within 100° of the way you face, or under your head), the board goes on it, scene
 meshes first. On that desk the board stands 50 cm ahead of your eyes, facing the way you face, as long as its centre is then at
-least 10 cm in from every edge of the desk (or on the middle line of a desk narrower than 20 cm). If not, the centre moves to the
+least 10 cm in from every edge of the desk (on its middle line, if the desk is only 20 cm deep). If not, the centre moves to the
 nearest point that is, and the board turns to face you from there: a desk off to one side gets the board on it, square to you,
-rather than in the air in front of you. If no desk turns up within 1.5 s and hit-test is available, a ring follows
+rather than in the air in front of you. The desk's top is taken as the rectangle it fills along the session's x and z axes, so on
+a table set at an angle to them the board can still end up near a corner that is not table. If no desk turns up within 1.5 s and hit-test is available, a ring follows
 your hand's ray over real surfaces and you pinch to pick a spot on your desk; a spot at floor or shelf height is refused. After
 9.5 s with no pick, or without hit-test, the board sits on a lap tray 40 cm in front of you, 42 cm below the eyes. A lap tray or
 a picked spot gives way if a real desk is detected before the first stone goes down; after that the board stays put. In an
@@ -86,6 +87,11 @@ The chain has run on room data in the emulator, not yet on a headset. With Meta'
 (walls, floor, ceiling, door, window, wall art and a table) and four meshes (table, screen, plant and the room's overall mesh).
 The table mesh passed the desk test and the board went onto it, 40 cm below the eyes; `?autotest=w1-1:hold` then built the
 arch there and it held, with no console error and no request to another origin (headless Chromium, 15 October 2026).
+Turning the emulated head in the same room (`&head=<yaw>`, eyes at 1.15 m, 17 October 2026): facing the table (0°), the board
+went onto the table mesh with its centre 10 cm in from the table's near edge; turned 90° left or right, with the table's centre
+85° to 95° off to one side, the board went onto the table there, turned to face the player; turned round (180°), the table
+behind was skipped and, with no pick, the board went to the lap tray. `?autotest=w1-1:hold` held in all four, with no console
+error and no request to another origin.
 
 ## The desk museum
 
