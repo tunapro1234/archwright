@@ -2,10 +2,11 @@
 // outside XR the page's virtual desk; in opaque VR the atelier (a virtual room and desk); in
 // passthrough a detected desk in front of the player (scene mesh first, then plane; placeOnDesk puts the board
 // on it), else a spot the player pinches through hit-test, else a lap tray. This system only gathers the inputs
-// and carries the choice out. ?surface=mesh|plane|pick|lap|atelier forces a kind; __archwright.surface reports
-// the last one, __archwright.board where it went, and __archwright.xr.head the head every XR frame.
+// (a desk top is the turned rectangle round its points, deskRect) and carries the choice out.
+// ?surface=mesh|plane|pick|lap|atelier forces a kind; __archwright.surface reports the last one,
+// __archwright.board where it went, and __archwright.xr.head the head every XR frame.
 import {
-  Box3, BoxGeometry, Color, createSystem, Matrix4, Mesh, Vector3, XRMesh, XRPlane, type Group,
+  BoxGeometry, Color, createSystem, Matrix4, Mesh, Vector3, XRMesh, XRPlane, type Group,
 } from '@iwsdk/core';
 import type { Side } from '../game/arch-state.js';
 import type { ArchRuntime } from '../game/runtime.js';
@@ -13,7 +14,7 @@ import type { HandState } from './hands.js';
 import { atelier, flatMaterial, pickRing } from '../scene/models.js';
 import { paint } from '../scene/palette.js';
 import {
-  chooseSurface, DESK_BELOW_EYES, placeOnDesk, type SurfaceCandidate, type SurfaceChoice, type SurfaceInput, type SurfaceKind,
+  chooseSurface, DESK_BELOW_EYES, deskRect, placeOnDesk, type SurfaceCandidate, type SurfaceChoice, type SurfaceInput, type SurfaceKind,
 } from '../scene/surface-chain.js';
 import { playReject, playTick, unlockAudio } from '../audio/synth.js';
 import { BOARD } from '../scene/layout.js';
@@ -55,7 +56,9 @@ export class SurfaceSystem extends createSystem({
   private head = new Vector3();
   private fwd = new Vector3();
   private p = new Vector3();
-  private box = new Box3();
+  /** Outline points of the top being read (pooled), and the view of the first n of them. */
+  private points: { x: number; z: number }[] = [];
+  private outline: { x: number; z: number }[] = [];
   private m = new Matrix4();
   private background = paint(new Color(), 'background');
   /** Detected planes and meshes counted when __archwright.detected was last written. */
@@ -198,7 +201,7 @@ export class SurfaceSystem extends createSystem({
       // Outside XR there is no head pose to measure from: the desk board has no height below the eyes.
       belowEyes: c.kind === 'desk' ? null : this.head.y - at.y,
       centre: { x: at.x + Math.sin(yaw) * mid, z: at.z + Math.cos(yaw) * mid },
-      desk: d ? { minX: d.x - d.width / 2, maxX: d.x + d.width / 2, minZ: d.z - d.depth / 2, maxZ: d.z + d.depth / 2, y: d.y } : null,
+      desk: d ? deskHook(d) : null,
     };
   }
 
@@ -239,45 +242,62 @@ export class SurfaceSystem extends createSystem({
     const out = this.pool;
     for (const e of this.queries.meshes.entities) {
       if (n >= MAX_CANDIDATES) break;
-      const obj = e.object3D;
+      const obj = e.object3D as Mesh | undefined;
       if (!obj || !DESK_LABELS.has(String(e.getValue(XRMesh, 'semanticLabel')).toLowerCase())) continue;
-      this.box.setFromObject(obj);
-      if (this.box.isEmpty()) continue;
-      const c = out[n++];
-      c.x = (this.box.min.x + this.box.max.x) / 2;
-      c.z = (this.box.min.z + this.box.max.z) / 2;
-      c.y = this.box.max.y;
-      c.width = this.box.max.x - this.box.min.x;
-      c.depth = this.box.max.z - this.box.min.z;
-      c.horizontal = true;
-      c.source = 'mesh';
+      const pos = obj.geometry?.getAttribute('position');
+      if (!pos || pos.count === 0) continue;
+      // Its vertices in the world, seen from above: the smallest rectangle round them is the desk top, turned as
+      // the desk stands in the room; the highest vertex is its height.
+      obj.updateWorldMatrix(true, false);
+      let y = -Infinity;
+      for (let k = 0; k < pos.count; k++) {
+        this.p.fromBufferAttribute(pos, k).applyMatrix4(obj.matrixWorld);
+        this.flat(k, this.p);
+        if (this.p.y > y) y = this.p.y;
+      }
+      this.top(out[n++], this.flatPoints(pos.count), y, true, 'mesh');
     }
     for (const e of this.queries.planes.entities) {
       if (n >= MAX_CANDIDATES) break;
       const plane = e.getValue(XRPlane, '_plane') as XRPlane | undefined;
       const obj = e.object3D;
-      if (!plane || !obj) continue;
-      // The polygon lies in the plane's x-z. Its world bounds give the size (as for a mesh, a world x by z
-      // rectangle, which is what placeOnDesk keeps the board inside), their middle the centre.
-      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, y = 0;
-      for (const q of plane.polygon) {
+      if (!plane || !obj || plane.polygon.length < 3) continue;
+      // The polygon lies in the plane's x-z; its world points give the top's size and turn as for a mesh.
+      let y = 0;
+      plane.polygon.forEach((q, k) => {
         obj.localToWorld(this.p.set(q.x, q.y, q.z));
-        if (this.p.x < x0) x0 = this.p.x; if (this.p.x > x1) x1 = this.p.x;
-        if (this.p.z < z0) z0 = this.p.z; if (this.p.z > z1) z1 = this.p.z;
+        this.flat(k, this.p);
         y += this.p.y;
-      }
-      if (!(x1 > x0)) continue;
-      const c = out[n++];
-      c.x = (x0 + x1) / 2; c.y = y / plane.polygon.length; c.z = (z0 + z1) / 2;
-      c.width = x1 - x0;
-      c.depth = z1 - z0;
-      c.horizontal = plane.orientation === 'horizontal';
-      c.source = 'plane';
+      });
+      const r = this.top(out[n], this.flatPoints(plane.polygon.length), y / plane.polygon.length, plane.orientation === 'horizontal', 'plane');
+      if (r.width > 0) n++;
     }
     // The first n of the pool; chooseSurface only reads them.
     this.candidates.length = 0;
     for (let k = 0; k < n; k++) this.candidates.push(out[k]);
     return this.candidates;
+  }
+
+  /** Point k of the current outline, seen from above (pooled). */
+  private flat(k: number, p: Vector3): void {
+    const q = this.points[k] ?? (this.points[k] = { x: 0, z: 0 });
+    q.x = p.x; q.z = p.z;
+  }
+
+  private flatPoints(count: number): { x: number; z: number }[] {
+    this.outline.length = 0;
+    for (let k = 0; k < count; k++) this.outline.push(this.points[k]);
+    return this.outline;
+  }
+
+  /** Fill a pooled candidate from the outline of a top. */
+  private top(c: SurfaceCandidate, outline: { x: number; z: number }[], y: number, horizontal: boolean, source: 'mesh' | 'plane'): SurfaceCandidate {
+    const r = deskRect(outline);
+    c.x = r.x; c.y = y; c.z = r.z;
+    c.width = r.width; c.depth = r.depth; c.yaw = r.yaw;
+    c.horizontal = horizontal;
+    c.source = source;
+    return c;
   }
 
   /** Hit-test from each hand's ray: a ring where it meets a real surface, warm when desk-high. */
@@ -327,6 +347,16 @@ export class SurfaceSystem extends createSystem({
   private hideRings(): void {
     for (const side of SIDES) { this.rings[side].visible = false; this.hitValid[side] = false; }
   }
+}
+
+/** A chosen desk for __archwright.board.desk: its own rectangle (centre, size, yaw) and the world box round it. */
+function deskHook(d: SurfaceCandidate) {
+  const yaw = d.yaw ?? 0, c = Math.abs(Math.cos(yaw)), s = Math.abs(Math.sin(yaw));
+  const hx = (d.width * c + d.depth * s) / 2, hz = (d.width * s + d.depth * c) / 2;
+  return {
+    minX: d.x - hx, maxX: d.x + hx, minZ: d.z - hz, maxZ: d.z + hz, y: d.y,
+    cx: d.x, cz: d.z, width: d.width, depth: d.depth, yaw,
+  };
 }
 
 /** A lap tray or a picked spot gives way when a real desk turns up before the first stone. */

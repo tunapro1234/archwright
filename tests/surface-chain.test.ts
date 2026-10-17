@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  chooseSurface, DESK_FORWARD, DESK_INSET, DESK_MAX_ANGLE, inFront, isDesk, LAP_BELOW_EYES, PICK_UNTIL, placeOnDesk,
+  chooseSurface, DESK_FORWARD, DESK_INSET, DESK_MAX_ANGLE, deskRect, inFront, isDesk, LAP_BELOW_EYES, PICK_UNTIL, placeOnDesk,
   ROOM_WAIT, type DeskPlacement, type SurfaceCandidate, type SurfaceInput,
 } from '../src/scene/surface-chain.js';
 import { BOARD } from '../src/scene/layout.js';
@@ -156,5 +156,91 @@ describe('desks behind the player', () => {
   it('a desk centre within 15 cm of the head is in front whichever way the player faces', () => {
     const under = { x: 0, y: 0.75, z: -0.1, width: 0.8, depth: 0.5, horizontal: true, source: 'mesh' as const };
     expect(chooseSurface(seated({ fwd: { x: 0, z: 1 }, candidates: [under] })).kind).toBe('mesh');
+  });
+});
+
+describe('a desk turned against the room', () => {
+  const eyes = { x: 0, y: 1.15, z: 0 };
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const turned = (x: number, z: number, width: number, depth: number, yawDeg: number, source: 'mesh' | 'plane' = 'mesh'): SurfaceCandidate =>
+    ({ x, y: 0.75, z, width, depth, yaw: rad(yawDeg), horizontal: true, source });
+  /** Desk frame (u along the width, v along the depth) to world and back, as three.js rotationY(yaw). */
+  const world = (m: SurfaceCandidate, u: number, v: number) => {
+    const c = Math.cos(m.yaw ?? 0), s = Math.sin(m.yaw ?? 0);
+    return { x: m.x + u * c + v * s, z: m.z - u * s + v * c };
+  };
+  const local = (m: SurfaceCandidate, p: { x: number; z: number }) => {
+    const c = Math.cos(m.yaw ?? 0), s = Math.sin(m.yaw ?? 0), dx = p.x - m.x, dz = p.z - m.z;
+    return { u: c * dx - s * dz, v: s * dx + c * dz };
+  };
+  const corners = (m: SurfaceCandidate) => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => world(m, (a * m.width) / 2, (b * m.depth) / 2));
+  const inner = (m: SurfaceCandidate, p: { x: number; z: number }) => {
+    const { u, v } = local(m, p);
+    return Math.abs(u) <= m.width / 2 - Math.min(DESK_INSET, m.width / 2) + 1e-9
+      && Math.abs(v) <= m.depth / 2 - Math.min(DESK_INSET, m.depth / 2) + 1e-9;
+  };
+  const facing = (deg: number) => ({ x: -Math.sin(rad(deg)), z: -Math.cos(rad(deg)) });
+
+  it('deskRect finds a turned desk\'s own size, centre and turn from its corners and inner points', () => {
+    for (const yd of [0, 30, -30, 45, 90, 120]) {
+      const m = turned(0.2, -0.5, 1.2, 0.6, yd);
+      const r = deskRect([...corners(m), world(m, 0.3, 0.2), world(m, -0.5, -0.1)]);
+      expect(r.width).toBeCloseTo(1.2, 9);
+      expect(r.depth).toBeCloseTo(0.6, 9);
+      expect(r.x).toBeCloseTo(0.2, 9);
+      expect(r.z).toBeCloseTo(-0.5, 9);
+      // The same rectangle: the yaw only up to half a turn.
+      const d = (((r.yaw - rad(yd)) % Math.PI) + Math.PI) % Math.PI;
+      expect(Math.min(d, Math.PI - d)).toBeLessThan(1e-9);
+    }
+  });
+
+  it('deskRect puts the long side in the width, and survives too few points', () => {
+    const r = deskRect([{ x: 0, z: 0 }, { x: 0.2, z: 0 }, { x: 0.2, z: 0.9 }, { x: 0, z: 0.9 }]);
+    expect(r.width).toBeCloseTo(0.9, 9);
+    expect(r.depth).toBeCloseTo(0.2, 9);
+    expect(deskRect([]).width).toBe(0);
+    expect(deskRect([{ x: 1, z: 2 }, { x: 1, z: 3 }]).depth).toBeCloseTo(0, 9);
+  });
+
+  it('a 0.6 x 0.15 shelf turned 45 degrees stays narrow and is not a desk', () => {
+    const shelf = turned(0, -0.5, 0.6, 0.15, 45, 'plane');
+    const r = deskRect(corners(shelf));
+    const c = { ...shelf, ...r };
+    expect(Math.min(r.width, r.depth)).toBeCloseTo(0.15, 9);
+    expect(isDesk(eyes, c)).toBe(false);
+    expect(chooseSurface({ inXR: true, passthrough: true, head: eyes, fwd: { x: 0, z: -1 }, candidates: [c], hitTest: true, elapsed: 3 }).kind).not.toBe('plane');
+  });
+
+  it('on a desk turned 30 or 45 degrees the board\'s centre stays inside the desk for every way the player faces', () => {
+    for (const yd of [30, -30, 45, -45]) {
+      const m = turned(0, -0.5, 1.2, 0.6, yd);
+      for (let t = -100; t <= 100; t += 2) {
+        const r = placeOnDesk(eyes, facing(t), m);
+        expect(inner(m, r.centre), `desk ${yd}, facing ${t}: ${JSON.stringify(local(m, r.centre))}`).toBe(true);
+      }
+    }
+  });
+
+  it('a clamped centre on a turned desk: the board\'s far end points from the head through it', () => {
+    const m = turned(-0.3, -0.4, 1.2, 0.6, 30);
+    const r = placeOnDesk(eyes, facing(-60), m);
+    expect(inner(m, r.centre)).toBe(true);
+    const far = { x: -Math.sin(r.yaw), z: -Math.cos(r.yaw) }, d = Math.hypot(r.centre.x, r.centre.z);
+    expect(far.x).toBeCloseTo(r.centre.x / d, 9);
+    expect(far.z).toBeCloseTo(r.centre.z / d, 9);
+  });
+
+  it('yaw 0 is the axis-aligned desk; 90 degrees with width and depth swapped is the same desk', () => {
+    for (let t = -90; t <= 90; t += 10) {
+      const plain = placeOnDesk(eyes, facing(t), { x: 0.1, y: 0.75, z: -0.5, width: 1.2, depth: 0.6, horizontal: true, source: 'mesh' });
+      const zero = placeOnDesk(eyes, facing(t), turned(0.1, -0.5, 1.2, 0.6, 0));
+      const swapped = placeOnDesk(eyes, facing(t), turned(0.1, -0.5, 0.6, 1.2, 90));
+      for (const r of [zero, swapped]) {
+        expect(r.centre.x).toBeCloseTo(plain.centre.x, 9);
+        expect(r.centre.z).toBeCloseTo(plain.centre.z, 9);
+        expect(r.yaw).toBeCloseTo(plain.yaw, 9);
+      }
+    }
   });
 });

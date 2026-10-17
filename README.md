@@ -75,8 +75,12 @@ table mesh or a horizontal plane at desk height within reach (25 to 85 cm below 
 meshes first. On that desk the board stands 50 cm ahead of your eyes, facing the way you face, as long as its centre is then at
 least 10 cm in from every edge of the desk (on its middle line, if the desk is only 20 cm deep). If not, the centre moves to the
 nearest point that is, and the board turns to face you from there: a desk off to one side gets the board on it, square to you,
-rather than in the air in front of you. The desk's top is taken as the rectangle it fills along the session's x and z axes, so on
-a table set at an angle to them the board can still end up near a corner that is not table. If no desk turns up within 1.5 s and hit-test is available, a ring follows
+rather than in the air in front of you. A real table is rarely square to the headset's floor axes, so the desk's top is the
+smallest rectangle round its mesh vertices or plane outline seen from above, turned the way the table stands; the size test, the
+10 cm margin and the move onto the desk all work in that rectangle (unit tests: a 1.2 × 0.6 m desk turned 30° or 45° keeps the
+board's centre inside its margin for every way you face, and a 0.6 × 0.15 m shelf turned 45° is still too narrow to count).
+The table in the emulator's synthetic office stands within a degree of square to the room's axes, so the turned case is covered
+by those tests alone. If no desk turns up within 1.5 s and hit-test is available, a ring follows
 your hand's ray over real surfaces and you pinch to pick a spot on your desk; a spot at floor or shelf height is refused. After
 9.5 s with no pick, or without hit-test, the board sits on a lap tray 40 cm in front of you, 42 cm below the eyes. A lap tray or
 a picked spot gives way if a real desk is detected before the first stone goes down; after that the board stays put. In an
@@ -232,7 +236,8 @@ On a daily level `daily` holds the day's number and, once the arch is struck, it
 `xr` gives the session mode (`immersive-ar`, `immersive-vr`, or null outside XR), its enabled WebXR features, its input
 profiles, the emulator room (`room`) and the head (`head`: where the eyes are and the yaw they face, in degrees, every XR frame).
 `detected` lists the semantic label of every plane and mesh the session reports, `board` where the board went (surface kind, its
-top, how far below the eyes, the board's centre and, on a detected desk, that desk's top as a rectangle), and `museum` the
+top, how far below the eyes, the board's centre and, on a detected desk, that desk's top: its own rectangle as `cx`, `cz`,
+`width`, `depth` and `yaw`, and the world box round it as `minX` to `maxZ`), and `museum` the
 plinths, how many follow an anchor and this session's anchor counts (requested, created, persisted, failed, restored, lost).
 With `?emulator=1` the hook also has `emulator`, whose `setVisibility(state)`, `aim(hand, point)` and `pinch(hand, value)` set
 the emulated session's visibility, turn a hand's or controller's ray to a point, and pinch (a controller's trigger). The XR smoke

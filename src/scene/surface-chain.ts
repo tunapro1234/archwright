@@ -5,7 +5,8 @@
 //   outside XR (desktop, emulator page)  → desk: the page's own virtual desk
 //   ?surface=<kind>                      → that kind (lap placed now, atelier unplaced, pick waits for a pick)
 //   opaque VR (no passthrough)           → atelier: a virtual room with a wooden desk
-//   a real desk (mesh first, then plane) → on it, if its centre is not behind the player (placeOnDesk)
+//   a real desk (mesh first, then plane) → on it, if its centre is not behind the player (placeOnDesk; the desk
+//                                          is a turned rectangle, deskRect)
 //   first 1.5 s                          → wait for the room data to arrive
 //   hit-test, up to 9.5 s                → pick: the player pinches a spot on their desk
 //   otherwise                            → lap: a tray 40 cm ahead, 42 cm below the eyes
@@ -18,10 +19,16 @@ export type SurfaceKind = 'desk' | 'atelier' | 'mesh' | 'plane' | 'pick' | 'lap'
 export interface SurfaceCandidate {
   /** Centre of the top face, world metres. */
   x: number; y: number; z: number;
+  /** The top's own size: width along its local x, depth along its local z. */
   width: number; depth: number;
+  /** The top's local frame is rotationY(yaw) (radians; 0 or absent: along the world x and z). */
+  yaw?: number;
   horizontal: boolean;
   source: 'mesh' | 'plane';
 }
+
+/** A desk top seen from above: centre, its own size (width ≥ depth) and the yaw of its width axis (as SurfaceCandidate). */
+export interface DeskRect { x: number; z: number; width: number; depth: number; yaw: number }
 
 export interface SurfaceInput {
   inXR: boolean;
@@ -110,20 +117,79 @@ function nearestDesk(i: SurfaceInput, source: 'mesh' | 'plane'): SurfaceCandidat
 const BOARD_CENTRE = (BOARD.zMin + BOARD.zMax) / 2;
 
 /**
+ * The smallest-area rectangle around a desk's points seen from above (x, z), from the edges of their convex hull:
+ * one side of that rectangle always lies along a hull edge. A real room's furniture is not square to the session's
+ * axes, so a desk turned 30° keeps its own 1.2 × 0.6 m, and a narrow shelf turned 45° stays narrow.
+ */
+export function deskRect(points: readonly { x: number; z: number }[]): DeskRect {
+  const h = hull(points);
+  let best: DeskRect = { x: h[0]?.x ?? 0, z: h[0]?.z ?? 0, width: 0, depth: 0, yaw: 0 };
+  let bestArea = Infinity;
+  for (let i = 0; i < h.length; i++) {
+    const a = h[i], b = h[(i + 1) % h.length];
+    const ex = b.x - a.x, ez = b.z - a.z, len = Math.hypot(ex, ez);
+    if (len < 1e-9) continue;
+    // Width axis along the edge: u = (cos, -sin) in (x, z), so yaw = atan2(-ez, ex); depth axis v = (sin, cos).
+    const yaw = Math.atan2(-ez, ex), c = Math.cos(yaw), s = Math.sin(yaw);
+    let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+    for (const p of h) {
+      const u = c * p.x - s * p.z, v = s * p.x + c * p.z;
+      if (u < u0) u0 = u; if (u > u1) u1 = u;
+      if (v < v0) v0 = v; if (v > v1) v1 = v;
+    }
+    const area = (u1 - u0) * (v1 - v0);
+    if (area >= bestArea - 1e-12) continue;
+    bestArea = area;
+    const um = (u0 + u1) / 2, vm = (v0 + v1) / 2;
+    best = { x: um * c + vm * s, z: -um * s + vm * c, width: u1 - u0, depth: v1 - v0, yaw };
+  }
+  if (best.width < best.depth) {
+    // Turn the frame a quarter so the width is the long side: the old depth axis (sin, cos) becomes -u.
+    best = { ...best, width: best.depth, depth: best.width, yaw: best.yaw + Math.PI / 2 };
+  }
+  // Keep the yaw in (-π/2, π/2]: a rectangle is the same turned half a turn.
+  if (best.yaw > Math.PI / 2) best.yaw -= Math.PI; else if (best.yaw <= -Math.PI / 2) best.yaw += Math.PI;
+  return best;
+}
+
+/** Convex hull, counter-clockwise (monotone chain); collinear points dropped. */
+function hull(points: readonly { x: number; z: number }[]): { x: number; z: number }[] {
+  const p = [...points].sort((a, b) => a.x - b.x || a.z - b.z);
+  if (p.length < 3) return p;
+  const cross = (o: { x: number; z: number }, a: { x: number; z: number }, b: { x: number; z: number }) =>
+    (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
+  const lo: { x: number; z: number }[] = [], hi: { x: number; z: number }[] = [];
+  for (const q of p) {
+    while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop();
+    lo.push(q);
+  }
+  for (let i = p.length - 1; i >= 0; i--) {
+    const q = p[i];
+    while (hi.length >= 2 && cross(hi[hi.length - 2], hi[hi.length - 1], q) <= 0) hi.pop();
+    hi.push(q);
+  }
+  lo.pop(); hi.pop();
+  return lo.concat(hi);
+}
+
+/**
  * Where the board stands on a desk. From DESK_FORWARD ahead of the eyes, facing where the player faces, if the
  * board's centre then lands inside the desk drawn in by DESK_INSET. Otherwise the centre moves to the nearest point
  * of that inner rectangle and the board turns so that its far end points from the head through the centre: a desk
- * off to one side gets the board on it, square to the player. The desk is taken as axis-aligned (x by z).
+ * off to one side gets the board on it, square to the player. Both are worked out in the desk's own frame (its yaw),
+ * so a desk turned against the room's axes keeps the board inside its real edges.
  */
 export function placeOnDesk(head: Vec3, fwd: { x: number; z: number }, desk: SurfaceCandidate): DeskPlacement {
-  const ix = Math.min(DESK_INSET, desk.width / 2), iz = Math.min(DESK_INSET, desk.depth / 2);
-  const x0 = desk.x - desk.width / 2 + ix, x1 = desk.x + desk.width / 2 - ix;
-  const z0 = desk.z - desk.depth / 2 + iz, z1 = desk.z + desk.depth / 2 - iz;
+  const hw = desk.width / 2 - Math.min(DESK_INSET, desk.width / 2), hd = desk.depth / 2 - Math.min(DESK_INSET, desk.depth / 2);
+  const c = Math.cos(desk.yaw ?? 0), s = Math.sin(desk.yaw ?? 0);
   const x = head.x + fwd.x * DESK_FORWARD, z = head.z + fwd.z * DESK_FORWARD;
   // Site +z is towards the player (-fwd), so the centre is BOARD_CENTRE back from the site.
   const cx = x - fwd.x * BOARD_CENTRE, cz = z - fwd.z * BOARD_CENTRE;
-  if (cx >= x0 && cx <= x1 && cz >= z0 && cz <= z1) return { x, z, yaw: Math.atan2(-fwd.x, -fwd.z), centre: { x: cx, z: cz } };
-  const centre = { x: Math.min(x1, Math.max(x0, cx)), z: Math.min(z1, Math.max(z0, cz)) };
+  // The centre in the desk's frame: u along its width, v along its depth.
+  const dx = cx - desk.x, dz = cz - desk.z, u = c * dx - s * dz, v = s * dx + c * dz;
+  if (Math.abs(u) <= hw && Math.abs(v) <= hd) return { x, z, yaw: Math.atan2(-fwd.x, -fwd.z), centre: { x: cx, z: cz } };
+  const cu = Math.min(hw, Math.max(-hw, u)), cv = Math.min(hd, Math.max(-hd, v));
+  const centre = { x: desk.x + cu * c + cv * s, z: desk.z - cu * s + cv * c };
   let ax = centre.x - head.x, az = centre.z - head.z;
   const d = Math.hypot(ax, az);
   if (d < 1e-6) { ax = fwd.x; az = fwd.z; } else { ax /= d; az /= d; }

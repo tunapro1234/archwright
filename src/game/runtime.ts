@@ -58,12 +58,16 @@ export interface Hook {
   /** What the XR session reports of the room (SurfaceSystem): the semantic label of each detected plane and mesh. */
   detected?: { planes: string[]; meshes: string[] };
   /** Where the board went last (SurfaceSystem): the surface kind, the board's top in world space, how far below the eyes
-   *  (null outside XR), the board's centre (world x, z) and, on a detected desk (mesh, plane), that desk's top as a world
-   *  rectangle (null otherwise). */
+   *  (null outside XR), the board's centre (world x, z) and, on a detected desk (mesh, plane), that desk's top (null
+   *  otherwise): its own rectangle (centre cx, cz, width, depth, turned by yaw radians as rotationY) and the world
+   *  x/z box round it. */
   board?: {
     kind: SurfaceKind; at: { x: number; y: number; z: number }; belowEyes: number | null;
     centre: { x: number; z: number } | null;
-    desk: { minX: number; maxX: number; minZ: number; maxZ: number; y: number } | null;
+    desk: {
+      minX: number; maxX: number; minZ: number; maxZ: number; y: number;
+      cx: number; cz: number; width: number; depth: number; yaw: number;
+    } | null;
   };
   /** ?emulator=1 only: drive the emulated headset (src/emulator/emulator.ts). */
   emulator?: EmulatorHook;
