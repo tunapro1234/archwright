@@ -1,6 +1,6 @@
 // pickTarget (src/systems/grab-snap.ts): the stone a pinch takes, and the one marked before it does.
 import { describe, expect, it } from 'vitest';
-import { GRAB_RADIUS, PICK_TIE, pickTarget } from '../src/systems/grab-snap.js';
+import { GRAB_RADIUS, hoverStone, PICK_TIE, pickTarget } from '../src/systems/grab-snap.js';
 
 const stone = (id: string, x: number, y = 0.76, z = 0.15) => ({ id, x, y, z });
 const at = (x: number, y = 0.76, z = 0.15) => ({ x, y, z });
@@ -36,5 +36,19 @@ describe('pickTarget', () => {
     const three = [stone('far', -0.02), stone('mid', 0.0099), stone('near', 0.0096)];
     // 'far' (2 cm) comes first but is not near; 'mid' (9.9 mm) ties with 'near' (9.6 mm) and is listed before it.
     expect(pickTarget(at(0), three)).toBe('mid');
+  });
+});
+
+describe('hoverStone: in gaze mode the mark follows the eyes', () => {
+  it('a stone looked at is marked, whatever the hand is near', () => {
+    expect(hoverStone({ on: true, stone: 'b' }, 'a')).toBe('b');
+    expect(hoverStone({ on: true, stone: 'b' }, undefined)).toBe('b');
+  });
+  it('looking at a target that is not a stone (an open end, the handle, a marker) marks nothing', () => {
+    expect(hoverStone({ on: true, stone: undefined }, 'a')).toBeUndefined();
+  });
+  it('looking at nothing leaves the mark to the hands', () => {
+    expect(hoverStone({ on: false, stone: undefined }, 'a')).toBe('a');
+    expect(hoverStone({ on: false, stone: undefined }, undefined)).toBeUndefined();
   });
 });

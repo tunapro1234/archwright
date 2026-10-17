@@ -24,6 +24,7 @@ import { COLORS, onRepaint } from '../scene/palette.js';
 import type { SurfaceKind } from '../scene/surface-chain.js';
 import type { HandplayHook } from '../systems/handplay.js';
 import type { EmulatorHook } from '../emulator/emulator.js';
+import type { GazeLook } from '../systems/grab-snap.js';
 import type { CollapseRest, DeskTop } from './rest.js';
 import { playReject, playStone } from '../audio/synth.js';
 import { stoneNote } from '../audio/music.js';
@@ -170,6 +171,9 @@ export class ArchRuntime {
   /** The stone a pinch (or a click) would take now: GrabSnapSystem sets it in XR, DesktopSystem outside it, and
    *  StoneRenderSystem draws it HOVER_LIFT higher. */
   hover: StoneView | undefined;
+  /** What gaze mode looked at this frame (GazeSystem writes it before GrabSnapSystem reads it): `on` while it looks at
+   *  a target, whose pinch confirms that target, and `stone` when that target is a stone it may take. */
+  readonly gaze: GazeLook<StoneView> = { on: false, stone: undefined };
   private armed = false;
   private levelEntities: Entity[] = [];
   /** Plain objects this level built (board, shadow, piers, centering, plaque): not entities, so clear() frees them. */
@@ -328,6 +332,8 @@ export class ArchRuntime {
     this.hideGhost('right');
     this.hover = undefined;
     this.hook.hover = null;
+    this.gaze.on = false;
+    this.gaze.stone = undefined;
     const roots = this.levelEntities.flatMap(e => e.object3D ? [e.object3D] : []);
     for (const e of this.levelEntities) e.dispose({ disposeResources: false });
     this.levelEntities = [];

@@ -16,7 +16,8 @@ the arch carries itself or collapses across your desk. No controllers are needed
   of the arch. As it nears an end, a see-through ghost of the stone shows where it will sit; let go there and it seats with a
   click. Stones turn to the right angle by themselves. Before you pinch, the stone your fingers would take rises 4 mm and turns
   a little lighter (in high contrast it also gets an outline), so among close stones you know which one you will get; the
-  pinch takes that same stone. In desktop mode the stone under the mouse that a click would take does the same.
+  pinch takes that same stone. In desktop mode the stone under the mouse that a click would take does the same, and in gaze
+  mode the stone you look at, since there the pinch confirms what you look at.
 - Stones go on from both springings towards the crown; the last gap takes only the keystone. Pinch the outermost stone of either
   side to take it back off.
 - When the arch is closed, pinch the handle of the wooden centering and **pull it towards you**, with one hand or both. Once it
@@ -217,9 +218,9 @@ is hidden, the game stops: every system that runs game time (the surface pick, g
 collapse, the passer-by, level changes, the first-minute cues, the museum's anchor wait, the autotest) and Havok skip their
 update, and the sound is suspended, a collapse's score included. Drawing goes on. Back in view, the first frame steps at most
 0.1 s, so nothing jumps by the time spent away. In IWER (17 October 2026), w3-1's trap was collapsing in the VR atelier when
-the emulated session was set to `visible-blurred`: the game paused, the collapse's clock stayed at 1.398 s over 1.5 s of
-waiting and the sound was suspended; set back to `visible`, it went on (3.19 s 1.5 s later) and the 5 stones came to rest on
-the board, with no console error.
+the emulated session was set to `visible-blurred`: the game paused, the collapse's clock (the game seconds it has run) stayed
+put over 1.5 s of waiting, at 1.40 s in one run and 1.90 s in another, and the sound was suspended; set back to `visible`, the
+clock went on and the 5 stones came to rest on the board, with no console error.
 
 ## Sound
 

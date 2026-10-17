@@ -6,7 +6,8 @@
 // desktop mouse mode. The centering: look at its handle, pinch and keep the pinch for HOLD_TO_STRIKE;
 // it slides out as the hold goes on (the ring stays on the handle, wherever the eyes go) and strikes
 // at the end. Let go early and it stays where it got to.
-// A pinch with nothing looked at is left to the hands, so direct play still works.
+// A pinch with nothing looked at is left to the hands, so direct play still works. What is looked at goes to
+// runtime.gaze, so the hover mark (grab-snap.ts hoverStone) shows the stone a pinch would confirm.
 import { createSystem, Mesh, MeshBasicMaterial, RingGeometry, Vector3 } from '@iwsdk/core';
 import type { ArchRuntime, StoneView } from '../game/runtime.js';
 import type { Side } from '../game/arch-state.js';
@@ -71,6 +72,8 @@ export class GazeSystem extends createSystem({}) {
       this.hit = this.lit = this.shownFor = undefined;
       this.ring.visible = false;
     }
+    arch.gaze.on = false;
+    arch.gaze.stone = undefined;
     if (!active) return;
 
     this.select.update(arch, delta);
@@ -79,6 +82,9 @@ export class GazeSystem extends createSystem({}) {
     this.player.head.getWorldDirection(this.dir).negate(); // the head looks down its -z
     const id = gazePick(this.origin, this.dir, this.live, GAZE_RANGE);
     this.hit = this.hold ? this.live.find(t => t.kind === 'lever') : id === null ? undefined : this.live.find(t => t.id === id);
+    // The selected stone is already up: looking at it (to put it back) marks nothing, as with the mouse.
+    arch.gaze.on = !!this.hit;
+    arch.gaze.stone = this.hit?.kind === 'stone' && this.hit.stone !== this.select.selected ? this.hit.stone : undefined;
     this.ghosts(arch);
     this.strikeHold(arch, hands, delta);
     this.showRing();

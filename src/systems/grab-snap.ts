@@ -3,7 +3,8 @@
 // velocity is ignored), and a stone whose hand loses tracking floats back to the tray. While a
 // stone is carried near an open face, a see-through ghost shows where it would seat. Before the
 // pinch, the stone it would take is marked: pickTarget, the same choice the grab makes, lifts it
-// 4 mm and lightens it (runtime.setHover); the desktop mode marks the stone under the mouse.
+// 4 mm and lightens it (runtime.setHover); the desktop mode marks the stone under the mouse. In gaze mode a pinch
+// confirms the target looked at, so while there is one the mark follows the eyes instead (hoverStone).
 import { createSystem, Vector3 } from '@iwsdk/core';
 import type { ArchRuntime, StoneView } from '../game/runtime.js';
 import type { Side } from '../game/arch-state.js';
@@ -29,6 +30,17 @@ export function pickTarget(point: { x: number; y: number; z: number }, candidate
   for (const c of candidates) best = Math.min(best, d(c));
   for (const c of candidates) if (d(c) < radius && d(c) <= best + PICK_TIE) return c.id;
   return null;
+}
+
+/** What gaze mode looks at this frame: nothing (`on` false), or a target, which is `stone` if it is a stone. */
+export interface GazeLook<T> { on: boolean; stone: T | undefined }
+
+/**
+ * The stone to mark before a pinch. While gaze mode looks at a target, the pinch confirms that target: the stone
+ * looked at, or none if the target is not a stone. Otherwise the stone the hands' pinch would take.
+ */
+export function hoverStone<T>(gaze: GazeLook<T>, hand: T | undefined): T | undefined {
+  return gaze.on ? gaze.stone : hand;
 }
 
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
@@ -64,7 +76,7 @@ export class GrabSnapSystem extends createSystem({}) {
       if (v && !this.held[side]) arch.hideGhost(side); // let go: the stone seated or went home
     }
     for (const v of arch.stones) if (v.mode === 'tween' && v.tween) this.step(v, delta);
-    if (this.renderer.xr.isPresenting) arch.setHover(this.hover(arch, hands)); // outside XR the desktop mode marks
+    if (this.renderer.xr.isPresenting) arch.setHover(hoverStone(arch.gaze, this.hover(arch, hands))); // outside XR the desktop mode marks
   }
 
   /** The stone a pinch would take now, of the hands that are tracked and hold nothing: the nearer one's. */
