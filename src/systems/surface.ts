@@ -11,7 +11,7 @@ import {
 import type { Side } from '../game/arch-state.js';
 import type { ArchRuntime } from '../game/runtime.js';
 import type { HandState } from './hands.js';
-import { atelier, flatMaterial, pickRing } from '../scene/models.js';
+import { atelier, ATELIER_DESK, flatMaterial, pickRing } from '../scene/models.js';
 import { paint } from '../scene/palette.js';
 import {
   chooseSurface, DESK_BELOW_EYES, deskRect, placeOnDesk, type SurfaceCandidate, type SurfaceChoice, type SurfaceInput, type SurfaceKind,
@@ -153,6 +153,7 @@ export class SurfaceSystem extends createSystem({
       // Until a surface is chosen: the real room in passthrough, and no board (nor a stone to grab).
       this.desk.visible = false;
       this.atelier.visible = false;
+      arch.desk = null;
       arch.setShown(false);
       this.scene.background = session.environmentBlendMode === 'opaque' ? this.background : null;
       return;
@@ -171,6 +172,7 @@ export class SurfaceSystem extends createSystem({
     const opaque = c.kind === 'desk' || c.kind === 'atelier' || this.session?.environmentBlendMode === 'opaque';
     this.scene.background = opaque ? this.background : null;
     const site = arch.site;
+    arch.desk = null;
     if (c.kind === 'desk') {
       site.position.set(0, DESK_HEIGHT, -0.5);
       site.rotation.set(0, 0, 0);
@@ -183,11 +185,15 @@ export class SurfaceSystem extends createSystem({
         // The desk centre a little behind the arch, so the tray in front of it is on the desk too.
         this.atelier.position.set(site.position.x + this.fwd.x * 0.05, y - BOARD.thickness, site.position.z + this.fwd.z * 0.05);
         this.atelier.rotation.set(0, yaw, 0);
+        const a = this.atelier.position;
+        arch.desk = { cx: a.x, cz: a.z, y: a.y, width: ATELIER_DESK.width, depth: ATELIER_DESK.depth, yaw };
       } else if ((c.kind === 'mesh' || c.kind === 'plane') && c.desk) {
         // Ahead of the eyes if the board's centre lands on the desk from there, else on the desk, turned to the player.
         const p = placeOnDesk(this.head, this.fwd, c.desk);
         site.position.set(p.x, c.desk.y, p.z);
         site.rotation.set(0, p.yaw, 0);
+        const d = c.desk;
+        arch.desk = { cx: d.x, cz: d.z, y: d.y, width: d.width, depth: d.depth, yaw: d.yaw ?? 0 };
       } else {
         site.position.set(c.position!.x, c.position!.y, c.position!.z);
       }

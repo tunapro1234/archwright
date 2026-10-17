@@ -23,6 +23,7 @@ import { COLORS, onRepaint } from '../scene/palette.js';
 import type { SurfaceKind } from '../scene/surface-chain.js';
 import type { HandplayHook } from '../systems/handplay.js';
 import type { EmulatorHook } from '../emulator/emulator.js';
+import type { CollapseRest, DeskTop } from './rest.js';
 import { playReject, playStone } from '../audio/synth.js';
 import { stoneNote } from '../audio/music.js';
 import { monumentOf, plaqueText } from '../levels/monuments.js';
@@ -71,6 +72,10 @@ export interface Hook {
   };
   /** ?emulator=1 only: drive the emulated headset (src/emulator/emulator.ts). */
   emulator?: EmulatorHook;
+  /** The last collapse (src/systems/collapse.ts): where its stones came to rest (src/game/rest.ts), counted once, when
+   *  every falling stone has been slower than 2 cm/s for half a second or 6 s after the strike, whichever comes first
+   *  (null until then). */
+  collapse?: { rest: CollapseRest | null };
   /** The desk museum (src/systems/museum.ts): plinth ids shown, how many follow an XR anchor, and this session's
    *  anchors: new ones asked for, created by the runtime, given a persistent handle, refused or failed; saved ones
    *  that came back, and saved ones that did not. */
@@ -145,6 +150,9 @@ export class ArchRuntime {
   physicsRegistered = false;
   /** False while SurfaceSystem is still looking for a surface: the board is hidden and nothing can be grabbed. */
   shown = true;
+  /** The desk under the board (a detected one, or the atelier's): a collapse lands on it. Null on the lap tray, a picked
+   *  spot and the page's own desk. Set by SurfaceSystem. */
+  desk: DeskTop | null = null;
   bodies = 0;
   private armed = false;
   private levelEntities: Entity[] = [];

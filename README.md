@@ -97,6 +97,13 @@ went onto the table mesh with its centre 10 cm in from the table's near edge; tu
 behind was skipped and, with no pick, the board went to the lap tray. `?autotest=w1-1:hold` held in all four, with no console
 error and no request to another origin.
 
+When an arch falls on a detected desk, the stones land on that desk: the collapse gets one static box the size of the desk's
+top, turned as the desk stands, besides the board, the piers and the floor (the atelier's walnut desk gets the same; the lap
+tray and the browser's desk do not). Once every falling stone has been slower than 2 cm/s for half a second, or 6 s after the
+strike, `__archwright.collapse.rest` counts where they lie: on the board, on the desk, or below. In IWER with the synthetic
+office room (17 October 2026), the trap of w1-1 and of w3-1 each brought 5 stones down, all 5 coming to rest on the board
+(after 2.4 and 2.9 s); the trap of w3-5 brought 7 down, 6 on the board and 1 on the table beside it. None went below the table.
+
 ## The desk museum
 
 Finish every level of a world and a stone plinth appears behind the board, with a small copy of that world's last arch on it.
@@ -252,7 +259,7 @@ chain inside it, and in AR the autotest, which waits for the board to find its s
 The budget, for a Quest 3/3S at 72 Hz: at most 60 draw calls per frame (100 while an arch collapses), 100k visible triangles,
 40 physics bodies, no real-time shadows. The scene is built to stay well inside it: one instanced mesh per stone shape with one
 shared material, the two piers in one mesh and each museum plinth in one mesh, level markers as two instanced meshes,
-a blob shadow instead of a shadow map, and the collapse capped at 40 bodies (the static board, piers and floor colliders count
+a blob shadow instead of a shadow map, and the collapse capped at 40 bodies (the static board, piers, desk and floor colliders count
 towards it too). Stones are low-poly prisms of a few dozen triangles.
 
 `?debug=1` shows the numbers while you play: frames per second, JS time per frame (the game's systems and the solver, not the
