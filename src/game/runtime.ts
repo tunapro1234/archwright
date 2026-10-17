@@ -94,6 +94,8 @@ export interface Hook {
   onboard?: { cue: 'ghost-grab' | 'glow-centering' | 'none'; ghostShown: number };
   /** ?emulator=1&handplay= only: how far the emulated hand got (src/systems/handplay.ts). */
   handplay?: HandplayHook;
+  /** The stone a pinch would take now (a hand's pinch point in XR, the mouse outside it), marked lifted and lighter; null when none. */
+  hover: string | null;
 }
 
 /** A load of world 3 in the scene; LoadSystem moves it (src/systems/loads.ts). */
@@ -128,6 +130,10 @@ export interface StoneView {
 
 export interface Batch { mesh: InstancedMesh; count: number }
 
+/** The hover stone (a pinch would take it) is drawn this much higher (m) and its colour this much lighter (linear). */
+export const HOVER_LIFT = 0.004;
+export const HOVER_LIGHTEN = 1.12;
+
 const tmpV = new Vector3();
 const tmpQ = new Quaternion();
 const tmpC = new Color();
@@ -161,6 +167,9 @@ export class ArchRuntime {
    *  spot and the page's own desk. Set by SurfaceSystem. */
   desk: DeskTop | null = null;
   bodies = 0;
+  /** The stone a pinch (or a click) would take now: GrabSnapSystem sets it in XR, DesktopSystem outside it, and
+   *  StoneRenderSystem draws it HOVER_LIFT higher. */
+  hover: StoneView | undefined;
   private armed = false;
   private levelEntities: Entity[] = [];
   /** Plain objects this level built (board, shadow, piers, centering, plaque): not entities, so clear() frees them. */
@@ -180,6 +189,7 @@ export class ArchRuntime {
       state: 'loading',
       level: '',
       perf: { fps: 0, frameMs: 0, drawCalls: 0, triangles: 0, bodies: 0 },
+      hover: null,
     };
     (window as unknown as { __archwright: Hook }).__archwright = this.hook;
     this.site = new Group();
@@ -202,9 +212,25 @@ export class ArchRuntime {
 
   /** The palette changed (high-contrast mode): stone tints and the line of thrust follow it. */
   private repaint(): void {
-    for (const v of this.stones) this.batches[v.batch].mesh.setColorAt(v.slot, tmpC.setHex(MATERIAL_COLOR[v.def.material]));
-    for (const b of this.batches) if (b.mesh.instanceColor) b.mesh.instanceColor.needsUpdate = true;
+    for (const v of this.stones) this.tint(v);
     if (this.thrustLine) ((this.thrustLine as Mesh).material as MeshBasicMaterial).color.setHex(COLORS.thrust);
+  }
+
+  /** A stone's colour from the palette, HOVER_LIGHTEN lighter while it is the hover stone. */
+  private tint(v: StoneView): void {
+    const b = this.batches[v.batch].mesh;
+    b.setColorAt(v.slot, tmpC.setHex(MATERIAL_COLOR[v.def.material]).multiplyScalar(v === this.hover ? HOVER_LIGHTEN : 1));
+    b.instanceColor!.needsUpdate = true;
+  }
+
+  /** Mark the stone a pinch would take (undefined: none). Only the colours of the stone that stops and the one that starts change. */
+  setHover(v: StoneView | undefined): void {
+    if (v === this.hover) return;
+    const old = this.hover;
+    this.hover = v;
+    this.hook.hover = v?.def.id ?? null;
+    if (old) this.tint(old);
+    if (v) this.tint(v);
   }
 
   /** A world level by id, 'today' or a daily id (daily-YYYY-MM-DD) for Today's Span; else the first level. */
@@ -300,6 +326,8 @@ export class ArchRuntime {
   private clear(): void {
     this.hideGhost('left');
     this.hideGhost('right');
+    this.hover = undefined;
+    this.hook.hover = null;
     const roots = this.levelEntities.flatMap(e => e.object3D ? [e.object3D] : []);
     for (const e of this.levelEntities) e.dispose({ disposeResources: false });
     this.levelEntities = [];

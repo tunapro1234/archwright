@@ -14,7 +14,9 @@ the arch carries itself or collapses across your desk. No controllers are needed
 
 - **Pinch** a stone in the tray (thumb and index finger together, close to the stone) and carry it to one of the two open ends
   of the arch. As it nears an end, a see-through ghost of the stone shows where it will sit; let go there and it seats with a
-  click. Stones turn to the right angle by themselves.
+  click. Stones turn to the right angle by themselves. Before you pinch, the stone your fingers would take rises 4 mm and turns
+  a little lighter (in high contrast it also gets an outline), so among close stones you know which one you will get; the
+  pinch takes that same stone. In desktop mode the stone under the mouse that a click would take does the same.
 - Stones go on from both springings towards the crown; the last gap takes only the keystone. Pinch the outermost stone of either
   side to take it back off.
 - When the arch is closed, pinch the handle of the wooden centering and **pull it towards you**, with one hand or both. Once it
@@ -263,7 +265,7 @@ top, how far below the eyes, the board's centre and, on a detected desk, that de
 plinths, how many follow an anchor and this session's anchor counts (requested, created, persisted, failed, restored, lost).
 `collapse` holds the last collapse's `rest` and `simTime` (the game seconds it has run), `paused` whether the game is paused
 now and `pauses` how often it has paused, and `audio` the sound's state (`none` before it starts, then the AudioContext's) and
-whether the limiter is in.
+whether the limiter is in. `hover` is the id of the stone a pinch (or, outside XR, a click) would take now, or null.
 With `?emulator=1` the hook also has `emulator`, whose `setVisibility(state)`, `aim(hand, point)` and `pinch(hand, value)` set
 the emulated session's visibility, turn a hand's or controller's ray to a point, and pinch (a controller's trigger). The XR smoke
 test opens `?emulator=1&autoxr=ar&autotest=w1-1:hold` and `?emulator=1&autoxr=vr`: a real (emulated) session, the surface

@@ -6,7 +6,8 @@
 // the rebuild stone and the level markers beside the board take a click as they take a pinch, and
 // so does the share tablet of Today's Span (a click copies its card), and the icons of the
 // accessibility panel (a click switches one). The select-then-seat steps
-// are SelectPlace (src/systems/select.ts), shared with the gaze mode.
+// are SelectPlace (src/systems/select.ts), shared with the gaze mode. The stone under the mouse that a
+// click would take is the hover stone (runtime.setHover): drawn lifted and lighter, as a pinch shows it.
 //
 // The camera frames each level (frameView): from 35° above, as close as it can be with the arch,
 // its tray, the centering's handle and the markers beside the board all in view, so a tall
@@ -47,6 +48,8 @@ export class DesktopSystem extends createSystem({}) {
   private icons = {} as Record<A11yKey, Mesh>;
   private proxies: Entity[] = [];
   private hovered = new Set<Object3D>();
+  /** The stone under the mouse, whether or not a click would take it. */
+  private under: StoneView | undefined;
   private downY = 0;
   private drag: { y0: number; pull0: number; dy: number } | undefined;
   private framed = { generation: -1, aspect: 0 };
@@ -137,6 +140,7 @@ export class DesktopSystem extends createSystem({}) {
       this.generation = arch.generation;
       this.drag = undefined;
       this.hovered.clear();
+      this.under = undefined;
       this.cursor();
       this.tag(arch);
       this.refreshFaces(arch);
@@ -148,6 +152,8 @@ export class DesktopSystem extends createSystem({}) {
     const had = this.select.selected;
     this.select.update(arch, delta); // lets go if the arch was struck, or something else took the stone
     if (had && !this.select.selected) this.refreshFaces(arch);
+    const u = this.under;
+    arch.setHover(u && u !== this.select.selected && SelectPlace.canBuild(arch) && this.select.pickable(arch, u) ? u : undefined);
 
     // Hit shapes follow the board (it may have moved) and what is on it.
     const c = arch.centering;
@@ -182,6 +188,8 @@ export class DesktopSystem extends createSystem({}) {
         if (!v.mesh.userData.desktop) {
           v.mesh.userData.desktop = true;
           on(v.mesh, 'pointerdown', () => this.pick(arch, v));
+          on(v.mesh, 'pointerenter', () => { this.under = v; });
+          on(v.mesh, 'pointerleave', () => { if (this.under === v) this.under = undefined; });
           this.hover(v.mesh);
         }
       } else if (!this.active && has) v.entity.removeComponent(RayInteractable);

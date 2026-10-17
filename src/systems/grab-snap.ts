@@ -1,7 +1,9 @@
 // Pinch a stone, carry it, release it near an open face: it snaps on with a tock. Proximity-gated
 // (the pinch must start on a stone), no rotation (the stone orients itself), no throwing (release
 // velocity is ignored), and a stone whose hand loses tracking floats back to the tray. While a
-// stone is carried near an open face, a see-through ghost shows where it would seat.
+// stone is carried near an open face, a see-through ghost shows where it would seat. Before the
+// pinch, the stone it would take is marked: pickTarget, the same choice the grab makes, lifts it
+// 4 mm and lightens it (runtime.setHover); the desktop mode marks the stone under the mouse.
 import { createSystem, Vector3 } from '@iwsdk/core';
 import type { ArchRuntime, StoneView } from '../game/runtime.js';
 import type { Side } from '../game/arch-state.js';
@@ -13,6 +15,21 @@ export const GRAB_RADIUS = 0.05;   // pinch must start this close to a stone's c
 export const SNAP_RADIUS = 0.06;   // release this close to a face pose and the stone seats
 export const MAGNET_RADIUS = 0.1;  // within this the held stone eases towards the face pose
 export const GHOST_RADIUS = 0.16;  // within this the face shows a ghost of the held stone
+export const PICK_TIE = 0.0005;    // centres this close in distance count as equally near (m)
+
+export interface PickCandidate { id: string; x: number; y: number; z: number }
+
+/**
+ * The stone a pinch at `point` takes: the candidate whose centre is nearest, if nearer than `radius`;
+ * of centres within PICK_TIE of the nearest, the one listed first. Null when none is in reach.
+ */
+export function pickTarget(point: { x: number; y: number; z: number }, candidates: readonly PickCandidate[], radius = GRAB_RADIUS): string | null {
+  const d = (c: PickCandidate) => Math.hypot(c.x - point.x, c.y - point.y, c.z - point.z);
+  let best = radius;
+  for (const c of candidates) best = Math.min(best, d(c));
+  for (const c of candidates) if (d(c) < radius && d(c) <= best + PICK_TIE) return c.id;
+  return null;
+}
 
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const lerpAngle = (a: number, b: number, t: number) => {
@@ -27,6 +44,8 @@ export class GrabSnapSystem extends createSystem({}) {
   private local = new Vector3();
   private p = new Vector3();
   private generation = -1;
+  private candidates: PickCandidate[] = [];
+  private pool: PickCandidate[] = [];
 
   update(delta: number): void {
     const arch = this.globals.arch as ArchRuntime | undefined;
@@ -45,25 +64,55 @@ export class GrabSnapSystem extends createSystem({}) {
       if (v && !this.held[side]) arch.hideGhost(side); // let go: the stone seated or went home
     }
     for (const v of arch.stones) if (v.mode === 'tween' && v.tween) this.step(v, delta);
+    if (this.renderer.xr.isPresenting) arch.setHover(this.hover(arch, hands)); // outside XR the desktop mode marks
   }
 
-  private tryGrab(arch: ArchRuntime, side: Side, h: HandState): void {
-    if (!arch.shown || (arch.state.phase !== 'building' && arch.state.phase !== 'ready')) return;
-    arch.site.worldToLocal(this.local.copy(h.point));
+  /** The stone a pinch would take now, of the hands that are tracked and hold nothing: the nearer one's. */
+  private hover(arch: ArchRuntime, hands: Record<Side, HandState>): StoneView | undefined {
     let best: StoneView | undefined;
-    let bestD = GRAB_RADIUS;
-    // Tray stones, plus the outermost stone of each half (pinching it lifts it back off).
-    const outer = new Set<string>();
-    for (const s of ['left', 'right'] as const) {
-      const last = [...arch.state.placed].reverse().find(p => p.side === s);
-      if (last) outer.add(last.stone.id);
-    }
-    for (const v of arch.stones) {
-      const free = v.mode === 'tray' || (v.mode === 'tween' && v.tween?.then === 'tray');
-      if (!free && !(v.mode === 'placed' && outer.has(v.def.id))) continue;
+    let bestD = Infinity;
+    for (const side of ['left', 'right'] as const) {
+      const h = hands[side];
+      if (this.held[side] || !h.tracked || h.pinching) continue;
+      const v = this.pick(arch, h);
+      if (!v) continue;
       const d = this.p.set(v.pose.x, v.pose.y, v.pose.z).distanceTo(this.local);
       if (d < bestD) { bestD = d; best = v; }
     }
+    return best;
+  }
+
+  /** pickTarget at this hand's pinch point (left in this.local, site frame), among the stones a pinch may take. */
+  private pick(arch: ArchRuntime, h: HandState): StoneView | undefined {
+    if (!arch.shown || (arch.state.phase !== 'building' && arch.state.phase !== 'ready')) return undefined;
+    arch.site.worldToLocal(this.local.copy(h.point));
+    const id = pickTarget(this.local, this.fill(arch));
+    return id === null ? undefined : arch.stoneById(id);
+  }
+
+  /** Tray stones, plus the outermost stone of each half (pinching it lifts it back off); reused objects. */
+  private fill(arch: ArchRuntime): PickCandidate[] {
+    const placed = arch.state.placed;
+    let left: string | undefined, right: string | undefined;
+    for (let i = placed.length - 1; i >= 0 && !(left && right); i--) {
+      if (placed[i].side === 'left') left ??= placed[i].stone.id;
+      else right ??= placed[i].stone.id;
+    }
+    const out = this.candidates;
+    let n = 0;
+    for (const v of arch.stones) {
+      const free = v.mode === 'tray' || (v.mode === 'tween' && v.tween?.then === 'tray');
+      if (!free && !(v.mode === 'placed' && (v.def.id === left || v.def.id === right))) continue;
+      const c = (this.pool[n] ??= { id: '', x: 0, y: 0, z: 0 });
+      c.id = v.def.id; c.x = v.pose.x; c.y = v.pose.y; c.z = v.pose.z;
+      out[n++] = c;
+    }
+    out.length = n;
+    return out;
+  }
+
+  private tryGrab(arch: ArchRuntime, side: Side, h: HandState): void {
+    const best = this.pick(arch, h);
     if (!best) return;
     if (best.mode === 'placed' && !arch.unplace(best)) return;
     best.mode = 'held';
