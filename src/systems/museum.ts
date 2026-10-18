@@ -19,7 +19,7 @@ import {
   loadHandles, miniature, museumPieces, PLINTH, plinthLayout, saveHandles, type AnchorHandles, type Piece,
 } from '../game/museum.js';
 import { LEVELS } from '../levels/index.js';
-import { stoneOutline } from '../scene/layout.js';
+import { PIER_EXTRA, stoneOutline } from '../scene/layout.js';
 import { engraving, museumMaterial, museumPiece, prism, recolorMuseumPiece } from '../scene/models.js';
 import { monumentOf, plaqueText } from '../levels/monuments.js';
 import { onRepaint } from '../scene/palette.js';
@@ -155,7 +155,7 @@ export class MuseumSystem extends createSystem({}) {
     const shape = { span: def.span, rise: def.rise, units: def.stones, depth: def.depth };
     const parts = [{ geo: new BoxGeometry(PLINTH.size, H, PLINTH.size).translate(0, H / 2, 0), key: 'abutment' as const }];
     for (const a of mini.piers) {
-      parts.push({ geo: new BoxGeometry(a.width * k, a.height * k, (def.depth + 0.012) * k).translate(a.x * k, H + (a.height * k) / 2, 0), key: 'abutment' });
+      parts.push({ geo: new BoxGeometry(a.width * k, a.height * k, (def.depth + PIER_EXTRA) * k).translate(a.x * k, H + (a.height * k) / 2, 0), key: 'abutment' });
     }
     const stones = mini.stones.map(({ stone, pose }) => ({
       geo: prism(stoneOutline(shape, stone), def.depth).rotateZ(pose.angle).translate(pose.x, pose.y, pose.z).scale(k, k, k).translate(0, H, 0),

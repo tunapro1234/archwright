@@ -13,7 +13,7 @@ import {
 import type { ArchRuntime, StoneView } from '../game/runtime.js';
 import { restPlace, type CollapseRest } from '../game/rest.js';
 import { MATERIAL_DENSITY, ringOrder } from '../game/arch-state.js';
-import { abutments, ABUTMENT_HEIGHT, BOARD } from '../scene/layout.js';
+import { abutments, ABUTMENT_HEIGHT, BOARD, PIER_EXTRA } from '../scene/layout.js';
 import { SILENCE } from './statics.js';
 import { whenIdle } from '../game/warmup.js';
 
@@ -142,7 +142,7 @@ export class CollapseSystem extends createSystem({}) {
     };
     // Board, abutments and the floor (local-floor puts it at y = 0).
     box(BOARD.width, BOARD.thickness, BOARD.zMax - BOARD.zMin, new Vector3(0, -BOARD.thickness / 2, (BOARD.zMin + BOARD.zMax) / 2));
-    for (const a of abutments(def)) box(a.width, a.height, def.depth + 0.012, new Vector3(a.x, a.height / 2, 0));
+    for (const a of abutments(def)) box(a.width, a.height, def.depth + PIER_EXTRA, new Vector3(a.x, a.height / 2, 0));
     const floor = new Mesh(new BoxGeometry(6, 0.1, 6), this.proxy);
     floor.position.set(site.getWorldPosition(new Vector3()).x, -0.05, site.getWorldPosition(new Vector3()).z);
     const fe = arch.own(this.world.createTransformEntity(floor));
