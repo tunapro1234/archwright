@@ -318,7 +318,8 @@ whether the limiter is in. `hover` is the id of the stone a pinch (or, outside X
 With `?emulator=1` the hook also has `emulator`, whose `setVisibility(state)`, `aim(hand, point)` and `pinch(hand, value)` set
 the emulated session's visibility, turn a hand's or controller's ray to a point, and pinch (a controller's trigger); `look(point)`
 turns the emulated head where it stands to look at a point, and `reach(hand, point)` moves that side's hand so its pinch point
-(or a controller so its grip) is on the point, and keeps it there. The XR smoke
+(or a controller so its grip) is on the point, and keeps it there; `input('hand' | 'controller')` switches the emulator between
+tracked hands and controllers, and `point(hand)` gives that side's point as the game sees it (null while it is not tracked). The XR smoke
 test opens `?emulator=1&autoxr=ar&autotest=w1-1:hold` and `?emulator=1&autoxr=vr`: a real (emulated) session, the surface
 chain inside it, and in AR the autotest, which waits for the board to find its surface before the first stone goes down.
 

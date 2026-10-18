@@ -6,8 +6,9 @@
 //   &head=<yaw>[,<eye height>]   the emulated headset starts turned by yaw degrees (positive = left) at that eye height.
 //   &seat=table    with a room: the headset sits instead at the room's table nearest to where it would start, out from
 //                  the middle of its long edge, facing it (head.ts seatAtTable), at the eye height of &head=.
-// __archwright.emulator (EmulatorHook) lets a test drive the device: the session's visibility, where a controller or a
-// hand points, and its pinch (a controller's trigger); where the headset looks, and where a hand or a controller is.
+// __archwright.emulator (EmulatorHook) lets a test drive the device: the session's visibility, hands or controllers,
+// where a controller or a hand points, and its pinch (a controller's trigger); where the headset looks, and where a hand
+// or a controller is, as the device holds it and as the game sees it.
 import { createSystem, Matrix4, Quaternion, Vector3, type World } from '@iwsdk/core';
 import { XRDevice, metaQuest3 } from 'iwer';
 import type { HandState } from '../systems/hands.js';
@@ -29,6 +30,11 @@ export interface EmulatorHook {
   /** Move that side's input so the point the game takes it by is at a world point: the pinch point (between thumb and
    *  index tips) of a hand, the grip of a controller. It stays there, through turns and pinches, until the next reach. */
   reach(hand: Hand, at: Point): void;
+  /** Hands or controllers, as IWER's own panel switches them (the session's input sources follow on the next frame). */
+  input(mode: 'hand' | 'controller'): void;
+  /** The point the game takes that side by (HandState.point: the pinch point of a hand, the grip of a controller), in
+   *  the world, or null while the game does not track that side. */
+  point(hand: Hand): Point | null;
 }
 
 /** Where reach() put each side, and how far the game's point for that side lies from the input's own position (world m). */
@@ -102,6 +108,16 @@ export function emulatorHook(device: XRDevice, world: World): EmulatorHook {
       const to = (reached.at[hand] = new Vector3(at.x, at.y, at.z));
       const i = input(hand), off = reached.offset[hand];
       if (i && off) place(i.position, to, off, world.player.matrixWorld);
+    },
+    input(mode) {
+      if (device.primaryInputMode === mode) return;
+      device.primaryInputMode = mode;
+      // The other input's offsets do not hold for this one: ReachSystem measures them again once it is tracked.
+      reached.offset.left = reached.offset.right = null;
+    },
+    point(hand) {
+      const h = (world.globals.hands as Record<Hand, HandState> | undefined)?.[hand];
+      return h?.tracked ? { x: h.point.x, y: h.point.y, z: h.point.z } : null;
     },
   };
 }

@@ -1,10 +1,11 @@
 // __archwright.emulator.look and .reach (src/emulator/emulator.ts) on a stand-in for IWER's device, with the player rig
 // moved and turned so the emulator's space and the world differ: the headset ends up looking at the world point, and a
-// reached input's point (its offset from the input, as ReachSystem measures it) lands on the world point.
+// reached input's point (its offset from the input, as ReachSystem measures it) lands on the world point. ReachSystem
+// itself runs on stubs for IWER's frame and HandSystem: the hand's pinch point sits a fixed way off the hand.
 import { describe, expect, it } from 'vitest';
 import { Object3D, Quaternion, Vector3, type World } from '@iwsdk/core';
 import type { XRDevice } from 'iwer';
-import { emulatorHook } from '../src/emulator/emulator.js';
+import { emulatorHook, ReachSystem } from '../src/emulator/emulator.js';
 
 function setup(mode: 'hand' | 'controller') {
   const input = () => ({ position: new Vector3(0.25, 1.5, -0.4), quaternion: new Quaternion() });
@@ -19,6 +20,26 @@ function setup(mode: 'hand' | 'controller') {
   const world = { player, globals: {} as Record<string, unknown> };
   const hook = emulatorHook(device as unknown as XRDevice, world as unknown as World);
   return { device, player, world, hook };
+}
+
+/** IWER's frame and HandSystem, stubbed: each side's point is its current input's world position plus a fixed offset
+ *  (a hand's pinch point, a controller's grip); then ReachSystem.update as the game runs it, right after. */
+function frames(s: ReturnType<typeof setup>) {
+  const { device, player, world } = s;
+  const off = { hand: new Vector3(0.02, -0.035, -0.07), controller: new Vector3(0, -0.02, 0.04) };
+  const hands = {
+    left: { tracked: false, point: new Vector3() },
+    right: { tracked: true, point: new Vector3() },
+  };
+  world.globals.hands = hands;
+  world.globals.emulator = device;
+  const sys = Object.assign(Object.create(ReachSystem.prototype), { world, player, v: new Vector3() }) as ReachSystem;
+  return () => {
+    const mode = device.primaryInputMode as 'hand' | 'controller';
+    const i = mode === 'hand' ? device.hands.right : device.controllers.right;
+    hands.right.point.copy(i.position).applyMatrix4(player.matrixWorld).add(off[mode]);
+    sys.update(0, 0);
+  };
 }
 
 describe('emulator.look', () => {
@@ -54,6 +75,44 @@ describe('emulator.reach', () => {
       const point = input.position.clone().applyMatrix4(player.matrixWorld).add(offset);
       expect(point.distanceTo(new Vector3(at.x, at.y, at.z))).toBeLessThan(1e-9);
       expect(reach.at.left).toBeNull();
+    });
+  }
+});
+
+describe('emulator.input and emulator.point', () => {
+  it('input switches IWER between controllers and hands, and point is the game\'s point for that side (null untracked)', () => {
+    const s = setup('controller');
+    const frame = frames(s);
+    frame();
+    const hands = s.world.globals.hands as Record<'left' | 'right', { point: Vector3 }>;
+    expect(s.hook.point('right')).toEqual({ x: hands.right.point.x, y: hands.right.point.y, z: hands.right.point.z });
+    expect(s.hook.point('left')).toBeNull();
+    s.hook.input('hand');
+    expect(s.device.primaryInputMode).toBe('hand');
+    s.hook.input('controller');
+    expect(s.device.primaryInputMode).toBe('controller');
+  });
+
+  for (const [from, to] of [['controller', 'hand'], ['hand', 'controller']] as const) {
+    it(`reach after switching ${from} → ${to}: ReachSystem measures the new input's offset, and the next frame's point is on the target`, () => {
+      const s = setup(from);
+      const frame = frames(s);
+      const reach = s.world.globals.reach as { offset: Record<'left' | 'right', Vector3 | null> };
+      frame(); // the old input's offset is measured
+      expect(reach.offset.right).not.toBeNull();
+      s.hook.input(to);
+      expect(reach.offset.right).toBeNull(); // it does not hold for the other input
+      const at = { x: -0.08, y: 0.79, z: -0.42 };
+      s.hook.reach('right', at);
+      frame(); // measured on this input, then moved so its point lands on `at`
+      frame(); // the frame after: the game's point is there
+      const p = s.hook.point('right')!;
+      expect(Math.hypot(p.x - at.x, p.y - at.y, p.z - at.z)).toBeLessThan(0.005);
+      expect(Math.hypot(p.x - at.x, p.y - at.y, p.z - at.z)).toBeLessThan(1e-9);
+      // It stays there frame after frame.
+      for (let k = 0; k < 3; k++) frame();
+      const q = s.hook.point('right')!;
+      expect(Math.hypot(q.x - at.x, q.y - at.y, q.z - at.z)).toBeLessThan(1e-9);
     });
   }
 });
