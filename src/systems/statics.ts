@@ -2,8 +2,9 @@
 // shows its line of thrust as a golden thread; a failed one is handed to CollapseSystem. Before it
 // falls, in the silence after the strike, it shows why (src/statics/failure-view.ts): the solver's
 // line of thrust dashed in a hot colour, thick where it has left the stones, a ring where it leaves
-// them and a crack at each joint the arch breaks at. That drawing fades in FAIL_OUT once the collapse
-// is under way, and is freed.
+// them and a crack at each joint the arch breaks at. Once the collapse is under way that drawing fades in
+// FAIL_OUT to FAIL_REST and stays there, faint, over the fallen stones, until the level is cleared (rebuild,
+// next level): ArchRuntime.clear() removes and frees it with the rest of the level.
 import { createSystem, type Mesh, type MeshBasicMaterial } from '@iwsdk/core';
 import type { ArchRuntime } from '../game/runtime.js';
 import { buildArch, isClosed, strike } from '../game/arch-state.js';
@@ -14,10 +15,12 @@ import { playChord, playCue } from '../audio/synth.js';
 import { archChord, collapseCue, strikeCue } from '../audio/music.js';
 
 export const SILENCE = 0.6; // s between the strike and the verdict being heard and seen
-/** The failure marks come up this fast after the strike (s), and go this fast once the stones fall. */
+/** The failure marks come up this fast after the strike (s), and fade this fast once the stones fall. */
 export const FAIL_IN = 0.15;
 export const FAIL_OUT = 0.5;
 const FAIL_OPACITY = 0.95;
+/** The failure marks' opacity once the stones have fallen: still there to look at, behind the stones' story. */
+export const FAIL_REST = 0.35;
 
 export class StaticsSystem extends createSystem({}) {
   private pending = -1;   // seconds until the verdict plays out
@@ -80,25 +83,22 @@ export class StaticsSystem extends createSystem({}) {
     arch.failureMarks = failureMesh(strokes, (arch.def.depth + PIER_EXTRA) / 2 + STROKE.outside + 0.001);
     arch.failureMarks.position.y = ABUTMENT_HEIGHT;
     arch.site.add(arch.failureMarks);
+    arch.hook.marks = 0;
     this.failIn = 0;
     this.failOut = -1;
   }
 
-  /** Up in FAIL_IN during the silence; once CollapseSystem has taken the stones, down in FAIL_OUT, then removed and freed. */
+  /** Up in FAIL_IN during the silence; once CollapseSystem has taken the stones, down to FAIL_REST in FAIL_OUT, and
+   *  kept: the level's clear() frees them. */
   private fadeFailure(arch: ArchRuntime, delta: number): void {
-    const m = arch.failureMarks!;
-    const mat = m.material as MeshBasicMaterial;
+    const mat = arch.failureMarks!.material as MeshBasicMaterial;
     this.failIn += delta;
     if (this.failOut < 0 && this.pending < 0 && !arch.collapseRequested) this.failOut = 0;
     if (this.failOut >= 0) this.failOut += delta;
     const up = Math.min(1, this.failIn / FAIL_IN);
-    const down = this.failOut < 0 ? 1 : Math.max(0, 1 - this.failOut / FAIL_OUT);
-    mat.opacity = FAIL_OPACITY * Math.min(up, down);
-    if (down > 0) return;
-    m.removeFromParent();
-    m.geometry.dispose();
-    mat.dispose();
-    arch.failureMarks = undefined;
+    const down = this.failOut < 0 ? 0 : Math.min(1, this.failOut / FAIL_OUT);
+    mat.opacity = up * (FAIL_OPACITY + (FAIL_REST - FAIL_OPACITY) * down);
+    arch.hook.marks = mat.opacity;
   }
 }
 

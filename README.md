@@ -148,8 +148,9 @@ both runs; in the browser, with no desk collider, 3 to 4 of 5 stayed on the boar
 
 When the solver says no, the arch shows why before it moves: the code shows the solver's least-bad line of thrust in the 0.6 s
 of silence after the strike, as a dashed orange line (amber in high contrast), twice as thick where it runs outside the stones,
-with a small ring at each joint edge it passes and a thin crack along each joint the arch breaks at, and fades it within 0.5 s
-once the stones start to fall. In a frame paused 0.37 s after the strike on w1-1's trap (server, SwiftShader) the line, five
+with a small ring at each joint edge it passes and a thin crack along each joint the arch breaks at. Once the stones start to
+fall it fades within 0.5 s to a faint 35% and stays there over the fallen stones, so the reason is still there to look at; it
+goes when you rebuild or move to another level. In a frame paused 0.37 s after the strike on w1-1's trap (server, SwiftShader) the line, five
 rings and four cracks are drawn in front of the centering. On the tempting wrong arrangement of every one of the 17 levels that line leaves the stones at 4 to
 8 joints, and every one of those traps fails by hinging (`tests/failure-view.test.ts`, `src/statics/failure-view.ts`).
 
@@ -328,6 +329,7 @@ in or out of XR. `a11y` holds the accessibility settings in force, and `gaze` wh
 On a daily level `daily` holds the day's number and, once the arch is struck, its share card.
 After a strike `failure` says why it fell (`kind`: `none`, `hinge`, `sliding` or `tension`), the joints its line of thrust
 leaves (`outside`) and the joints it breaks at (`joints`); it is null again on the next level.
+`marks` is the opacity of those failure marks now (0.35 once the stones have fallen), or null when there are none.
 `xr` gives the session mode (`immersive-ar`, `immersive-vr`, or null outside XR), its enabled WebXR features, its input
 profiles, the emulator room (`room`) and the head (`head`: where the eyes are and the yaw they face, in degrees, every XR frame).
 `detected` lists the semantic label of every plane and mesh the session reports, `board` where the board went (surface kind, its
