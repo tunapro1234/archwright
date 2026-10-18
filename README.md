@@ -114,7 +114,16 @@ request to another origin. Picking with an emulated controller ray (`?surface=pi
 pulled) put the board 0.3 cm from the aimed point, 40 cm below the eyes. Since those runs a desk is in reach when the nearest
 point where the board's centre can land on it is within 75 cm (see Where the board goes), and `&seat=table` can sit the emulated
 headset at a room's table. Where the board goes in each room, from the room's origin and seated at its table, is in the
-table below. Measured on <commit>:
+table below. Measured on 684d8c7 (19 October 2026, server, SwiftShader, IWER; eyes at 1.15 m, `?autotest=w1-1:hold` held in
+all ten runs, no console error, no request to another origin):
+
+| Room | From the room's origin, facing −z | Seated at its table (`&seat=table`) |
+|---|---|---|
+| `office_small` | table mesh, centre 43 cm from the head | table mesh, centre 55 cm from the head |
+| `office_large` | lap tray | table mesh, centre 55 cm from the head |
+| `living_room` | lap tray | table mesh, centre 55 cm from the head |
+| `meeting_room` | table mesh, centre 65 cm from the head | table mesh, centre 55 cm from the head |
+| `music_room` | lap tray | table mesh, centre 55 cm from the head |
 
 When an arch falls on a detected desk, the stones land on that desk: the collapse gets one static box the size of the desk's
 top, turned as the desk stands, besides the board, the piers and the floor (the atelier's walnut desk gets the same; the lap
