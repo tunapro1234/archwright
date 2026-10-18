@@ -111,6 +111,14 @@ describe('centering ribs: the offset lines under the laths', () => {
         // Where a curve segment is shorter than the offset (a pointed crown's keystone corners), the corner that would
         // run backwards is dropped and the line there sits up to ~1 mm nearer the intrados (w2-2: 15.1 of 16 mm).
         for (const p of line) expect(toCurve(top, p)).toBeGreaterThan(by * 0.9);
+        // The left-to-right check above only sees what the filter kept: it may drop at most two corners, and never an
+        // end, so the rib still reaches both springings, each end offset square to its own segment.
+        expect(top.length - line.length).toBeLessThanOrEqual(2);
+        for (const [p, a, b] of [[line[0], top[0], top[1]], [line[line.length - 1], top[top.length - 2], top[top.length - 1]]]) {
+          const len = Math.hypot(b.x - a.x, b.y - a.y), end = p === line[0] ? a : b;
+          expect(p.x).toBeCloseTo(end.x + ((b.y - a.y) / len) * by, 9);
+          expect(p.y).toBeCloseTo(end.y - ((b.x - a.x) / len) * by, 9);
+        }
       }
       const rib = [...ribTop, ...[...ribBottom].reverse()];
       for (let i = 0; i < rib.length; i++) for (let j = i + 2; j < rib.length; j++) {
