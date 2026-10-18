@@ -3,10 +3,12 @@
 // taken away (it fades out), so the arch, or its collapse, is in full view. In the one-hand mode
 // (src/game/a11y.ts) pinching the handle and holding it HOLD_TO_STRIKE strikes too, without a pull:
 // the centering slides out by itself while the pinch is kept (pulling still works on top of it).
+// A hand the headset loses for a moment keeps its grip (as a held stone does, src/systems/grab-snap.ts) but does not
+// pull while it is gone; it lets go when the pinch ends or the hand stays lost for more than LOST_AFTER.
 import { createSystem, Vector3, type MeshStandardMaterial } from '@iwsdk/core';
 import type { ArchRuntime } from '../game/runtime.js';
 import type { Side } from '../game/arch-state.js';
-import type { HandState } from './hands.js';
+import { LOST_AFTER, type HandState } from './hands.js';
 import { CENTERING, strikePull } from '../scene/layout.js';
 import { playScrape } from '../audio/synth.js';
 import { holdPull } from '../game/a11y.js';
@@ -34,7 +36,7 @@ export class CenteringSystem extends createSystem({}) {
     let gripped = false;
     for (const side of ['left', 'right'] as const) {
       const h = hands[side];
-      if (this.grip[side] && (!usable || h.pinchEnded || !h.tracked)) this.grip[side] = undefined;
+      if (this.grip[side] && (!usable || h.pinchEnded || (!h.tracked && h.lostFor > LOST_AFTER))) this.grip[side] = undefined;
       if (!usable || !h.tracked) continue;
       arch.site.worldToLocal(this.local.copy(h.point));
       if (!this.grip[side] && h.pinchStarted) {
