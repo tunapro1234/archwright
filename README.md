@@ -299,7 +299,7 @@ stands on (`surface`: `desk` outside XR, else `mesh`, `plane`, `pick`, `lap` or 
 code as a hand, but it is not a hand simulation. For desktop-mode tests the hook also has `placed` (stones seated),
 `debug.solution` (the level's solution as steps) and `project(target)`, which gives a stone id, `'face:left'`, `'face:right'`,
 `'lever'`, `'crown'` (the top of the arch's back), `'abutment:left'`, `'abutment:right'` (an abutment's top face), `'tablet'`,
-`'marker:today'` or a panel icon (`'a11y:gaze'`, `'a11y:onehand'`, `'a11y:contrast'`) as a point on the
+`'marker:today'`, `'rebuild'` (the rebuild stone, while offered), `'marker:<level id>'` (an open level's marker) or a panel icon (`'a11y:gaze'`, `'a11y:onehand'`, `'a11y:contrast'`) as a point on the
 page in CSS pixels, so a test can click it with real mouse events; `where(target)` gives the same point in the world (metres),
 in or out of XR. `a11y` holds the accessibility settings in force, and `gaze` what gaze mode looks at this frame (`on`, the
 `target` name and, when it is a stone a pinch would take, `stone`).

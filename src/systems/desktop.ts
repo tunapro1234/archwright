@@ -312,6 +312,11 @@ export class DesktopSystem extends createSystem({}) {
       arch.site.localToWorld(this.v.set(p.x, p.y, p.z));
     } else if (target === 'tablet' || target === 'marker:today') {
       if (!(target === 'tablet' ? loop?.tabletAt(this.v) : loop?.dailyAt(this.v))) return null;
+    } else if (target === 'rebuild' || target.startsWith('marker:')) {
+      // The rebuild stone and the open level markers, by the names gaze mode gives them (only while a pick may take them).
+      let found = false;
+      loop?.forEachSpot((id, at) => { if (id === target) { this.v.copy(at); found = true; } });
+      if (!found) return null;
     } else if (target.startsWith('a11y:')) {
       const key = A11Y_ICONS.find(k => A11Y_TARGETS[k] === target);
       if (!key || !(this.globals.a11y as A11yPanel | undefined)?.iconAt(key, this.v)) return null;

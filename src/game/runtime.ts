@@ -44,8 +44,9 @@ export interface Hook {
   placed?: number;
   /** Where a target sits on the page, in CSS px: a stone id, 'face:left', 'face:right', 'lever',
    *  'crown' (the top of the arch's back), 'abutment:left', 'abutment:right' (an abutment's top),
-   *  'tablet' (the share card, once shown), 'marker:today' (the daily level's marker) or an icon of the
-   *  accessibility panel ('a11y:gaze', 'a11y:onehand', 'a11y:contrast'). */
+   *  'tablet' (the share card, once shown), 'marker:today' (the daily level's marker), 'rebuild' (the rebuild
+   *  stone, while offered), 'marker:<level id>' (an open level's marker) or an icon of the accessibility panel
+   *  ('a11y:gaze', 'a11y:onehand', 'a11y:contrast'): every name __archwright.gaze.target can hold. */
   project?: (target: string) => { x: number; y: number } | null;
   /** The same targets in the world (m, the point project() puts on the page), in or out of XR; null when there is none now. */
   where?: (target: string) => { x: number; y: number; z: number } | null;
