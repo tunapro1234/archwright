@@ -3,8 +3,9 @@
 // velocity is ignored), and a stone whose hand loses tracking floats back to the tray. While a
 // stone is carried near an open face, a see-through ghost shows where it would seat. Before the
 // pinch, the stone it would take is marked: pickTarget, the same choice the grab makes, lifts it
-// 4 mm and lightens it (runtime.setHover); the desktop mode marks the stone under the mouse. In gaze mode a pinch
-// confirms the target looked at, so while there is one the mark follows the eyes instead (hoverStone).
+// 4 mm and lightens it (runtime.setHover); not for a hand with its palm up, whose pinch takes nothing. The desktop mode
+// marks the stone under the mouse. In gaze mode a pinch confirms the target looked at, so while there is one the mark
+// follows the eyes instead (hoverStone).
 import { createSystem, Vector3 } from '@iwsdk/core';
 import type { ArchRuntime, StoneView } from '../game/runtime.js';
 import type { Side } from '../game/arch-state.js';
@@ -79,13 +80,14 @@ export class GrabSnapSystem extends createSystem({}) {
     if (this.renderer.xr.isPresenting) arch.setHover(hoverStone(arch.gaze, this.hover(arch, hands))); // outside XR the desktop mode marks
   }
 
-  /** The stone a pinch would take now, of the hands that are tracked and hold nothing: the nearer one's. */
+  /** The stone a pinch would take now, of the hands that are tracked and hold nothing: the nearer one's. A hand with its
+   *  palm up is left out: its pinch is the system gesture and starts no game pinch (src/systems/hands.ts). */
   private hover(arch: ArchRuntime, hands: Record<Side, HandState>): StoneView | undefined {
     let best: StoneView | undefined;
     let bestD = Infinity;
     for (const side of ['left', 'right'] as const) {
       const h = hands[side];
-      if (this.held[side] || !h.tracked || h.pinching) continue;
+      if (this.held[side] || !h.tracked || h.pinching || h.palmUp) continue;
       const v = this.pick(arch, h);
       if (!v) continue;
       const d = this.p.set(v.pose.x, v.pose.y, v.pose.z).distanceTo(this.local);

@@ -16,8 +16,9 @@ the arch carries itself or collapses across your desk. No controllers are needed
   of the arch. As it nears an end, a see-through ghost of the stone shows where it will sit; let go there and it seats with a
   click. Stones turn to the right angle by themselves. Before you pinch, the stone your fingers would take rises 4 mm and turns
   a little lighter (in high contrast it also gets an outline), so among close stones you know which one you will get; the
-  pinch takes that same stone. In desktop mode the stone under the mouse that a click would take does the same, and in gaze
-  mode the stone you look at, since there the pinch confirms what you look at.
+  pinch takes that same stone. A hand with its palm up marks nothing, since its pinch takes nothing (see below). In desktop
+  mode the stone under the mouse that a click would take does the same, and in gaze mode the stone you look at, since there
+  the pinch confirms what you look at.
 - A pinch with the palm facing up is Quest's own system gesture, so it never takes a stone. If the headset loses the hand
   that holds a stone for more than 0.3 s, the stone floats back to the tray; a shorter gap, such as one hand passing behind
   the other, keeps it in hand. The centering's handle is kept the same way (it does not move while the hand is gone).
