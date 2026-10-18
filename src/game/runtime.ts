@@ -13,7 +13,7 @@ import { LEVELS } from '../levels/index.js';
 import { dailyDate, dailyLevel, localDateISO } from './daily.js';
 import type { A11ySettings } from './a11y.js';
 import {
-  abutments, ABUTMENT_HEIGHT, ashlarBlocks, BOARD, centeringTop, PLAQUE, facePose, loadRest, shapeKey, stoneOutline, trayPoses, type Pose2,
+  abutments, ABUTMENT_HEIGHT, ashlarBlocks, BOARD, centeringTop, PIER_EXTRA, PLAQUE, facePose, loadRest, shapeKey, stoneOutline, trayPoses, type Pose2,
 } from '../scene/layout.js';
 import {
   abutmentMaterial, ashlarMaterial, ashlarMesh, blobShadow, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, loadMaterials, loadMesh, plaqueMesh, prism, stoneMaterial,
@@ -270,8 +270,9 @@ export class ArchRuntime {
     add(boardMesh(this.boardMat));
     add(blobShadow(def.span + 0.16, def.depth + 0.14)).position.set(0, 0.0006, 0);
     // Two piers of cut stone, two courses each, in one mesh.
-    add(ashlarMesh(abutments(def).flatMap(a => ashlarBlocks(a, def.depth + 0.012)), this.ashlarMat));
+    add(ashlarMesh(abutments(def).flatMap(a => ashlarBlocks(a, def.depth + PIER_EXTRA)), this.ashlarMat));
     this.woodMat.transparent = false;
+    this.woodMat.depthWrite = true;
     this.woodMat.opacity = 1;
     this.setFade(1);
     const cm = centeringMesh(centeringTop(this.state.geometry, 32), def.depth, this.woodMat);

@@ -7,8 +7,8 @@
 import { createSystem, type Mesh, type MeshBasicMaterial } from '@iwsdk/core';
 import type { ArchRuntime } from '../game/runtime.js';
 import { buildArch, isClosed, strike } from '../game/arch-state.js';
-import { failureMarks, failureStrokes, type FailureMarks } from '../statics/failure-view.js';
-import { ABUTMENT_HEIGHT } from '../scene/layout.js';
+import { failureMarks, failureStrokes, STROKE, type FailureMarks } from '../statics/failure-view.js';
+import { ABUTMENT_HEIGHT, PIER_EXTRA } from '../scene/layout.js';
 import { failureMesh, thrustTube } from '../scene/models.js';
 import { playChord, playCue } from '../audio/synth.js';
 import { archChord, collapseCue, strikeCue } from '../audio/music.js';
@@ -76,7 +76,8 @@ export class StaticsSystem extends createSystem({}) {
     if (!arc || marks.kind === 'none') return;
     const strokes = failureStrokes(marks, arc);
     if (!strokes.length) return;
-    arch.failureMarks = failureMesh(strokes, arch.def.depth / 2 + 0.004);
+    // In front of the piers, not just the stones: the springing joints lie on the pier tops.
+    arch.failureMarks = failureMesh(strokes, (arch.def.depth + PIER_EXTRA) / 2 + STROKE.outside + 0.001);
     arch.failureMarks.position.y = ABUTMENT_HEIGHT;
     arch.site.add(arch.failureMarks);
     this.failIn = 0;

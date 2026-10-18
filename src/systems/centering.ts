@@ -61,6 +61,7 @@ export class CenteringSystem extends createSystem({}) {
     if (c.struck && c.mesh.visible) {
       const mat = c.mesh.material as MeshStandardMaterial;
       mat.transparent = true;
+      mat.depthWrite = false; // fading out, it no longer hides what is behind it (the failure marks)
       mat.opacity = Math.max(0, mat.opacity - delta / FADE);
       if (mat.opacity === 0) c.mesh.visible = false;
     }

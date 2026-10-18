@@ -13,6 +13,7 @@ type Shape = Pick<GameState['geometry'], 'span' | 'rise' | 'units' | 'depth'>;
 
 export const ABUTMENT_HEIGHT = 0.05;
 export const ABUTMENT_SPARE = 0.025;  // abutment width beyond the thickest stone
+export const PIER_EXTRA = 0.012;     // the piers stand this much deeper (z) than the arch
 export const BOARD = { width: 0.46, zMin: -0.08, zMax: 0.3, thickness: 0.012 };
 // TRAY.z: far edge (towards the arch) of the first row; rowGap: clear space between rows;
 // gap: between two stones of a kind; groupGap: between kinds.
