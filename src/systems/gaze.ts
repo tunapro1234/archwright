@@ -7,7 +7,8 @@
 // it slides out as the hold goes on (the ring stays on the handle, wherever the eyes go) and strikes
 // at the end. Let go early and it stays where it got to.
 // A pinch with nothing looked at is left to the hands, so direct play still works. What is looked at goes to
-// runtime.gaze, so the hover mark (grab-snap.ts hoverStone) shows the stone a pinch would confirm.
+// runtime.gaze, so the hover mark (grab-snap.ts hoverStone) shows the stone a pinch would confirm, and to
+// __archwright.gaze for the emulator test.
 import { createSystem, Mesh, MeshBasicMaterial, RingGeometry, Vector3 } from '@iwsdk/core';
 import type { ArchRuntime, StoneView } from '../game/runtime.js';
 import type { Side } from '../game/arch-state.js';
@@ -74,6 +75,7 @@ export class GazeSystem extends createSystem({}) {
     }
     arch.gaze.on = false;
     arch.gaze.stone = undefined;
+    this.publish(arch);
     if (!active) return;
 
     this.select.update(arch, delta);
@@ -85,6 +87,7 @@ export class GazeSystem extends createSystem({}) {
     // The selected stone is already up: looking at it (to put it back) marks nothing, as with the mouse.
     arch.gaze.on = !!this.hit;
     arch.gaze.stone = this.hit?.kind === 'stone' && this.hit.stone !== this.select.selected ? this.hit.stone : undefined;
+    this.publish(arch);
     this.ghosts(arch);
     this.strikeHold(arch, hands, delta);
     this.showRing();
@@ -96,6 +99,14 @@ export class GazeSystem extends createSystem({}) {
       this.confirm(arch, panel!, this.hit, side);
       break;
     }
+  }
+
+  /** This frame's look into __archwright.gaze. */
+  private publish(arch: ArchRuntime): void {
+    const g = arch.hook.gaze;
+    g.on = arch.gaze.on;
+    g.target = arch.gaze.on ? this.hit?.id ?? null : null;
+    g.stone = arch.gaze.stone?.def.id ?? null;
   }
 
   /** What may be looked at now, into this.live (no allocation once the pool is warm). */

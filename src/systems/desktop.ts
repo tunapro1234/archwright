@@ -123,6 +123,10 @@ export class DesktopSystem extends createSystem({}) {
     const arch = this.globals.arch as ArchRuntime | undefined;
     if (arch) {
       arch.hook.project = target => this.project(target);
+      arch.hook.where = target => {
+        const p = this.locate(target);
+        return p ? { x: p.x, y: p.y, z: p.z } : null;
+      };
       Object.defineProperty(arch.hook, 'placed', { get: () => arch.state?.placed.length ?? 0, enumerable: true });
       Object.defineProperty(arch.hook, 'debug', { get: () => ({ solution: arch.def?.solution ?? [] }), enumerable: true });
     }
@@ -288,6 +292,15 @@ export class DesktopSystem extends createSystem({}) {
 
   /** Centre of a target on the page (CSS px), or null when there is no such target now. */
   private project(target: string): { x: number; y: number } | null {
+    const p = this.locate(target);
+    if (!p) return null;
+    this.camera.updateMatrixWorld();
+    p.project(this.camera);
+    return ndcToCss(p.x, p.y, p.z, this.canvas.getBoundingClientRect());
+  }
+
+  /** The world point of a target (this.v) that project() puts on the page, or null when there is no such target now. */
+  private locate(target: string): Vector3 | null {
     const arch = this.globals.arch as ArchRuntime | undefined;
     if (!arch?.state) return null;
     const loop = this.globals.loop as LoopPicker | undefined;
@@ -318,9 +331,7 @@ export class DesktopSystem extends createSystem({}) {
       if (!s) return null;
       this.centre(arch, arch.batches[s.batch].mesh.geometry, s.pose);
     }
-    this.camera.updateMatrixWorld();
-    this.v.project(this.camera);
-    return ndcToCss(this.v.x, this.v.y, this.v.z, this.canvas.getBoundingClientRect());
+    return this.v;
   }
 
   /**

@@ -217,8 +217,11 @@ differences, the same differences under a simulation of protanopia, deuteranopia
 | high contrast | 80.7 | 120.1 | 51.9 | 3.97 |
 
 The gaze pick (a ray against a sphere round each target, nearest hit within 1.5 m) and the hold-to-strike timing have unit
-tests. The gaze and one-hand modes have not been tried on a headset yet, nor with players who need them; we have no
-user-study numbers to report.
+tests. The marking was also checked in IWER (Meta's WebXR emulator, software-rendered on a server, not a headset), in VR on
+level w1-1 with emulated controllers: with a controller's grip on one tray stone and the head turned to another, the mark
+went to the one looked at; looking at the first marked it, and a trigger pull picked it up. With gaze off, the mark followed
+the controller's grip onto a stone and was gone 30 cm above it. The gaze and one-hand modes have not been tried on a headset
+yet, nor with players who need them; we have no user-study numbers to report.
 
 ## Clean pause
 
@@ -295,7 +298,9 @@ code as a hand, but it is not a hand simulation. For desktop-mode tests the hook
 `debug.solution` (the level's solution as steps) and `project(target)`, which gives a stone id, `'face:left'`, `'face:right'`,
 `'lever'`, `'crown'` (the top of the arch's back), `'abutment:left'`, `'abutment:right'` (an abutment's top face), `'tablet'`,
 `'marker:today'` or a panel icon (`'a11y:gaze'`, `'a11y:onehand'`, `'a11y:contrast'`) as a point on the
-page in CSS pixels, so a test can click it with real mouse events. `a11y` holds the accessibility settings in force.
+page in CSS pixels, so a test can click it with real mouse events; `where(target)` gives the same point in the world (metres),
+in or out of XR. `a11y` holds the accessibility settings in force, and `gaze` what gaze mode looks at this frame (`on`, the
+`target` name and, when it is a stone a pinch would take, `stone`).
 On a daily level `daily` holds the day's number and, once the arch is struck, its share card.
 After a strike `failure` says why it fell (`kind`: `none`, `hinge`, `sliding` or `tension`), the joints its line of thrust
 leaves (`outside`) and the joints it breaks at (`joints`); it is null again on the next level.
@@ -309,7 +314,9 @@ plinths, how many follow an anchor and this session's anchor counts (requested, 
 now and `pauses` how often it has paused, and `audio` the sound's state (`none` before it starts, then the AudioContext's) and
 whether the limiter is in. `hover` is the id of the stone a pinch (or, outside XR, a click) would take now, or null.
 With `?emulator=1` the hook also has `emulator`, whose `setVisibility(state)`, `aim(hand, point)` and `pinch(hand, value)` set
-the emulated session's visibility, turn a hand's or controller's ray to a point, and pinch (a controller's trigger). The XR smoke
+the emulated session's visibility, turn a hand's or controller's ray to a point, and pinch (a controller's trigger); `look(point)`
+turns the emulated head where it stands to look at a point, and `reach(hand, point)` moves that side's hand so its pinch point
+(or a controller so its grip) is on the point, and keeps it there. The XR smoke
 test opens `?emulator=1&autoxr=ar&autotest=w1-1:hold` and `?emulator=1&autoxr=vr`: a real (emulated) session, the surface
 chain inside it, and in AR the autotest, which waits for the board to find its surface before the first stone goes down.
 

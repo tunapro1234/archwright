@@ -87,7 +87,7 @@ async function main(): Promise<void> {
   world.globals.arch = arch;
   if (emulator) {
     world.globals.emulator = emulator;
-    arch.hook.emulator = emu!.emulatorHook(emulator);
+    arch.hook.emulator = emu!.emulatorHook(emulator, world);
   }
   arch.hook.xr = { mode: null, features: [], inputs: [], room, head: null };
   passthrough = () => {
@@ -131,6 +131,11 @@ async function main(): Promise<void> {
     .registerSystem(LoadSystem, { priority: 21 })
     .registerSystem(DebugOverlaySystem, { priority: 999 })
     .registerSystem(PerfEndSystem, { priority: 1000 });
+  // ?emulator=1: an input sent somewhere by __archwright.emulator.reach stays there (src/emulator/emulator.ts).
+  if (emulator) {
+    world.registerSystem(emu!.ReachSystem, { priority: 0.25 });
+    game.push(emu!.ReachSystem);
+  }
   // ?emulator=1&handplay=solution|trap: the emulated right hand plays the level, read by the game through its
   // hand joints like any hand (src/systems/handplay.ts). Emulator only, loaded on demand, before the session
   // starts so the emulated headset comes up with hands instead of controllers.

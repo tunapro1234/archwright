@@ -47,6 +47,8 @@ export interface Hook {
    *  'tablet' (the share card, once shown), 'marker:today' (the daily level's marker) or an icon of the
    *  accessibility panel ('a11y:gaze', 'a11y:onehand', 'a11y:contrast'). */
   project?: (target: string) => { x: number; y: number } | null;
+  /** The same targets in the world (m, the point project() puts on the page), in or out of XR; null when there is none now. */
+  where?: (target: string) => { x: number; y: number; z: number } | null;
   debug?: { solution: Step[] };
   /** Today's Span: the day's number while a daily level is on the board, and its share card once struck. */
   daily?: { number: number; card: string | null } | null;
@@ -98,6 +100,10 @@ export interface Hook {
   handplay?: HandplayHook;
   /** The stone a pinch would take now (a hand's pinch point in XR, the mouse outside it), marked lifted and lighter; null when none. */
   hover: string | null;
+  /** Gaze mode this frame (src/systems/gaze.ts): `on` while the eyes are on a target, `target` its name (a stone id,
+   *  'face:left', 'lever', 'a11y:gaze', ... as for project()) and `stone` that stone's id when it is a stone a pinch
+   *  would take; all off outside gaze mode. */
+  gaze: { on: boolean; target: string | null; stone: string | null };
   /** The last strike on this level (src/statics/failure-view.ts): why it fell, the joints its line of thrust leaves and
    *  the joints where it breaks (kind 'none' when it held); null until the first strike after a level load. */
   failure: { kind: FailureKind; outside: number[]; joints: number[] } | null;
@@ -200,6 +206,7 @@ export class ArchRuntime {
       level: '',
       perf: { fps: 0, frameMs: 0, drawCalls: 0, triangles: 0, bodies: 0 },
       hover: null,
+      gaze: { on: false, target: null, stone: null },
       failure: null,
     };
     (window as unknown as { __archwright: Hook }).__archwright = this.hook;
@@ -344,6 +351,8 @@ export class ArchRuntime {
     this.hook.hover = null;
     this.gaze.on = false;
     this.gaze.stone = undefined;
+    this.hook.gaze.on = false;
+    this.hook.gaze.target = this.hook.gaze.stone = null;
     const roots = this.levelEntities.flatMap(e => e.object3D ? [e.object3D] : []);
     for (const e of this.levelEntities) e.dispose({ disposeResources: false });
     this.levelEntities = [];
