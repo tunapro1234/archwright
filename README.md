@@ -42,9 +42,10 @@ pure functions in `src/game/onboarding.ts`.
 
 The tray groups stones by kind. The three stones differ in colour and in lightness, so they also tell apart in greyscale or
 with colour blindness: muted ochre sandstone (mid), pale tuff (light), dark basalt (dark). Every stone has chamfered edges and chisel
-marks; the centering is red-brown planked timber with grain. The arch springs from two piers of cut limestone, two courses
-of blocks with staggered joints. One warm key light from high on the right and a soft ambient fill light the scene; there are
-no real-time shadows, only a soft blob under the arch. All colours come from `src/scene/palette.ts`, which also
+marks; the centering is red-brown planked timber with grain, built open like a real one (two curved ribs, laths across them under
+the stones and three posts down to the board), so the arch above it stays in view. The arch springs from two piers of cut
+limestone, two courses of blocks with staggered joints. One warm key light from high on the right and a soft ambient fill light
+the scene; there are no real-time shadows, only a soft blob under the arch. All colours come from `src/scene/palette.ts`, which also
 holds a high-contrast palette (see [Accessibility](#accessibility)).
 
 **Today's Span.** The round stone beside the level markers opens the day's level: the same arch for everyone on the same date,

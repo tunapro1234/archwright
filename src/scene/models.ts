@@ -5,6 +5,7 @@ import {
   ConeGeometry, CylinderGeometry, InstancedMesh, LatheGeometry, RingGeometry, Shape, SRGBColorSpace, TorusGeometry, TubeGeometry, Vector2,
   Vector3,
 } from '@iwsdk/core';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Vec2 } from '../statics/index.js';
 import type { Stroke } from '../statics/failure-view.js';
 import type { LoadKind, Material } from '../game/arch-state.js';
@@ -243,20 +244,87 @@ export function flatMaterial(color: number | PaletteKey): MeshStandardMaterial {
   return m;
 }
 
-/** Wooden centering under the intrados, standing on the board, with a pull handle at the front. */
+/**
+ * The centering's open timber frame (m): two curved ribs, one at the front and one at the back, each a
+ * band `rib` deep below the lagging and `ribThick` thick; laths `lath` wide along the curve and `lathThick`
+ * deep laid across them, `lathGap` apart, their tops on the intrados; and three posts `post` wide down to
+ * the board, one under each springing and one under the crown.
+ */
+export const CENTERING_FRAME = { rib: 0.012, ribThick: 0.008, lath: 0.012, lathThick: 0.004, lathGap: 0.008, post: 0.01 } as const;
+
+/** A flat outline (x-y) as a slab from z0 to z1, no bevel. */
+function slab(outline: Vec2[], z0: number, z1: number): BufferGeometry {
+  const g = new ExtrudeGeometry(new Shape(outline.map(p => new Vector2(p.x, p.y))), { depth: z1 - z0, bevelEnabled: false, curveSegments: 1 });
+  g.translate(0, 0, z0);
+  return g;
+}
+
+/** `pts` moved `by` towards the inside of the curve (to the right of its direction): left to right, that is down. */
+function offsetInward(pts: Vec2[], by: number): Vec2[] {
+  return pts.map((p, i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    return { x: p.x + ((b.y - a.y) / len) * by, y: p.y - ((b.x - a.x) / len) * by };
+  });
+}
+
+/** The point at arc length `s` along `pts`, and the direction there. */
+function alongCurve(pts: Vec2[], s: number): { p: Vec2; t: Vec2 } {
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (s <= len || i === pts.length - 1) {
+      const f = len > 0 ? Math.min(1, s / len) : 0;
+      return { p: { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f }, t: { x: (b.x - a.x) / len, y: (b.y - a.y) / len } };
+    }
+    s -= len;
+  }
+  return { p: pts[0], t: { x: 1, y: 0 } };
+}
+
+/**
+ * Wooden centering under the intrados, standing on the board, with a pull handle at the front: an open
+ * frame (CENTERING_FRAME), not a solid board, so the stones it carries stay in view. One geometry.
+ */
 export function centeringMesh(top: Vec2[], depth: number, material: MeshStandardMaterial): Mesh {
   // Shrunk by a millimetre or two so it never z-fights with the stones resting on it.
   const inset = 0.0015;
   const half = top[top.length - 1].x;
   const k = 1 - inset / half;
-  const shape = new Shape();
-  shape.moveTo(half * k, -ABUTMENT_HEIGHT);
-  for (let i = top.length - 1; i >= 0; i--) shape.lineTo(top[i].x * k, top[i].y - inset);
-  shape.lineTo(-half * k, -ABUTMENT_HEIGHT);
-  shape.closePath();
+  const curve = top.map(p => ({ x: p.x * k, y: p.y - inset }));
   const d = depth * 0.92;
-  const body = new ExtrudeGeometry(shape, { depth: d, bevelEnabled: false, curveSegments: 1 });
-  body.translate(0, 0, -d / 2);
+  const F = CENTERING_FRAME;
+  const parts: BufferGeometry[] = [];
+
+  // Laths: short planks across the full depth, each a chord of the curve, its ends on the intrados.
+  let L = 0;
+  for (let i = 1; i < curve.length; i++) L += Math.hypot(curve[i].x - curve[i - 1].x, curve[i].y - curve[i - 1].y);
+  const n = Math.max(2, Math.floor((L + F.lathGap) / (F.lath + F.lathGap)));
+  const pitch = (L - F.lath) / (n - 1);
+  for (let i = 0; i < n; i++) {
+    const a = alongCurve(curve, i * pitch).p, b = alongCurve(curve, i * pitch + F.lath).p;
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const nx = (b.y - a.y) / len * F.lathThick, ny = -(b.x - a.x) / len * F.lathThick;
+    parts.push(slab([a, { x: a.x + nx, y: a.y + ny }, { x: b.x + nx, y: b.y + ny }, b], -d / 2, d / 2));
+  }
+
+  // Ribs under the laths, at the front and the back.
+  const ribTop = offsetInward(curve, F.lathThick), ribBottom = offsetInward(curve, F.lathThick + F.rib);
+  const rib = [...ribTop, ...[...ribBottom].reverse()].reverse(); // counter-clockwise
+  parts.push(slab(rib, d / 2 - F.ribThick, d / 2), slab(rib, -d / 2, -d / 2 + F.ribThick));
+
+  // Posts to the board: under each springing (where the rib ends) and under the crown, the full depth.
+  const crown = ribBottom.reduce((m, p) => (Math.abs(p.x) < Math.abs(m.x) ? p : m));
+  const post = (x0: number, x1: number, y: number): Vec2[] =>
+    [{ x: x0, y: -ABUTMENT_HEIGHT }, { x: x1, y: -ABUTMENT_HEIGHT }, { x: x1, y }, { x: x0, y }];
+  parts.push(
+    slab(post(-half * k, -half * k + F.post, Math.min(ribBottom[0].y, ribTop[0].y)), -d / 2, d / 2),
+    slab(post(half * k - F.post, half * k, Math.min(ribBottom[ribBottom.length - 1].y, ribTop[ribTop.length - 1].y)), -d / 2, d / 2),
+    slab(post(-F.post / 2, F.post / 2, crown.y), -d / 2, d / 2),
+  );
+
+  const body = mergeGeometries(parts)!;
+  for (const g of parts) g.dispose();
   const mesh = new Mesh(body, material);
   mesh.name = 'centering';
   const handle = new Mesh(new BoxGeometry(0.07, 0.022, CENTERING.handleDepth), material);
