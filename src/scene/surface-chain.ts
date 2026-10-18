@@ -221,13 +221,48 @@ export function placeOnDesk(head: Vec3, fwd: { x: number; z: number }, desk: Sur
   const near = deskReachPoint(desk, { x: cx, z: cz });
   if (near.inside) return { x, z, yaw: Math.atan2(-fwd.x, -fwd.z), centre: { x: cx, z: cz } };
   // Clamped towards where the player faces, the centre may end up out of reach along a long desk off to the side:
-  // then it goes to the point isDesk measured, the nearest the head.
-  const reach = flatDistance(head, near) > DESK_REACH ? deskReachPoint(desk, head) : near;
-  const centre = { x: reach.x, z: reach.z };
+  // then it goes to the point within reach nearest to where the player faces.
+  const centre = flatDistance(head, near) > DESK_REACH ? reachableNearest(desk, head, { x: cx, z: cz }) : { x: near.x, z: near.z };
   let ax = centre.x - head.x, az = centre.z - head.z;
   const d = Math.hypot(ax, az);
   if (d < 1e-6) { ax = fwd.x; az = fwd.z; } else { ax /= d; az /= d; }
   return { x: centre.x + ax * BOARD_CENTRE, z: centre.z + az * BOARD_CENTRE, yaw: Math.atan2(-ax, -az), centre };
+}
+
+/**
+ * The point nearest to `p` of the desk's inset rectangle (deskReachPoint's) that is also within DESK_REACH of the head:
+ * the rectangle and the reach circle are both convex, so it is the best of the projection onto either one that lies in
+ * the other, each edge's nearest point within reach, and where the circle crosses the edges. isDesk has made sure the
+ * two overlap; failing that, the point isDesk measured.
+ */
+function reachableNearest(desk: SurfaceCandidate, head: Vec3, p: { x: number; z: number }): { x: number; z: number } {
+  const hw = desk.width / 2 - Math.min(DESK_INSET, desk.width / 2), hd = desk.depth / 2 - Math.min(DESK_INSET, desk.depth / 2);
+  const c = Math.cos(desk.yaw ?? 0), s = Math.sin(desk.yaw ?? 0);
+  const local = (q: { x: number; z: number }) => { const dx = q.x - desk.x, dz = q.z - desk.z; return { u: c * dx - s * dz, v: s * dx + c * dz }; };
+  const h = local(head), t = local(p), R = DESK_REACH + 1e-9;
+  const inRect = (q: { u: number; v: number }) => Math.abs(q.u) <= hw + 1e-9 && Math.abs(q.v) <= hd + 1e-9;
+  const inReach = (q: { u: number; v: number }) => Math.hypot(q.u - h.u, q.v - h.v) <= R;
+  const clamp = (x: number, a: number) => Math.min(a, Math.max(-a, x));
+  const found: { u: number; v: number }[] = [];
+  const rect = { u: clamp(t.u, hw), v: clamp(t.v, hd) };
+  if (inReach(rect)) found.push(rect);
+  const dh = Math.hypot(t.u - h.u, t.v - h.v);
+  const disc = dh <= DESK_REACH ? t : { u: h.u + ((t.u - h.u) * DESK_REACH) / dh, v: h.v + ((t.v - h.v) * DESK_REACH) / dh };
+  if (inRect(disc)) found.push(disc);
+  // Each edge: u fixed at ±hw (v free in ±hd), or v fixed at ±hd.
+  for (const [fixU, k] of [[true, hw], [true, -hw], [false, hd], [false, -hd]] as const) {
+    const span = fixU ? hd : hw, along = fixU ? t.v : t.u, hk = fixU ? h.u : h.v, ha = fixU ? h.v : h.u;
+    const at = (a: number) => (fixU ? { u: k, v: a } : { u: a, v: k });
+    const q = at(clamp(along, span));
+    if (inReach(q)) found.push(q);
+    const left = DESK_REACH * DESK_REACH - (k - hk) * (k - hk);
+    if (left < 0) continue;
+    for (const a of [ha - Math.sqrt(left), ha + Math.sqrt(left)]) if (Math.abs(a) <= span + 1e-9) found.push(at(a));
+  }
+  if (!found.length) { const r = deskReachPoint(desk, head); return { x: r.x, z: r.z }; }
+  let best = found[0];
+  for (const q of found) if (Math.hypot(q.u - t.u, q.v - t.v) < Math.hypot(best.u - t.u, best.v - t.v)) best = q;
+  return { x: desk.x + best.u * c + best.v * s, z: desk.z - best.u * s + best.v * c };
 }
 
 export function lapPosition(head: Vec3, fwd: { x: number; z: number }): Vec3 {

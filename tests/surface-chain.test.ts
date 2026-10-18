@@ -364,6 +364,46 @@ describe('desk reach: where the board lands and which desk wins', () => {
     }
   });
 
+  it('clamped past the reach: the board goes to the point in reach nearest where the player faces, not straight to the side', () => {
+    // Inset rectangle x in [-1.05, -0.65]: the clamped point (-0.65, -0.39) is 0.758 m away; the reach circle crosses
+    // the near edge at z = ±0.374.
+    const side = mesh(-0.85, -0.3, 0.6, 2.0);
+    const c = chooseSurface(facing([side]));
+    expect(c.desk).toEqual(side);
+    const p = placeOnDesk(eyes, ahead, c.desk!);
+    expect(p.centre.x).toBeCloseTo(-0.65, 6);
+    expect(p.centre.z).toBeCloseTo(-Math.sqrt(0.75 ** 2 - 0.65 ** 2), 6);
+    expect(Math.hypot(p.centre.x, p.centre.z)).toBeLessThanOrEqual(DESK_REACH + 1e-9);
+    expect(Math.atan2(-p.centre.x, -p.centre.z) * 180 / Math.PI).toBeLessThan(61); // the old rule put it 90° off
+  });
+
+  it('clamped past the reach, any desk and heading: no point of the desk in reach is nearer where the player faces', () => {
+    const ahead0 = DESK_FORWARD - (BOARD.zMin + BOARD.zMax) / 2; // the board's centre with nothing in the way
+    const desks = [mesh(-0.85, -0.3, 0.6, 2.0), { ...mesh(0.7, -0.5, 1.8, 0.6), yaw: 0.5 }, { ...mesh(-0.6, 0.3, 1.4, 0.5), yaw: -1.1 }];
+    let clamped = 0;
+    for (const desk of desks) for (let deg = -150; deg <= 150; deg += 10) {
+      const r = (deg * Math.PI) / 180, fwd = { x: -Math.sin(r), z: -Math.cos(r) };
+      const ch = chooseSurface({ ...facing([desk]), fwd });
+      if (!ch.desk) continue;
+      const p = placeOnDesk(eyes, fwd, ch.desk);
+      const want = { x: fwd.x * ahead0, z: fwd.z * ahead0 };
+      if (deskReachPoint(desk, want).inside) continue;
+      clamped++;
+      expect(Math.hypot(p.centre.x, p.centre.z)).toBeLessThanOrEqual(DESK_REACH + 1e-6);
+      const back = deskReachPoint(desk, p.centre); // on the rectangle (its edge, to rounding)
+      expect(Math.hypot(back.x - p.centre.x, back.z - p.centre.z)).toBeLessThan(1e-9);
+      // Brute force over the desk's top on a 5 mm grid.
+      const got = Math.hypot(p.centre.x - want.x, p.centre.z - want.z);
+      const cs = Math.cos(desk.yaw ?? 0), sn = Math.sin(desk.yaw ?? 0);
+      for (let u = -desk.width / 2; u <= desk.width / 2; u += 0.005) for (let v = -desk.depth / 2; v <= desk.depth / 2; v += 0.005) {
+        const q = { x: desk.x + u * cs + v * sn, z: desk.z - u * sn + v * cs };
+        if (Math.hypot(q.x, q.z) > DESK_REACH || !deskReachPoint(desk, q).inside) continue;
+        expect(Math.hypot(q.x - want.x, q.z - want.z)).toBeGreaterThan(got - 1e-6);
+      }
+    }
+    expect(clamped).toBeGreaterThan(5);
+  });
+
   it('the desk whose landing point is nearer wins, even if its centre is further', () => {
     const deep: SurfaceCandidate = { x: 0, y: 0.75, z: -0.825, width: 1.6, depth: 0.75, yaw: 0, horizontal: true, source: 'plane' };
     const small: SurfaceCandidate = { x: 0.2, y: 0.75, z: -0.7, width: 0.3, depth: 0.2, yaw: 0, horizontal: true, source: 'plane' };
