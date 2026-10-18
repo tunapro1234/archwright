@@ -84,7 +84,12 @@ smallest rectangle round its mesh vertices or plane outline seen from above, tur
 10 cm margin and the move onto the desk all work in that rectangle (unit tests: a 1.2 × 0.6 m desk turned 30° or 45° keeps the
 board's centre inside its margin for every way you face, and a 0.6 × 0.15 m shelf turned 45° is still too narrow to count).
 The reach is measured to where the board lands on the desk, not to the desk's centre, so a 1.60 × 0.75 m desk you sit 45 cm
-back from (its centre 0.83 m from your eyes) still takes the board (unit test).
+back from (its centre 0.83 m from your eyes) still takes the board (unit test). If the nearest point inside the margin is
+more than 75 cm from your eyes (a long desk off to one side), the board's centre goes to the point of the desk within reach
+nearest to where it would have stood, so it stays as far in front of you as the reach allows (unit tests, one against a 5 mm
+grid search). With more than one desk in reach, the one whose landing point is nearest wins, except that of the desks whose
+landing points are within 10 cm of that nearest one, the one most in front of you wins (`DESK_TIE`): a deep desk ahead beats
+a side table a few centimetres nearer (unit tests).
 The table in the emulator's synthetic office stands half a degree off square to the room's axes, so the turned case is covered
 by those tests alone. If no desk turns up within 1.5 s and hit-test is available, a ring follows
 your hand's ray over real surfaces and you pinch to pick a spot on your desk; a spot at floor or shelf height is refused. After
