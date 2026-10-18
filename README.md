@@ -119,7 +119,7 @@ request to another origin. Picking with an emulated controller ray (`?surface=pi
 pulled) put the board 0.3 cm from the aimed point, 40 cm below the eyes. Since those runs a desk is in reach when the nearest
 point where the board's centre can land on it is within 75 cm (see Where the board goes), and `&seat=table` can sit the emulated
 headset at a room's table. Where the board goes in each room, from the room's origin and seated at its table, is in the
-table below. Measured on 684d8c7 (19 October 2026, server, SwiftShader, IWER; eyes at 1.15 m, `?autotest=w1-1:hold` held in
+table below. Measured on 684d8c7 and again on 9be8ecd (19 October 2026, server, SwiftShader, IWER; eyes at 1.15 m, `?autotest=w1-1:hold` held in
 all ten runs, no console error, no request to another origin):
 
 | Room | From the room's origin, facing −z | Seated at its table (`&seat=table`) |
