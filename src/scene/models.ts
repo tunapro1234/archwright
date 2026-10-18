@@ -259,13 +259,29 @@ function slab(outline: Vec2[], z0: number, z1: number): BufferGeometry {
   return g;
 }
 
+/** A mitre at a sharp corner is cut at this many times the offset. */
+const MITRE_MAX = 4;
+
 /** `pts` moved `by` towards the inside of the curve (to the right of its direction): left to right, that is down. */
-function offsetInward(pts: Vec2[], by: number): Vec2[] {
-  return pts.map((p, i) => {
-    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
-    const len = Math.hypot(b.x - a.x, b.y - a.y);
-    return { x: p.x + ((b.y - a.y) / len) * by, y: p.y - ((b.x - a.x) / len) * by };
+export function offsetInward(pts: Vec2[], by: number): Vec2[] {
+  // Each segment's inward normal; a vertex moves to where its two segments' offset lines meet (a mitre), so the line
+  // stays parallel to the curve, and a sharp crown (a pointed arch) gets a point below it instead of folding back.
+  const nrm = pts.slice(1).map((p, i) => {
+    const a = pts[i], len = Math.hypot(p.x - a.x, p.y - a.y) || 1;
+    return { x: (p.y - a.y) / len, y: -(p.x - a.x) / len };
   });
+  const out = pts.map((p, i) => {
+    const n0 = nrm[Math.max(0, i - 1)], n1 = nrm[Math.min(nrm.length - 1, i)];
+    // m = n0 + n1 points along the mitre; p + m·t sits `by` off both segments when t = by / (m·n1). At most MITRE_MAX·by long.
+    const mx = n0.x + n1.x, my = n0.y + n1.y, ml = Math.hypot(mx, my);
+    if (ml < 1e-9) return { x: p.x + n1.x * by, y: p.y + n1.y * by };
+    const t = Math.min(by / (mx * n1.x + my * n1.y), (MITRE_MAX * by) / ml);
+    return { x: p.x + mx * t, y: p.y + my * t };
+  });
+  // Seen from the front the curve only runs left to right; drop any point the offset still pushed back.
+  const kept: Vec2[] = [];
+  for (const p of out) if (!kept.length || p.x > kept[kept.length - 1].x) kept.push(p);
+  return kept;
 }
 
 /** The point at arc length `s` along `pts`, and the direction there. */

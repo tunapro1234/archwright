@@ -3,7 +3,7 @@
 // of what used to be a solid board is now open.
 import { describe, expect, it } from 'vitest';
 import { MeshStandardMaterial, Vector3 } from '@iwsdk/core';
-import { centeringMesh } from '../src/scene/models.js';
+import { CENTERING_FRAME, centeringMesh, offsetInward } from '../src/scene/models.js';
 import { ABUTMENT_HEIGHT, CENTERING, centeringTop } from '../src/scene/layout.js';
 import { createLevel } from '../src/game/arch-state.js';
 import { LEVELS } from '../src/levels/index.js';
@@ -90,6 +90,33 @@ describe('centeringMesh: an open frame on every level', () => {
 
     it(`${def.id}: few triangles`, () => {
       expect(geo.getAttribute('position').count / 3).toBeLessThan(2000);
+    });
+  }
+});
+
+/** Do segments ab and cd cross (not counting shared end points)? */
+function cross(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
+  const o = (p: Vec2, q: Vec2, r: Vec2) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  return o(a, b, c) * o(a, b, d) < -1e-15 && o(c, d, a) * o(c, d, b) < -1e-15;
+}
+
+describe('centering ribs: the offset lines under the laths', () => {
+  const F = CENTERING_FRAME;
+  for (const def of LEVELS) {
+    it(`${def.id}: both rib lines run left to right, keep their distance from the intrados and the rib does not cross itself`, () => {
+      const top = centeringTop(createLevel(def).geometry, 32);
+      const ribTop = offsetInward(top, F.lathThick), ribBottom = offsetInward(top, F.lathThick + F.rib);
+      for (const [line, by] of [[ribTop, F.lathThick], [ribBottom, F.lathThick + F.rib]] as const) {
+        for (let i = 1; i < line.length; i++) expect(line[i].x).toBeGreaterThan(line[i - 1].x);
+        // Where a curve segment is shorter than the offset (a pointed crown's keystone corners), the corner that would
+        // run backwards is dropped and the line there sits up to ~1 mm nearer the intrados (w2-2: 15.1 of 16 mm).
+        for (const p of line) expect(toCurve(top, p)).toBeGreaterThan(by * 0.9);
+      }
+      const rib = [...ribTop, ...[...ribBottom].reverse()];
+      for (let i = 0; i < rib.length; i++) for (let j = i + 2; j < rib.length; j++) {
+        if (i === 0 && j === rib.length - 1) continue; // the closing edge meets the first
+        expect(cross(rib[i], rib[(i + 1) % rib.length], rib[j], rib[(j + 1) % rib.length])).toBe(false);
+      }
     });
   }
 });
