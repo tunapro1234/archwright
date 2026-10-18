@@ -54,8 +54,9 @@ export const HIGH_CONTRAST: Palette = {
   centering: 0x9b30ff,
   desk: 0x1f3a7a,
   thrust: 0x00b0ff,
-  /** Amber: the orange of the normal palette is this palette's sandstone. */
-  thrustFail: 0xffd400,
+  /** Deep amber, between this palette's orange sandstone and its yellow pinch cursor: red would merge with that sandstone
+   *  for a deuteranope, and the yellow of the old 0xffd400 with the cursor. */
+  thrustFail: 0xffbe19,
   /** Mid grey: white, orange and black stones all stand off it. */
   board: 0x5c5c5c,
   abutment: 0x9e9e9e,
