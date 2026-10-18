@@ -76,8 +76,9 @@ async function main(): Promise<void> {
   const room = started?.room ?? null;
   if (navigator.xr) watchSessionModes(navigator.xr);
 
-  // iwsdk.config.json enables physics so the build keeps Havok, but it is not needed until the
-  // first stone goes down: CollapseSystem registers it then, and Havok's WASM loads only at that point.
+  // iwsdk.config.json enables physics so the build keeps Havok, but the first frame does not need it:
+  // CollapseSystem registers it once the board is up and the page is idle (or at the first stone), and
+  // Havok's WASM loads only then.
   const world = await World.create(document.getElementById('scene-container') as HTMLDivElement, {
     ...projectOptions,
     features: { ...projectOptions.features, physics: false },

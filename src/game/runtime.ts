@@ -107,6 +107,9 @@ export interface Hook {
   /** The last strike on this level (src/statics/failure-view.ts): why it fell, the joints its line of thrust leaves and
    *  the joints where it breaks (kind 'none' when it held); null until the first strike after a level load. */
   failure: { kind: FailureKind; outside: number[]; joints: number[] } | null;
+  /** Havok (src/systems/collapse.ts): when physics was registered and when its WASM was ready (performance.now ms);
+   *  null until then. Registered once the board has been shown and the page is idle, or at the first stone. */
+  physics: { registered: number | null; ready: number | null };
 }
 
 /** A load of world 3 in the scene; LoadSystem moves it (src/systems/loads.ts). */
@@ -208,6 +211,7 @@ export class ArchRuntime {
       hover: null,
       gaze: { on: false, target: null, stone: null },
       failure: null,
+      physics: { registered: null, ready: null },
     };
     (window as unknown as { __archwright: Hook }).__archwright = this.hook;
     this.site = new Group();

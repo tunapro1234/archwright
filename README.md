@@ -343,9 +343,9 @@ Chromium with the XR emulator for four desktop cases (w1-1 ready, w3-5 standing,
 emulated VR collapse. The same run was done twice, with software WebGL on a server and on a desktop RTX 3060. Neither is a
 headset: no Quest frame rate is claimed here, and none has been measured.
 
-First load: `npm run build` prints the size of everything a visit can download before the first stone goes down and writes it to
+First load: `npm run build` prints the size of everything a visit can download up front, before anything loads on demand, and writes it to
 `dist/first-load.json` (`scripts/first-load.mjs`). It counts every chunk and worker of the build (an upper bound) except what only
-loads on demand: Havok's physics (about 2 MB, fetched when the first stone is placed), the emulator (`?emulator=1` only), its
+loads on demand: Havok's physics (about 2 MB, fetched after the board first shows, once the page is idle), the emulator (`?emulator=1` only), its
 synthetic room module and room files (`?emulator=1&room=` only), code that only those import, and the controller and hand
 profiles (XR input only). Budget 8 MB. The build of 15 October 2026: 7.50 MB (7,496,504 bytes; 2.01 MB gzip) in 9 files,
 of which the main chunk is 6.75 MB.
@@ -396,7 +396,10 @@ Source: J. Heyman, *The Stone Skeleton: Structural Engineering of Masonry Archit
   its own.
 
 Every stone is drawn by one instanced mesh per stone shape with a single material, and shadows are a soft blob under the board,
-not real-time shadow maps. Havok's physics WASM is not part of the first load: it is fetched when the first stone is placed.
+not real-time shadow maps. Havok's physics WASM is not part of the first load: once the board has first been shown, it is
+fetched when the page is idle (`requestIdleCallback`, at most 1.5 s later; a 1.5 s timeout where there is none), or at the
+first stone if that comes sooner, so the first stone does not wait for it. `__archwright.physics` gives when it was
+registered and when Havok was ready.
 Nothing is fetched from another origin. Four defaults in the libraries would do it, and each is redirected
 (`src/net/local-assets.ts`):
 

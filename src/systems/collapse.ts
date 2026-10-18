@@ -1,6 +1,8 @@
 // When the solver says the arch fails, the placed stones become Havok rigid bodies and the arch
 // opens at the joints the solver named, like the hinges of a real collapse. Physics is registered
-// lazily (when the first stone is placed), so Havok's WASM is not part of the first load.
+// lazily, so Havok's WASM is not part of the first load: once the board has first been shown, when the page
+// is idle (src/game/warmup.ts), or at the first stone if that comes sooner. __archwright.physics says when it
+// was registered and when Havok was ready (performance.now ms).
 // They fall onto the board, the abutments, any stone left in the tray, the desk under the board (a detected
 // desk or the atelier's, one static box turned as the desk stands) and the floor. Once they have come to rest,
 // __archwright.collapse.rest counts where; __archwright.collapse.simTime is the game time it has run.
@@ -13,6 +15,7 @@ import { restPlace, type CollapseRest } from '../game/rest.js';
 import { MATERIAL_DENSITY, ringOrder } from '../game/arch-state.js';
 import { abutments, ABUTMENT_HEIGHT, BOARD } from '../scene/layout.js';
 import { SILENCE } from './statics.js';
+import { whenIdle } from '../game/warmup.js';
 
 export const MAX_BODIES = 40;
 const SPIN = 1.6;      // rad/s, initial rotation of a segment about its hinge
@@ -41,12 +44,16 @@ export class CollapseSystem extends createSystem({}) {
   private live = false;
   private w = new Vector3();
   private l = new Vector3();
+  /** Havok warm-up: asked for once the board has been shown, due once the page has been idle since. */
+  private warmAsked = false;
+  private warmDue = false;
 
   update(delta: number): void {
     const arch = this.globals.arch as ArchRuntime | undefined;
     if (!arch?.state) return;
     if (arch.generation !== this.generation) { this.generation = arch.generation; this.kicks = []; this.falling = []; this.live = false; }
-    if (!arch.physicsRegistered && arch.state.placed.length > 0) this.registerPhysics(arch);
+    if (!arch.physicsRegistered) this.warmUp(arch);
+    else if (arch.hook.physics.ready === null) this.watchReady(arch);
     if (arch.collapseRequested && arch.physicsRegistered) {
       arch.collapseRequested = false;
       this.begin(arch);
@@ -93,8 +100,24 @@ export class CollapseSystem extends createSystem({}) {
     this.falling = [];
   }
 
+  /** Register physics when it is due. Here, not in the idle callback, so a pause still holds it back. */
+  private warmUp(arch: ArchRuntime): void {
+    if (!this.warmAsked && arch.shown && arch.hook.state !== 'loading') {
+      this.warmAsked = true;
+      whenIdle(() => { this.warmDue = true; });
+    }
+    if (this.warmDue || arch.state!.placed.length > 0) this.registerPhysics(arch);
+  }
+
+  /** Havok is ready once its transport says so (PhysicsSystem keeps that private). */
+  private watchReady(arch: ArchRuntime): void {
+    const sys = this.world.getSystem(PhysicsSystem) as unknown as { transportReady?: boolean } | undefined;
+    if (sys?.transportReady) arch.hook.physics.ready = performance.now();
+  }
+
   private registerPhysics(arch: ArchRuntime): void {
     arch.physicsRegistered = true;
+    arch.hook.physics.registered = performance.now();
     if (this.world.hasSystem(PhysicsSystem)) return;
     this.world
       .registerComponent(PhysicsBody)
