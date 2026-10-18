@@ -31,7 +31,7 @@ function onDemand(path) {
   if (path.endsWith('.map')) return 'source map';
   if (path.endsWith('.md')) return 'note';
   if (path.startsWith('input-profiles/')) return 'XR input profile';
-  if (/^assets\/(HavokPhysics|physics-)/.test(path)) return 'physics (first stone)';
+  if (/^assets\/(HavokPhysics|physics-)/.test(path)) return 'physics (idle after the board shows, or first stone)';
   // The emulator chunk: named after its package, or recognised by the device it emulates.
   if (/^assets\/.*\.js$/.test(path) && /iwer/i.test(path)) return 'emulator';
   if (/^assets\/.*\.js$/.test(path) && readFileSync(join(DIST, path), 'utf8').includes('Meta Quest 3')) return 'emulator';
