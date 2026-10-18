@@ -105,13 +105,16 @@ error and no request to another origin.
 
 All five of Meta's synthetic rooms (`office_small`, `office_large`, `living_room`, `meeting_room`, `music_room`; 17 October 2026,
 the emulated headset at the room's origin facing its −z axis, eyes at 1.15 m): in `office_small` the board went onto the table
-mesh, 40 cm below the eyes. The other four rooms report 15 to 24 planes and 3 to 14 meshes, tables among them, but in their
-room files the nearest table's centre is 1.2 to 1.6 m from that seat, past the 75 cm reach, so none counted as a desk and, with
-no pick, the board went to the lap tray. Standing (eyes at 1.6 m), the board went to the lap tray in both rooms tried: in
-`office_small` the table top was 85.5 cm below the eyes, just past the 85 cm limit, and `living_room` has no table near that spot. Seated in `office_small` turned 90°, the board went onto the
+mesh, 40 cm below the eyes. The other four rooms report 15 to 24 planes and 3 to 14 meshes, tables among them; in that run
+none counted as a desk and, with no pick, the board went to the lap tray. Standing (eyes at 1.6 m), the board went to the lap
+tray in both rooms tried (`office_small`, where the table top was 85.5 cm below the eyes, just past the 85 cm limit, and
+`living_room`). Seated in `office_small` turned 90°, the board went onto the
 table with its centre inside the 10 cm margin. `?autotest=w1-1:hold` held in all eight runs, with no console error and no
 request to another origin. Picking with an emulated controller ray (`?surface=pick`: aimed at the table's centre, trigger
-pulled) put the board 0.3 cm from the aimed point, 40 cm below the eyes.
+pulled) put the board 0.3 cm from the aimed point, 40 cm below the eyes. Since those runs a desk is in reach when the nearest
+point where the board's centre can land on it is within 75 cm (see Where the board goes), and `&seat=table` can sit the emulated
+headset at a room's table. Where the board goes in each room, from the room's origin and seated at its table, is in the
+table below. Measured on <commit>:
 
 When an arch falls on a detected desk, the stones land on that desk: the collapse gets one static box the size of the desk's
 top, turned as the desk stands, besides the board, the piers and the floor (the atelier's walnut desk gets the same; the lap
@@ -126,10 +129,11 @@ both runs; in the browser, with no desk collider, 3 to 4 of 5 stayed on the boar
 
 ## What happens when it falls
 
-When the solver says no, the arch shows why before it moves: in the 0.6 s of silence after the strike, the solver's least-bad
-line of thrust appears as a dashed orange line (amber in high contrast), twice as thick where it runs outside the stones, with
-a small ring at each joint edge it passes and a thin crack along each joint the arch breaks at, and it fades within 0.5 s once
-the stones start to fall. On the tempting wrong arrangement of every one of the 17 levels that line leaves the stones at 4 to
+When the solver says no, the arch shows why before it moves: the code shows the solver's least-bad line of thrust in the 0.6 s
+of silence after the strike, as a dashed orange line (amber in high contrast), twice as thick where it runs outside the stones,
+with a small ring at each joint edge it passes and a thin crack along each joint the arch breaks at, and fades it within 0.5 s
+once the stones start to fall. In a frame paused 0.37 s after the strike on w1-1's trap (server, SwiftShader) the line, five
+rings and four cracks are drawn in front of the centering. On the tempting wrong arrangement of every one of the 17 levels that line leaves the stones at 4 to
 8 joints, and every one of those traps fails by hinging (`tests/failure-view.test.ts`, `src/statics/failure-view.ts`).
 
 ## Seated reach
@@ -288,6 +292,7 @@ URL parameters, for development and tests:
 | `?emulator=1&autoxr=ar` | with the emulator only: the page requests the XR session itself (`ar` or `vr`), no click; ignored on a real headset |
 | `?emulator=1&room=office_small` | with the emulator only: load one of Meta's synthetic rooms (`@iwer/sem`: `office_small`, `office_large`, `living_room`, `meeting_room`, `music_room`), so an AR session sees its walls, floor, tables and furniture as planes and meshes; the room file comes from this site |
 | `?emulator=1&head=90,1.6` | with the emulator only: the emulated headset starts turned by that many degrees (positive turns left) with its eyes that many metres above the floor (default 0°, 1.15 m) |
+| `?emulator=1&room=office_small&seat=table` | with the emulator and a room only: the emulated headset sits at the room's table nearest to where it would start, 45 cm out from the middle of the table's long edge, facing the table, with its eyes at the height from `&head=` (default 1.15 m) |
 | `?surface=lap` | force a surface in an XR session: `mesh`, `plane`, `pick`, `lap` or `atelier` |
 | `?a11y=gaze,contrast` | turn accessibility settings on: `gaze`, `onehand`, `contrast` (saved ones stay on) |
 | `?debug=1` | show the performance numbers: a text box in the page corner, or a small slate on the desk in an XR session (see Performance) |
