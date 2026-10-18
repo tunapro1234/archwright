@@ -368,10 +368,15 @@ towards it too). Stones are low-poly prisms of a few dozen triangles.
 
 `?debug=1` shows the numbers while you play: frames per second, JS time per frame (the game's systems and the solver, not the
 GPU), draw calls and triangles of the last frame (from three.js `renderer.info`), physics bodies, the XR session's enabled
-features, detected planes and their labels, museum anchors and page visibility. A number over the budget turns red. On the
+features, detected planes and their labels, museum anchors and page visibility. A number over the budget turns red. Two more
+lines say what is running and how it ran lately: the commit the page was built from and the browser with its version (on a Quest,
+`OculusBrowser/<version>`), and the frame rate of the median frame and of the slowest 5 % of frames over the last 600 frames
+(`src/game/frame-stats.ts`; about 8 s at 72 Hz). So a photo of it taken in a headset is a report we can read: which build, which
+browser, and how smooth it was. On the
 desktop it is a text box in the page corner; in an XR session, where a page cannot be seen, the same lines are on a small slate
 standing on the desk behind the board's right corner (part of the room, not fixed to your head; it adds one draw call). The same
-numbers are in `window.__archwright.perf` every frame, in XR as well.
+numbers are in `window.__archwright.perf` every frame, in XR as well (`p50` and `p5`, the two frame rates, are refreshed four times a second), and the build in
+`window.__archwright.build`.
 
 What has been checked, and where: draw calls, triangles and bodies do not depend on the device, so they are counted in headless
 Chromium with the XR emulator for four desktop cases (w1-1 ready, w3-5 standing, w3-5 collapsing, a full museum) and one

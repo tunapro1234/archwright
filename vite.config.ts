@@ -1,9 +1,19 @@
 // Based on the @iwsdk/create 1.0.1 template (MIT, Meta Platforms, Inc.).
+import { execFileSync } from 'node:child_process';
 import { iwsdkDev } from '@iwsdk/vite-plugin-dev';
 import { defineConfig, type Plugin } from 'vite';
 import { FOREIGN_HOSTS, sameOriginRewrites } from './src/net/local-assets';
 
 const BASE = '/archwright/';
+
+/** The commit being built, for __archwright.build and the ?debug slate; 'dev' outside a git checkout. */
+function buildId(): string {
+  try {
+    return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || 'dev';
+  } catch {
+    return 'dev';
+  }
+}
 
 /**
  * Build only: rewrite the libraries' other-origin defaults to this site (src/net/local-assets.ts),
@@ -38,6 +48,7 @@ export default defineConfig(({ isPreview }) => ({
   // `vite preview` serves the built dist/ over plain http, like GitHub Pages; the IWSDK
   // dev plugin (dev server, emulator, local https certificate) is only for dev and build.
   plugins: isPreview ? [] : [iwsdkDev(), sameOrigin()],
+  define: { __BUILD__: JSON.stringify(buildId()) },
   // Local only: never bind a public interface.
   server: { host: '127.0.0.1', port: 8081, open: false },
   preview: { host: '127.0.0.1' },

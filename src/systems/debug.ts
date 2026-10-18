@@ -7,12 +7,13 @@ import {
   CanvasTexture, createSystem, Mesh, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace, XRPlane,
 } from '@iwsdk/core';
 import type { ArchRuntime } from '../game/runtime.js';
-import { debugEnabled, debugLines, type DebugInfo } from '../game/debug.js';
+import { debugEnabled, debugLines, shortUA, type DebugInfo } from '../game/debug.js';
+import type { FrameSummary } from '../game/frame-stats.js';
 import { BOARD } from '../scene/layout.js';
 
 const REDRAW = 0.25; // s
-const SLATE = { width: 0.17, height: 0.085, x: BOARD.width / 2 + 0.1, y: 0.13, z: BOARD.zMin + 0.02, turn: -0.4 };
-const CANVAS = { w: 512, h: 256, line: 44, pad: 18 };
+const CANVAS = { w: 512, h: 352, line: 44, pad: 18 }; // seven lines
+const SLATE = { width: 0.17, height: 0.17 * CANVAS.h / CANVAS.w, x: BOARD.width / 2 + 0.1, y: 0.13, z: BOARD.zMin + 0.02, turn: -0.4 };
 
 export class DebugOverlaySystem extends createSystem({
   planes: { required: [XRPlane] },
@@ -26,11 +27,12 @@ export class DebugOverlaySystem extends createSystem({
   private labels: string[] = [];
   private info: DebugInfo = {
     fps: 0, frameMs: 0, drawCalls: 0, triangles: 0, bodies: 0, collapsing: false, level: '', state: '',
-    xrMode: null, features: [], planes: [], anchors: null, visibility: 'visible',
+    xrMode: null, features: [], planes: [], anchors: null, visibility: 'visible', build: '', ua: '', p50: 0, p5: 0, n: 0,
   };
 
   init(): void {
     this.on = debugEnabled(location.search);
+    this.info.ua = shortUA(navigator.userAgent);
   }
 
   update(delta: number): void {
@@ -72,6 +74,11 @@ export class DebugOverlaySystem extends createSystem({
     i.planes = this.labels;
     i.anchors = h.museum ? { plinths: h.museum.plinths.length, anchored: h.museum.anchored } : null;
     i.visibility = session ? session.visibilityState : document.visibilityState;
+    i.build = h.build;
+    const t = this.globals.frameStats as FrameSummary | undefined;
+    i.p50 = t?.p50 ?? 0;
+    i.p5 = t?.p5 ?? 0;
+    i.n = t?.n ?? 0;
   }
 
   private drawBox(lines: { text: string; over: boolean }[]): void {

@@ -4,6 +4,7 @@
 // larger back-face copy in the pinch colour (one draw call, only while there is a hover stone).
 import { BackSide, createSystem, Matrix4, Mesh, MeshBasicMaterial, SphereGeometry, Vector3 } from '@iwsdk/core';
 import { HOVER_LIFT, type ArchRuntime } from '../game/runtime.js';
+import { FrameStats } from '../game/frame-stats.js';
 import { paint } from '../scene/palette.js';
 import type { Side } from '../game/arch-state.js';
 import type { HandState } from './hands.js';
@@ -87,12 +88,16 @@ export class PerfStartSystem extends createSystem({}) {
 }
 
 const ARM_AFTER = 3;
+const STATS_EVERY = 0.25; // s: the frame-time percentiles are sorted out this often, not every frame
 
-/** Runs last each frame: frame rate, JS time per frame, and the last rendered frame's counts. */
+/** Runs last each frame: frame rate, JS time per frame, the last rendered frame's counts, and the median and slow-frame
+ *  rates of the last frames (globals.frameStats for the ?debug overlay, p50 and p5 in __archwright.perf). */
 export class PerfEndSystem extends createSystem({}) {
   private fps = 0;
   private ms = 0;
   private frames = 0;
+  private times = new FrameStats();
+  private since = 0;
 
   update(delta: number): void {
     const arch = this.globals.arch as ArchRuntime | undefined;
@@ -103,7 +108,16 @@ export class PerfEndSystem extends createSystem({}) {
     const k = 0.1;
     if (delta > 0) this.fps = this.fps ? this.fps + (1 / delta - this.fps) * k : 1 / delta;
     this.ms = this.ms ? this.ms + (js - this.ms) * k : js;
+    this.times.push(delta);
     const p = arch.hook.perf;
+    this.since += delta;
+    if (this.since >= STATS_EVERY) {
+      this.since = 0;
+      const t = this.times.stats();
+      this.globals.frameStats = t;
+      p.p50 = Math.round(t.p50 * 10) / 10;
+      p.p5 = Math.round(t.p5 * 10) / 10;
+    }
     p.fps = Math.round(this.fps * 10) / 10;
     p.frameMs = Math.round(this.ms * 100) / 100;
     p.drawCalls = this.renderer.info.render.calls;

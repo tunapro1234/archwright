@@ -36,7 +36,12 @@ export type HookState = 'loading' | 'ready' | 'building' | 'held' | 'collapsed';
 export interface Hook {
   state: HookState;
   level: string;
-  perf: { fps: number; frameMs: number; drawCalls: number; triangles: number; bodies: number };
+  /** Each frame (src/systems/render.ts): smoothed fps, JS ms, the last frame's draw calls, triangles and bodies, and over
+   *  the last frames (src/game/frame-stats.ts, refreshed every 0.25 s) the fps of the median frame time (p50) and of the
+   *  slowest 5 % (p5); 0 until measured. */
+  perf: { fps: number; frameMs: number; drawCalls: number; triangles: number; bodies: number; p50: number; p5: number };
+  /** The commit this page was built from (vite define __BUILD__, `git rev-parse --short HEAD`), or 'dev'. */
+  build: string;
   /** Where the board stands: the kind SurfaceSystem last chose (src/scene/surface-chain.ts). */
   surface?: SurfaceKind;
   /** ?autotest with &shots=1 only: name of the key frame the autotest is holding for; clear it to go on. */
@@ -219,7 +224,8 @@ export class ArchRuntime {
     this.hook = {
       state: 'loading',
       level: '',
-      perf: { fps: 0, frameMs: 0, drawCalls: 0, triangles: 0, bodies: 0 },
+      perf: { fps: 0, frameMs: 0, drawCalls: 0, triangles: 0, bodies: 0, p50: 0, p5: 0 },
+      build: typeof __BUILD__ === 'string' ? __BUILD__ : 'dev',
       hover: null,
       gaze: { on: false, target: null, stone: null },
       failure: null,
