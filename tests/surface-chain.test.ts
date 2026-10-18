@@ -292,3 +292,37 @@ describe('desk reach', () => {
     expect(near.z).toBeCloseTo(small.z, 12);
   });
 });
+
+describe('desk reach: where the board lands and which desk wins', () => {
+  const eyes = { x: 0, y: 1.15, z: 0 };
+  const ahead = { x: 0, z: -1 };
+  const facing = (candidates: SurfaceCandidate[]): SurfaceInput =>
+    ({ inXR: true, passthrough: true, head: eyes, fwd: ahead, candidates, hitTest: true, elapsed: 2 });
+
+  it('a long desk off to the side: the board\'s centre is never further than DESK_REACH from the head', () => {
+    const side: SurfaceCandidate = { x: -0.95, y: 0.75, z: -0.3, width: 0.6, depth: 2.0, yaw: 0, horizontal: true, source: 'mesh' };
+    const c = chooseSurface(facing([side]));
+    expect(c.kind).toBe('mesh');
+    const p = placeOnDesk(eyes, ahead, c.desk!);
+    expect(Math.hypot(p.centre.x, p.centre.z)).toBeLessThanOrEqual(DESK_REACH + 1e-9);
+    expect(deskReachPoint(side, p.centre).inside).toBe(true);
+    // Facing the board from the head, as on any clamped desk.
+    const toCentre = Math.atan2(-(p.centre.x - eyes.x), -(p.centre.z - eyes.z));
+    expect(Math.abs(p.yaw - toCentre)).toBeLessThan(1e-9);
+  });
+
+  for (const deg of [0, 30, 60, 90, -45]) {
+    it(`any desk the chain takes, facing ${deg}°: the board's centre is within DESK_REACH`, () => {
+      const r = (deg * Math.PI) / 180, fwd = { x: -Math.sin(r), z: -Math.cos(r) };
+      for (const desk of [
+        { x: -0.95, y: 0.75, z: -0.3, width: 0.6, depth: 2.0, yaw: 0, horizontal: true, source: 'mesh' as const },
+        { x: 0.6, y: 0.75, z: -0.6, width: 1.8, depth: 0.7, yaw: 0.5, horizontal: true, source: 'plane' as const },
+      ]) {
+        const c = chooseSurface({ ...facing([desk]), fwd });
+        if (!c.desk) continue;
+        const p = placeOnDesk(eyes, fwd, c.desk);
+        expect(Math.hypot(p.centre.x, p.centre.z)).toBeLessThanOrEqual(DESK_REACH + 1e-9);
+      }
+    });
+  }
+});

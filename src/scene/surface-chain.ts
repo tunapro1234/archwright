@@ -203,7 +203,10 @@ export function placeOnDesk(head: Vec3, fwd: { x: number; z: number }, desk: Sur
   const cx = x - fwd.x * BOARD_CENTRE, cz = z - fwd.z * BOARD_CENTRE;
   const near = deskReachPoint(desk, { x: cx, z: cz });
   if (near.inside) return { x, z, yaw: Math.atan2(-fwd.x, -fwd.z), centre: { x: cx, z: cz } };
-  const centre = { x: near.x, z: near.z };
+  // Clamped towards where the player faces, the centre may end up out of reach along a long desk off to the side:
+  // then it goes to the point isDesk measured, the nearest the head.
+  const reach = flatDistance(head, near) > DESK_REACH ? deskReachPoint(desk, head) : near;
+  const centre = { x: reach.x, z: reach.z };
   let ax = centre.x - head.x, az = centre.z - head.z;
   const d = Math.hypot(ax, az);
   if (d < 1e-6) { ax = fwd.x; az = fwd.z; } else { ax /= d; az /= d; }
