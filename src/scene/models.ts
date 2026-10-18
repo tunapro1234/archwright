@@ -6,6 +6,7 @@ import {
   Vector3,
 } from '@iwsdk/core';
 import type { Vec2 } from '../statics/index.js';
+import type { Stroke } from '../statics/failure-view.js';
 import type { LoadKind, Material } from '../game/arch-state.js';
 import { A11Y_ICONS, A11Y_PANEL, a11yIconSpot, ABUTMENT_HEIGHT, BOARD, CENTERING, MARKER, PLAQUE, TABLET } from './layout.js';
 import { COLORS, paint, type PaletteKey } from './palette.js';
@@ -302,6 +303,42 @@ export function thrustTube(points: Vec2[], z: number): Mesh {
   const mat = new MeshBasicMaterial({ color: COLORS.thrust, transparent: true, opacity: 0, depthTest: true });
   const m = new Mesh(geo, mat);
   m.name = 'thrust-line';
+  m.renderOrder = 2;
+  return m;
+}
+
+/**
+ * Why an arch fell (src/statics/failure-view.ts): every stroke (arch frame) a thin tube in the z = `z` plane, all welded
+ * into one geometry with one material, so the whole drawing is one draw call. It starts invisible; StaticsSystem fades it.
+ */
+export function failureMesh(strokes: Stroke[], z: number): Mesh {
+  const SIDES = 6;
+  const pos: number[] = [], index: number[] = [];
+  for (const { points: p, radius } of strokes) {
+    const base = pos.length / 3;
+    for (let i = 0; i < p.length; i++) {
+      // The strokes lie in a plane: the tube's frame is the in-plane normal and z.
+      const a = p[Math.max(0, i - 1)], b = p[Math.min(p.length - 1, i + 1)];
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const nx = -(b.y - a.y) / len, ny = (b.x - a.x) / len;
+      for (let k = 0; k < SIDES; k++) {
+        const t = (2 * Math.PI * k) / SIDES, c = Math.cos(t) * radius[i], s = Math.sin(t) * radius[i];
+        pos.push(p[i].x + nx * c, p[i].y + ny * c, z + s);
+      }
+    }
+    for (let i = 0; i + 1 < p.length; i++) {
+      for (let k = 0; k < SIDES; k++) {
+        const a = base + i * SIDES + k, b = base + i * SIDES + ((k + 1) % SIDES);
+        index.push(a, b, a + SIDES, b, b + SIDES, a + SIDES); // wound outwards
+      }
+    }
+  }
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  geo.setIndex(index);
+  const mat = new MeshBasicMaterial({ color: COLORS.thrustFail, transparent: true, opacity: 0, depthTest: true });
+  const m = new Mesh(geo, mat);
+  m.name = 'failure-marks';
   m.renderOrder = 2;
   return m;
 }

@@ -19,6 +19,8 @@ export const PALETTE = {
   desk: 0x5f6e7c,
   /** Cyan line of thrust: off the warm-to-grey axis every stone lies on. */
   thrust: 0x3fd6e8,
+  /** The line of thrust of an arch that falls, with its cracks: hot orange, warm where the holding line is cold. */
+  thrustFail: 0xff6a00,
   /** The board the arch is built on: light cool grey, so dark and pale stones both stand out on it. */
   board: 0x8d969e,
   /** The two piers (cut ashlar) and the stone props: a warm grey limestone, none of the three playable stones. */
@@ -52,6 +54,8 @@ export const HIGH_CONTRAST: Palette = {
   centering: 0x9b30ff,
   desk: 0x1f3a7a,
   thrust: 0x00b0ff,
+  /** Amber: the orange of the normal palette is this palette's sandstone. */
+  thrustFail: 0xffd400,
   /** Mid grey: white, orange and black stones all stand off it. */
   board: 0x5c5c5c,
   abutment: 0x9e9e9e,

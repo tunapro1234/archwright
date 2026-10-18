@@ -121,6 +121,14 @@ board and 1 on the table, in both runs. In neither run did a stone go below the 
 1.60 × 0.75 m top turned half a degree from the room's axes. In the emulated VR atelier, w3-1's 5 stones stayed on the board in
 both runs; in the browser, with no desk collider, 3 to 4 of 5 stayed on the board and the rest fell to the floor.
 
+## What happens when it falls
+
+When the solver says no, the arch shows why before it moves: in the 0.6 s of silence after the strike, the solver's least-bad
+line of thrust appears as a dashed orange line (amber in high contrast), twice as thick where it runs outside the stones, with
+a small ring at each joint edge it passes and a thin crack along each joint the arch breaks at, and it fades within 0.5 s once
+the stones start to fall. On the tempting wrong arrangement of every one of the 17 levels that line leaves the stones at 4 to
+8 joints, and every one of those traps fails by hinging (`tests/failure-view.test.ts`, `src/statics/failure-view.ts`).
+
 ## Seated reach
 
 Archwright is played sitting down, so nothing a hand goes to may be out of a seated reach. `tests/reach.test.ts` checks it from
@@ -288,6 +296,8 @@ code as a hand, but it is not a hand simulation. For desktop-mode tests the hook
 `'marker:today'` or a panel icon (`'a11y:gaze'`, `'a11y:onehand'`, `'a11y:contrast'`) as a point on the
 page in CSS pixels, so a test can click it with real mouse events. `a11y` holds the accessibility settings in force.
 On a daily level `daily` holds the day's number and, once the arch is struck, its share card.
+After a strike `failure` says why it fell (`kind`: `none`, `hinge`, `sliding` or `tension`), the joints its line of thrust
+leaves (`outside`) and the joints it breaks at (`joints`); it is null again on the next level.
 `xr` gives the session mode (`immersive-ar`, `immersive-vr`, or null outside XR), its enabled WebXR features, its input
 profiles, the emulator room (`room`) and the head (`head`: where the eyes are and the yaw they face, in degrees, every XR frame).
 `detected` lists the semantic label of every plane and mesh the session reports, `board` where the board went (surface kind, its

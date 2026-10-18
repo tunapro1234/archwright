@@ -8,6 +8,7 @@ import {
   createLevel, placeStone, takeBack, whyNot, type GameState, type LevelDef, type Load, type Side, type Step, type StoneDef,
 } from './arch-state.js';
 import type { SolveResult } from '../statics/index.js';
+import type { FailureKind } from '../statics/failure-view.js';
 import { LEVELS } from '../levels/index.js';
 import { dailyDate, dailyLevel, localDateISO } from './daily.js';
 import type { A11ySettings } from './a11y.js';
@@ -97,6 +98,9 @@ export interface Hook {
   handplay?: HandplayHook;
   /** The stone a pinch would take now (a hand's pinch point in XR, the mouse outside it), marked lifted and lighter; null when none. */
   hover: string | null;
+  /** The last strike on this level (src/statics/failure-view.ts): why it fell, the joints its line of thrust leaves and
+   *  the joints where it breaks (kind 'none' when it held); null until the first strike after a level load. */
+  failure: { kind: FailureKind; outside: number[]; joints: number[] } | null;
 }
 
 /** A load of world 3 in the scene; LoadSystem moves it (src/systems/loads.ts). */
@@ -154,6 +158,8 @@ export class ArchRuntime {
   loads: LoadView[] = [];
   centering!: { mesh: Mesh; handle: Object3D; pull: number; struck: boolean; auto: boolean };
   thrustLine?: Mesh;
+  /** Why a struck arch falls, drawn over it from the strike until the collapse is under way (StaticsSystem). */
+  failureMarks?: Mesh;
   result?: SolveResult;
   /** Set by CenteringSystem (or autotest) when the centering clears the stones. */
   strikeRequested = false;
@@ -194,6 +200,7 @@ export class ArchRuntime {
       level: '',
       perf: { fps: 0, frameMs: 0, drawCalls: 0, triangles: 0, bodies: 0 },
       hover: null,
+      failure: null,
     };
     (window as unknown as { __archwright: Hook }).__archwright = this.hook;
     this.site = new Group();
@@ -218,6 +225,7 @@ export class ArchRuntime {
   private repaint(): void {
     for (const v of this.stones) this.tint(v);
     if (this.thrustLine) ((this.thrustLine as Mesh).material as MeshBasicMaterial).color.setHex(COLORS.thrust);
+    if (this.failureMarks) (this.failureMarks.material as MeshBasicMaterial).color.setHex(COLORS.thrustFail);
   }
 
   /** A stone's colour from the palette, HOVER_LIGHTEN lighter while it is the hover stone. */
@@ -256,6 +264,7 @@ export class ArchRuntime {
     this.bodies = 0;
     this.generation++;
     this.hook.level = def.id;
+    this.hook.failure = null;
 
     const add = (o: Object3D) => { this.site.add(o); this.levelObjects.push(o); return o; };
     add(boardMesh(this.boardMat));
@@ -339,16 +348,18 @@ export class ArchRuntime {
     this.levelEntities = [];
     for (const child of [...this.site.children]) if (!(child instanceof DirectionalLight) && !child.userData.keep) this.site.remove(child);
     // Free the GPU buffers of what this level built (the stone batches' instance buffers too), and their own
-    // materials and textures (the shadow's canvas, the line of thrust's material), but never the shared
-    // materials the next level reuses (src/scene/free.ts).
+    // materials and textures (the shadow's canvas, the line of thrust's and the failure marks' materials), but never
+    // the shared materials the next level reuses (src/scene/free.ts).
     roots.push(...this.levelObjects);
     if (this.thrustLine) roots.push(this.thrustLine);
+    if (this.failureMarks) roots.push(this.failureMarks);
     freeObjects(roots, new Set<Material>([this.stoneMat, this.abutmentMat, this.ashlarMat, this.woodMat, this.boardMat, this.proxyMat, ...Object.values(this.loadMats)]));
     this.levelObjects = [];
     this.stones = [];
     this.batches = [];
     this.loads = [];
     this.thrustLine = undefined;
+    this.failureMarks = undefined;
   }
 
   /** Track an extra entity that belongs to this level (physics colliders and the like). */
