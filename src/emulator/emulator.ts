@@ -7,8 +7,8 @@
 //   &seat=table    with a room: the headset sits instead at the room's table nearest to where it would start, out from
 //                  the middle of its long edge, facing it (head.ts seatAtTable), at the eye height of &head=.
 // __archwright.emulator (EmulatorHook) lets a test drive the device: the session's visibility, hands or controllers,
-// where a controller or a hand points, and its pinch (a controller's trigger); where the headset looks, and where a hand
-// or a controller is, as the device holds it and as the game sees it.
+// where a controller or a hand points, and its pinch (a controller's trigger); which way a hand's palm faces; where the
+// headset looks, and where a hand or a controller is, as the device holds it and as the game sees it.
 import { createSystem, Matrix4, Quaternion, Vector3, type World } from '@iwsdk/core';
 import { XRDevice, metaQuest3 } from 'iwer';
 import type { HandState } from '../systems/hands.js';
@@ -35,6 +35,9 @@ export interface EmulatorHook {
   /** The point the game takes that side by (HandState.point: the pinch point of a hand, the grip of a controller), in
    *  the world, or null while the game does not track that side. */
   point(hand: Hand): Point | null;
+  /** Hand mode only: turn that side's hand about its own forearm (its z axis) where it stands, so the palm faces up
+   *  (Quest's system-gesture pose) or down; a reached hand's pinch point is back on target the next frame. */
+  palm(hand: Hand, way: 'up' | 'down'): void;
 }
 
 /** Where reach() put each side, and how far the game's point for that side lies from the input's own position (world m). */
@@ -82,7 +85,7 @@ export function emulatorHook(device: XRDevice, world: World): EmulatorHook {
   const input = (hand: Hand) => (device.primaryInputMode === 'hand' ? device.hands[hand] : device.controllers[hand]);
   const reached: Reach = { at: { left: null, right: null }, offset: { left: null, right: null } };
   world.globals.reach = reached;
-  const m = new Matrix4(), q = new Quaternion(), v = new Vector3(), w = new Vector3();
+  const m = new Matrix4(), q = new Quaternion(), r = new Quaternion(), v = new Vector3(), w = new Vector3();
   return {
     setVisibility: state => device.updateVisibilityState(state),
     aim(hand, at) {
@@ -118,6 +121,17 @@ export function emulatorHook(device: XRDevice, world: World): EmulatorHook {
     point(hand) {
       const h = (world.globals.hands as Record<Hand, HandState> | undefined)?.[hand];
       return h?.tracked ? { x: h.point.x, y: h.point.y, z: h.point.z } : null;
+    },
+    palm(hand, way) {
+      const i = device.primaryInputMode === 'hand' ? device.hands[hand] : undefined;
+      if (!i) return;
+      // IWER's hand pose has the palm facing the hand's own -y (tests/palm.test.ts): its +y, in the world, says which way.
+      const iq = i.quaternion;
+      q.set(iq.x, iq.y, iq.z, iq.w).premultiply(r.setFromRotationMatrix(world.player.matrixWorld));
+      const down = v.set(0, 1, 0).applyQuaternion(q).y > 0;
+      if (down !== (way === 'up')) return;
+      q.set(iq.x, iq.y, iq.z, iq.w).multiply(r.set(0, 0, 1, 0)); // half a turn about its own z
+      iq.set(q.x, q.y, q.z, q.w);
     },
   };
 }

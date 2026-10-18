@@ -18,6 +18,9 @@ the arch carries itself or collapses across your desk. No controllers are needed
   a little lighter (in high contrast it also gets an outline), so among close stones you know which one you will get; the
   pinch takes that same stone. In desktop mode the stone under the mouse that a click would take does the same, and in gaze
   mode the stone you look at, since there the pinch confirms what you look at.
+- A pinch with the palm facing up is Quest's own system gesture, so it never takes a stone. If the headset loses the hand
+  that holds a stone for more than 0.3 s, the stone floats back to the tray; a shorter gap, such as one hand passing behind
+  the other, keeps it in hand.
 - Stones go on from both springings towards the crown; the last gap takes only the keystone. Pinch the outermost stone of either
   side to take it back off.
 - When the arch is closed, pinch the handle of the wooden centering and **pull it towards you**, with one hand or both. Once it
@@ -334,11 +337,13 @@ plinths, how many follow an anchor and this session's anchor counts (requested, 
 `collapse` holds the last collapse's `rest` and `simTime` (the game seconds it has run), `paused` whether the game is paused
 now and `pauses` how often it has paused, and `audio` the sound's state (`none` before it starts, then the AudioContext's) and
 whether the limiter is in. `hover` is the id of the stone a pinch (or, outside XR, a click) would take now, or null.
+`hands` has each hand as the game reads it this frame: `tracked`, `pinching` and `palmUp`.
 With `?emulator=1` the hook also has `emulator`, whose `setVisibility(state)`, `aim(hand, point)` and `pinch(hand, value)` set
 the emulated session's visibility, turn a hand's or controller's ray to a point, and pinch (a controller's trigger); `look(point)`
 turns the emulated head where it stands to look at a point, and `reach(hand, point)` moves that side's hand so its pinch point
 (or a controller so its grip) is on the point, and keeps it there; `input('hand' | 'controller')` switches the emulator between
-tracked hands and controllers, and `point(hand)` gives that side's point as the game sees it (null while it is not tracked). The XR smoke
+tracked hands and controllers, `point(hand)` gives that side's point as the game sees it (null while it is not tracked), and
+`palm(hand, 'up' | 'down')` turns a hand about its forearm where it stands so its palm faces up or down. The XR smoke
 test opens `?emulator=1&autoxr=ar&autotest=w1-1:hold` and `?emulator=1&autoxr=vr`: a real (emulated) session, the surface
 chain inside it, and in AR the autotest, which waits for the board to find its surface before the first stone goes down.
 

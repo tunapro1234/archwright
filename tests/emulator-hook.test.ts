@@ -5,7 +5,9 @@
 import { describe, expect, it } from 'vitest';
 import { Object3D, Quaternion, Vector3, type World } from '@iwsdk/core';
 import type { XRDevice } from 'iwer';
+import { relaxedHandPose } from 'iwer/lib/device/configs/hand/relaxed.js';
 import { emulatorHook, ReachSystem } from '../src/emulator/emulator.js';
+import { isPalmUp } from '../src/game/palm.js';
 
 function setup(mode: 'hand' | 'controller') {
   const input = () => ({ position: new Vector3(0.25, 1.5, -0.4), quaternion: new Quaternion() });
@@ -115,4 +117,51 @@ describe('emulator.input and emulator.point', () => {
       expect(Math.hypot(q.x - at.x, q.y - at.y, q.z - at.z)).toBeLessThan(1e-9);
     });
   }
+});
+
+describe('emulator.palm', () => {
+  /** IWER's joints on that hand (its pose's offsets, mirrored for the right hand), in the world through the rig. */
+  function palmUpInWorld(s: ReturnType<typeof setup>, side: 'left' | 'right'): boolean {
+    const i = s.device.hands[side];
+    const [w, a, b] = (['wrist', 'index-finger-metacarpal', 'pinky-finger-metacarpal'] as const).map(j => {
+      const m = (relaxedHandPose.jointTransforms as Record<string, { offsetMatrix: number[] }>)[j].offsetMatrix;
+      return new Vector3(side === 'right' ? -m[12] : m[12], m[13], m[14])
+        .applyQuaternion(i.quaternion).add(i.position).applyMatrix4(s.player.matrixWorld);
+    });
+    return isPalmUp(w, a, b, side);
+  }
+
+  for (const side of ['left', 'right'] as const) {
+    it(`${side}: turns the hand palm up and back down where it stands, aimed or not; asking again changes nothing`, () => {
+      const s = setup('hand');
+      const i = s.device.hands[side];
+      // Aimed forward, a little down, aside and up (a hand pointing steeply down has no palm up or down to give).
+      for (const at of [null, { x: 0.1, y: 1.3, z: -0.9 }, { x: -0.6, y: 1.5, z: -0.7 }, { x: 0.3, y: 1.7, z: -0.9 }]) {
+        if (at) s.hook.aim(side, at);
+        const before = i.position.toArray(), aimed = i.quaternion.clone();
+        expect(palmUpInWorld(s, side)).toBe(false);
+        s.hook.palm(side, 'down');
+        expect(i.quaternion.angleTo(aimed)).toBeLessThan(1e-6); // angleTo is an acos: ~3e-8 at best in float
+        s.hook.palm(side, 'up');
+        expect(palmUpInWorld(s, side)).toBe(true);
+        expect(i.position.toArray()).toEqual(before);
+        // Half a turn about its own z: the forearm (its -z) still points where it was aimed.
+        const fwd = new Vector3(0, 0, -1);
+        expect(fwd.clone().applyQuaternion(i.quaternion).distanceTo(fwd.clone().applyQuaternion(aimed))).toBeLessThan(1e-9);
+        const up = i.quaternion.clone();
+        s.hook.palm(side, 'up');
+        expect(i.quaternion.angleTo(up)).toBeLessThan(1e-6);
+        s.hook.palm(side, 'down');
+        expect(palmUpInWorld(s, side)).toBe(false);
+        expect(i.quaternion.angleTo(aimed)).toBeLessThan(1e-6);
+      }
+    });
+  }
+
+  it('with controllers it does nothing', () => {
+    const s = setup('controller');
+    s.hook.palm('right', 'up');
+    expect(s.device.controllers.right.quaternion.toArray()).toEqual([0, 0, 0, 1]);
+    expect(s.device.hands.right.quaternion.toArray()).toEqual([0, 0, 0, 1]);
+  });
 });

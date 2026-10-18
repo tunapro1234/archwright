@@ -111,6 +111,9 @@ export interface Hook {
   /** Havok (src/systems/collapse.ts): when physics was registered and when its WASM was ready (performance.now ms);
    *  null until then. Registered once the board has been shown and the page is idle, or at the first stone. */
   physics: { registered: number | null; ready: number | null };
+  /** Each hand as HandSystem sees it this frame (src/systems/hands.ts): tracked, pinching (a game pinch: never one
+   *  started palm up, Quest's system gesture), palm up (src/game/palm.ts). A controller is never palm up. */
+  hands: Record<Side, { tracked: boolean; pinching: boolean; palmUp: boolean }>;
 }
 
 /** A load of world 3 in the scene; LoadSystem moves it (src/systems/loads.ts). */
@@ -213,6 +216,10 @@ export class ArchRuntime {
       gaze: { on: false, target: null, stone: null },
       failure: null,
       physics: { registered: null, ready: null },
+      hands: {
+        left: { tracked: false, pinching: false, palmUp: false },
+        right: { tracked: false, pinching: false, palmUp: false },
+      },
     };
     (window as unknown as { __archwright: Hook }).__archwright = this.hook;
     this.site = new Group();

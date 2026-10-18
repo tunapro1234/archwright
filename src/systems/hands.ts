@@ -3,10 +3,14 @@
 // controller users can play too, but nothing requires one.
 import { createSystem, InputComponent, Matrix4, Vector3 } from '@iwsdk/core';
 import type { Side } from '../game/arch-state.js';
+import { isPalmUp } from '../game/palm.js';
+import type { ArchRuntime, Hook } from '../game/runtime.js';
 
 export const PINCH_ON = 0.02;    // thumb-index tip distance that starts a pinch (m)
 export const PINCH_OFF = 0.035;  // ... and that ends it
-export const LOST_AFTER = 0.15;  // s without tracking before a held stone goes back to the tray
+// s without tracking before a pinch ends and a held stone goes back to the tray: long enough that a hand passing behind
+// the other for a moment keeps its stone.
+export const LOST_AFTER = 0.3;
 
 export interface HandState {
   tracked: boolean;
@@ -30,9 +34,11 @@ export class HandSystem extends createSystem({}) {
   private w = new Vector3();
   private im = new Vector3();
   private pm = new Vector3();
+  private view: Hook['hands'] | undefined;
 
   init(): void {
     this.globals.hands = this.hands;
+    this.view = (this.globals.arch as ArchRuntime | undefined)?.hook.hands;
   }
 
   update(delta: number): void {
@@ -80,6 +86,8 @@ export class HandSystem extends createSystem({}) {
         h.lostFor += delta;
         if (h.pinching && h.lostFor > LOST_AFTER) { h.pinching = false; h.pinchEnded = true; }
       }
+      const v = this.view?.[side];
+      if (v) { v.tracked = h.tracked; v.pinching = h.pinching; v.palmUp = h.palmUp; }
     }
   }
 
@@ -87,16 +95,14 @@ export class HandSystem extends createSystem({}) {
     return out.set(p.x, p.y, p.z).applyMatrix4(this.origin);
   }
 
-  // Palm normal from the wrist and the index / pinky metacarpals; it faces up for the system gesture.
+  // Palm up (src/game/palm.ts) from the wrist and the index / pinky metacarpals in the world: the system gesture's pose.
   private palmUp(hand: XRHand, frame: XRFrame, ref: XRReferenceSpace, side: Side): boolean {
     const wj = hand.get('wrist'), ij = hand.get('index-finger-metacarpal'), pj = hand.get('pinky-finger-metacarpal');
     const wp = wj && frame.getJointPose?.(wj, ref), ip = ij && frame.getJointPose?.(ij, ref), pp = pj && frame.getJointPose?.(pj, ref);
     if (!wp || !ip || !pp) return false;
     this.toWorld(wp.transform.position, this.w);
-    this.toWorld(ip.transform.position, this.im).sub(this.w);
-    this.toWorld(pp.transform.position, this.pm).sub(this.w);
-    const n = this.im.cross(this.pm).normalize();
-    const ny = side === 'right' ? n.y : -n.y;
-    return ny > 0.6;
+    this.toWorld(ip.transform.position, this.im);
+    this.toWorld(pp.transform.position, this.pm);
+    return isPalmUp(this.w, this.im, this.pm, side);
   }
 }
