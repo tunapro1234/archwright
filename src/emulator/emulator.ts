@@ -4,13 +4,15 @@
 //                  and meshes (a table among them) for the surface chain; the room file comes from this site
 //                  (public/emulator/rooms/), never from the module's own loader.
 //   &head=<yaw>[,<eye height>]   the emulated headset starts turned by yaw degrees (positive = left) at that eye height.
+//   &seat=table    with a room: the headset sits instead at the room's table nearest to where it would start, out from
+//                  the middle of its long edge, facing it (head.ts seatAtTable), at the eye height of &head=.
 // __archwright.emulator (EmulatorHook) lets a test drive the device: the session's visibility, where a controller or a
 // hand points, and its pinch (a controller's trigger); where the headset looks, and where a hand or a controller is.
 import { createSystem, Matrix4, Quaternion, Vector3, type World } from '@iwsdk/core';
 import { XRDevice, metaQuest3 } from 'iwer';
 import type { HandState } from '../systems/hands.js';
 import { emulatorRoom, ROOMS_DIR } from '../net/local-assets.js';
-import { aimQuat, HEAD_Z, parseHead, yawOf, yawQuat, type Quat } from './head.js';
+import { aimQuat, HEAD_Z, parseHead, roomTables, seatAtTable, yawOf, yawQuat, type Quat } from './head.js';
 
 type Hand = 'left' | 'right';
 type Point = { x: number; y: number; z: number };
@@ -52,6 +54,11 @@ export async function startEmulator(params: URLSearchParams, base: string): Prom
       ]);
       device.installSEM(SyntheticEnvironmentModule);
       device.sem?.loadEnvironment(json);
+      const seat = params.get('seat') === 'table' ? seatAtTable(roomTables(json), { x: 0, z: HEAD_Z }) : null;
+      if (seat) {
+        device.position.set(seat.x, eyeY, seat.z);
+        device.quaternion.set(...yawQuat(seat.yaw));
+      }
     } catch (e) {
       console.warn('archwright: no synthetic room', e);
     }
