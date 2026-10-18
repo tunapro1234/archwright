@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  chooseSurface, DESK_FORWARD, DESK_INSET, DESK_MAX_ANGLE, DESK_REACH, deskReachPoint, deskRect, inFront, isDesk, LAP_BELOW_EYES, PICK_UNTIL, placeOnDesk,
+  chooseSurface, DESK_FORWARD, DESK_INSET, DESK_MAX_ANGLE, DESK_REACH, DESK_TIE, deskReachPoint, deskRect, inFront, isDesk, LAP_BELOW_EYES, PICK_UNTIL, placeOnDesk,
   ROOM_WAIT, type DeskPlacement, type SurfaceCandidate, type SurfaceInput,
 } from '../src/scene/surface-chain.js';
 import { BOARD } from '../src/scene/layout.js';
@@ -330,6 +330,38 @@ describe('desk reach: where the board lands and which desk wins', () => {
     const front: SurfaceCandidate = { x: 0, y: 0.75, z: -0.825, width: 1.6, depth: 0.75, yaw: 0, horizontal: true, source: 'mesh' };
     const table: SurfaceCandidate = { x: -0.7, y: 0.6, z: 0, width: 0.5, depth: 0.5, yaw: 0, horizontal: true, source: 'mesh' };
     for (const order of [[front, table], [table, front]]) expect(chooseSurface(facing(order)).desk).toEqual(front);
+  });
+
+  const mesh = (x: number, z: number, width: number, depth: number, y = 0.75): SurfaceCandidate =>
+    ({ x, y, z, width, depth, yaw: 0, horizontal: true, source: 'mesh' });
+
+  it(`landing points ${DESK_TIE * 100} cm apart or less: the desk ahead beats the nearer side table, in either order`, () => {
+    // Ahead: lands 0.55 m away, straight on. Side table: lands 0.50 m away (5 cm nearer), 90° off.
+    const front = mesh(0, -0.825, 1.6, 0.75), side = mesh(-0.65, 0, 0.5, 0.5, 0.6);
+    for (const order of [[front, side], [side, front]]) expect(chooseSurface(facing(order)).desk).toEqual(front);
+    // 9 cm nearer still counts as close: the desk ahead.
+    const side9 = mesh(-0.61, 0, 0.5, 0.5, 0.6);
+    for (const order of [[front, side9], [side9, front]]) expect(chooseSurface(facing(order)).desk).toEqual(front);
+  });
+
+  it(`landing points more than ${DESK_TIE * 100} cm apart: the nearer one wins, in either order`, () => {
+    // Side table lands 0.30 m away (25 cm nearer), then 0.43 m (12 cm nearer).
+    const front = mesh(0, -0.825, 1.6, 0.75);
+    for (const sx of [-0.45, -0.58]) {
+      const side = mesh(sx, 0, 0.5, 0.5, 0.6);
+      for (const order of [[front, side], [side, front]]) expect(chooseSurface(facing(order)).desk).toEqual(side);
+    }
+  });
+
+  it('among three desks: the nearest landing point sets the bar, the best-facing desk within DESK_TIE of it wins', () => {
+    const front = mesh(0, -0.825, 1.6, 0.75); // lands 0.55 m away, straight on
+    const left = mesh(-0.65, 0, 0.5, 0.5, 0.6); // 0.50 m, 90° off
+    // Lands 0.43 m away, its centre 61° off: the desk ahead (12 cm further) drops out; of it and the left table (7 cm
+    // further, 90° off) it faces better.
+    const right = mesh(0.55, -0.3, 0.5, 0.5, 0.6);
+    for (const order of [[front, left, right], [right, left, front], [left, right, front]]) {
+      expect(chooseSurface(facing(order)).desk).toEqual(right);
+    }
   });
 
   it('the desk whose landing point is nearer wins, even if its centre is further', () => {

@@ -119,8 +119,9 @@ export function inFront(head: Vec3, fwd: { x: number; z: number }, c: { x: numbe
   return cos >= Math.cos((DESK_MAX_ANGLE * Math.PI) / 180);
 }
 
-/** Two desks this close in reach (m) are a tie, settled by which centre is nearer the way the player faces. */
-const REACH_TIE = 1e-3;
+/** Desks whose landing points are within this much (m) of the nearest one's are as good as tied: of those, the one whose
+ *  centre is nearest the way the player faces wins, so a deep desk ahead is not lost to a side table a few cm nearer. */
+export const DESK_TIE = 0.1;
 
 /** Angle (radians, flat) between where the player faces and a desk's centre. */
 function offAxis(head: Vec3, fwd: { x: number; z: number }, c: { x: number; z: number }): number {
@@ -129,16 +130,22 @@ function offAxis(head: Vec3, fwd: { x: number; z: number }, c: { x: number; z: n
   return Math.abs(Math.atan2(dx * fwd.z - dz * fwd.x, dx * fwd.x + dz * fwd.z));
 }
 
-/** The valid desk of one source in front of the player whose landing point is nearest the head (deskReachPoint), or undefined. */
+/**
+ * The valid desk of one source in front of the player to put the board on, or undefined: of the desks whose landing point
+ * (deskReachPoint) is within DESK_TIE of the nearest one's, the one whose centre is nearest the way the player faces
+ * (then the nearer landing point). Does not depend on the order of the candidates.
+ */
 function nearestDesk(i: SurfaceInput, source: 'mesh' | 'plane'): SurfaceCandidate | undefined {
-  let best: SurfaceCandidate | undefined;
-  let bestD = Infinity, bestA = Infinity;
-  for (const c of i.candidates) {
-    if (c.source !== source || !isDesk(i.head, c) || !inFront(i.head, i.fwd, c)) continue;
-    const d = flatDistance(i.head, deskReachPoint(c, i.head)), a = offAxis(i.head, i.fwd, c);
-    if (d < bestD - REACH_TIE || (d <= bestD + REACH_TIE && a < bestA)) { bestD = Math.min(d, bestD); bestA = a; best = c; }
+  const valid = i.candidates.filter(c => c.source === source && isDesk(i.head, c) && inFront(i.head, i.fwd, c))
+    .map(c => ({ c, d: flatDistance(i.head, deskReachPoint(c, i.head)), a: offAxis(i.head, i.fwd, c) }));
+  if (!valid.length) return undefined;
+  const nearest = Math.min(...valid.map(v => v.d));
+  let best = valid[0];
+  for (const v of valid) {
+    if (v.d > nearest + DESK_TIE) continue;
+    if (best.d > nearest + DESK_TIE || v.a < best.a - 1e-9 || (Math.abs(v.a - best.a) <= 1e-9 && v.d < best.d)) best = v;
   }
-  return best;
+  return best.c;
 }
 
 /** The board's centre from its site: half way along the board's depth, towards the player (site +z). */
