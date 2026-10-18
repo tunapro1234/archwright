@@ -8,11 +8,12 @@
 //                  the middle of its long edge, facing it (head.ts seatAtTable), at the eye height of &head=.
 // __archwright.emulator (EmulatorHook) lets a test drive the device: the session's visibility, hands or controllers,
 // where a controller or a hand points, and its pinch (a controller's trigger); which way a hand's palm faces; where the
-// headset looks, and where a hand or a controller is, as the device holds it and as the game sees it.
+// headset looks, and where a hand or a controller is, as the device holds it and as the game sees it; ending the session.
 import { createSystem, Matrix4, Quaternion, Vector3, type World } from '@iwsdk/core';
 import { XRDevice, metaQuest3 } from 'iwer';
 import type { HandState } from '../systems/hands.js';
 import { emulatorRoom, ROOMS_DIR } from '../net/local-assets.js';
+import { xrError } from '../systems/xr-entry.js';
 import { aimQuat, HEAD_Z, parseHead, roomTables, seatAtTable, yawOf, yawQuat, type Quat } from './head.js';
 
 type Hand = 'left' | 'right';
@@ -38,6 +39,8 @@ export interface EmulatorHook {
   /** Hand mode only: turn that side's hand about its own forearm (its z axis) where it stands, so the palm faces up
    *  (Quest's system-gesture pose) or down; a reached hand's pinch point is back on target the next frame. */
   palm(hand: Hand, way: 'up' | 'down'): void;
+  /** End the XR session that is running, if any, as taking the headset off for good would. */
+  end(): void;
 }
 
 /** Where reach() put each side, and how far the game's point for that side lies from the input's own position (world m). */
@@ -132,6 +135,9 @@ export function emulatorHook(device: XRDevice, world: World): EmulatorHook {
       if (down !== (way === 'up')) return;
       q.set(iq.x, iq.y, iq.z, iq.w).multiply(r.set(0, 0, 1, 0)); // half a turn about its own z
       iq.set(q.x, q.y, q.z, q.w);
+    },
+    end() {
+      world.renderer.xr.getSession()?.end().catch(xrError);
     },
   };
 }

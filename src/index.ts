@@ -18,6 +18,7 @@ import { GazeSystem } from './systems/gaze.js';
 import { OnboardSystem } from './systems/onboard.js';
 import { DebugOverlaySystem } from './systems/debug.js';
 import { installPause } from './systems/pause.js';
+import { installXREntry, xrError } from './systems/xr-entry.js';
 import { browserStorage, loadProgress } from './game/progress.js';
 import { isForeign, modelFile, PROFILES_DIR, profileModel } from './net/local-assets.js';
 
@@ -57,13 +58,18 @@ AssetManager.loadGLTF = (url: string, key?: string) => {
 /** The mode each XR session was asked for (WebXR does not report it), filled by watchSessionModes. */
 const sessionModes = new WeakMap<XRSession, XRSessionMode>();
 
-/** Note the mode of every session the page requests or offers, for __archwright.xr. */
+/** Note the mode of every session the page requests or offers, for __archwright.xr. A request or offer the browser
+ *  turns down (a button pressed while IWSDK's offer is pending, an offer closed) settles with no session, which IWSDK
+ *  takes as nothing to adopt; its message goes to __archwright.xrEntry.error instead of the console. */
 function watchSessionModes(xr: XRSystem): void {
   for (const k of ['requestSession', 'offerSession'] as const) {
     const f = (xr as unknown as Record<string, unknown>)[k];
     if (typeof f !== 'function') continue;
     (xr as unknown as Record<string, unknown>)[k] = (mode: XRSessionMode, init?: XRSessionInit) =>
-      (f.call(xr, mode, init) as Promise<XRSession>).then(s => { sessionModes.set(s, mode); return s; });
+      (f.call(xr, mode, init) as Promise<XRSession>).then(
+        s => { sessionModes.set(s, mode); return s; },
+        e => { xrError(e); return undefined; },
+      );
   }
 }
 
@@ -147,6 +153,8 @@ async function main(): Promise<void> {
   }
   // Clean pause: these and Havok stop under the system menu, with the headset off or in a hidden tab (src/systems/pause.ts).
   installPause(world, arch, game);
+  // "Enter AR" / "Enter VR" on the page, for when the browser's offer does not show or is closed (src/systems/xr-entry.ts).
+  installXREntry(world, arch);
 
   // ?autotest, then ?level=, then wherever the saved progress left off.
   const autotest = params.get('autotest')?.split(';')[0]?.split(':')[0] ?? null;

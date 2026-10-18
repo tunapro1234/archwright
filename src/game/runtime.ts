@@ -26,6 +26,7 @@ import type { SurfaceKind } from '../scene/surface-chain.js';
 import type { HandplayHook } from '../systems/handplay.js';
 import type { EmulatorHook } from '../emulator/emulator.js';
 import type { GazeLook } from '../systems/grab-snap.js';
+import type { XRButton } from './xr-entry.js';
 import type { CollapseRest, DeskTop } from './rest.js';
 import { playReject, playStone } from '../audio/synth.js';
 import { stoneNote } from '../audio/music.js';
@@ -117,6 +118,10 @@ export interface Hook {
   /** Each hand as HandSystem sees it this frame (src/systems/hands.ts): tracked, pinching (a game pinch: never one
    *  started palm up, Quest's system gesture), palm up (src/game/palm.ts). A controller is never palm up. */
   hands: Record<Side, { tracked: boolean; pinching: boolean; palmUp: boolean }>;
+  /** The page's own XR buttons (src/systems/xr-entry.ts): whether the browser supports an AR and a VR session (null
+   *  until it has answered), the buttons shown now ('ar' before 'vr'; none in a session) and the last session request
+   *  or offer the browser turned down, as 'Name: message' (null when none). */
+  xrEntry: { ar: boolean | null; vr: boolean | null; shown: XRButton[]; error: string | null };
 }
 
 /** A load of world 3 in the scene; LoadSystem moves it (src/systems/loads.ts). */
@@ -224,6 +229,7 @@ export class ArchRuntime {
         left: { tracked: false, pinching: false, palmUp: false },
         right: { tracked: false, pinching: false, palmUp: false },
       },
+      xrEntry: { ar: null, vr: null, shown: [], error: null },
     };
     (window as unknown as { __archwright: Hook }).__archwright = this.hook;
     this.site = new Group();

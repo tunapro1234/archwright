@@ -165,3 +165,17 @@ describe('emulator.palm', () => {
     expect(s.device.hands.right.quaternion.toArray()).toEqual([0, 0, 0, 1]);
   });
 });
+
+describe('emulator.end', () => {
+  it('ends the running session, and with none does nothing', async () => {
+    const { device } = setup('controller');
+    let session: { end: () => Promise<void> } | null = null, ended = 0;
+    const world = { player: new Object3D(), globals: {}, renderer: { xr: { getSession: () => session } } };
+    const hook = emulatorHook(device as unknown as XRDevice, world as unknown as World);
+    hook.end();
+    session = { end: async () => { ended++; } };
+    hook.end();
+    await Promise.resolve();
+    expect(ended).toBe(1);
+  });
+});

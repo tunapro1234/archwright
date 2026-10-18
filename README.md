@@ -297,8 +297,11 @@ autotest and real mouse play on the desktop, emulated AR and VR sessions, the sy
 first-minute lesson and the performance budget, each also failing on any console error. Reports and screenshots land in
 `browser-reports/`; the numbers are from the emulator, not from a headset (details in `scripts/browser/README.md`).
 
-On a Quest, open the hosted page in the Quest Browser and accept its offer to enter AR. Hand tracking, plane detection, anchors, hit-test
-and mesh detection are all requested as optional features, so the session starts on any setup.
+On a Quest, open the hosted page in the Quest Browser and accept its offer to enter AR. If the offer does not show, or you close
+it, the page has its own **Enter AR** and **Enter VR** buttons at the bottom, drawn only for the session modes the browser says it
+supports; they hide while a session runs and come back when it ends (checked in IWER: Enter AR opened an AR session, the buttons
+came back when it ended and Enter VR opened a VR session; a desktop browser without a headset shows none). Hand tracking, plane
+detection, anchors, hit-test and mesh detection are all requested as optional features, so the session starts on any setup.
 
 URL parameters, for development and tests:
 
@@ -339,13 +342,16 @@ plinths, how many follow an anchor and this session's anchor counts (requested, 
 `collapse` holds the last collapse's `rest` and `simTime` (the game seconds it has run), `paused` whether the game is paused
 now and `pauses` how often it has paused, and `audio` the sound's state (`none` before it starts, then the AudioContext's) and
 whether the limiter is in. `hover` is the id of the stone a pinch (or, outside XR, a click) would take now, or null.
-`hands` has each hand as the game reads it this frame: `tracked`, `pinching` and `palmUp`.
+`hands` has each hand as the game reads it this frame: `tracked`, `pinching` and `palmUp`. `xrEntry` says whether the browser
+supports an AR and a VR session (`ar`, `vr`; null until it answers), which of the page's buttons are shown (`shown`) and the last
+session request or offer the browser turned down (`error`, else null).
 With `?emulator=1` the hook also has `emulator`, whose `setVisibility(state)`, `aim(hand, point)` and `pinch(hand, value)` set
 the emulated session's visibility, turn a hand's or controller's ray to a point, and pinch (a controller's trigger); `look(point)`
 turns the emulated head where it stands to look at a point, and `reach(hand, point)` moves that side's hand so its pinch point
 (or a controller so its grip) is on the point, and keeps it there; `input('hand' | 'controller')` switches the emulator between
 tracked hands and controllers, `point(hand)` gives that side's point as the game sees it (null while it is not tracked), and
-`palm(hand, 'up' | 'down')` turns a hand about its forearm where it stands so its palm faces up or down. The XR smoke
+`palm(hand, 'up' | 'down')` turns a hand about its forearm where it stands so its palm faces up or down; `end()` ends the
+running session. The XR smoke
 test opens `?emulator=1&autoxr=ar&autotest=w1-1:hold` and `?emulator=1&autoxr=vr`: a real (emulated) session, the surface
 chain inside it, and in AR the autotest, which waits for the board to find its surface before the first stone goes down.
 
