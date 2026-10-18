@@ -119,14 +119,24 @@ export function inFront(head: Vec3, fwd: { x: number; z: number }, c: { x: numbe
   return cos >= Math.cos((DESK_MAX_ANGLE * Math.PI) / 180);
 }
 
-/** The nearest valid desk of one source in front of the player, or undefined. */
+/** Two desks this close in reach (m) are a tie, settled by which centre is nearer the way the player faces. */
+const REACH_TIE = 1e-3;
+
+/** Angle (radians, flat) between where the player faces and a desk's centre. */
+function offAxis(head: Vec3, fwd: { x: number; z: number }, c: { x: number; z: number }): number {
+  const dx = c.x - head.x, dz = c.z - head.z;
+  if (Math.hypot(dx, dz) < 1e-9) return 0;
+  return Math.abs(Math.atan2(dx * fwd.z - dz * fwd.x, dx * fwd.x + dz * fwd.z));
+}
+
+/** The valid desk of one source in front of the player whose landing point is nearest the head (deskReachPoint), or undefined. */
 function nearestDesk(i: SurfaceInput, source: 'mesh' | 'plane'): SurfaceCandidate | undefined {
   let best: SurfaceCandidate | undefined;
-  let bestD = Infinity;
+  let bestD = Infinity, bestA = Infinity;
   for (const c of i.candidates) {
     if (c.source !== source || !isDesk(i.head, c) || !inFront(i.head, i.fwd, c)) continue;
-    const d = flatDistance(i.head, c);
-    if (d < bestD) { bestD = d; best = c; }
+    const d = flatDistance(i.head, deskReachPoint(c, i.head)), a = offAxis(i.head, i.fwd, c);
+    if (d < bestD - REACH_TIE || (d <= bestD + REACH_TIE && a < bestA)) { bestD = Math.min(d, bestD); bestA = a; best = c; }
   }
   return best;
 }

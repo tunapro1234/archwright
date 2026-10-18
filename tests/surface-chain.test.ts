@@ -325,4 +325,17 @@ describe('desk reach: where the board lands and which desk wins', () => {
       }
     });
   }
+
+  it('a deep desk ahead beats a 0.5 × 0.5 side table as near to land on, in either order', () => {
+    const front: SurfaceCandidate = { x: 0, y: 0.75, z: -0.825, width: 1.6, depth: 0.75, yaw: 0, horizontal: true, source: 'mesh' };
+    const table: SurfaceCandidate = { x: -0.7, y: 0.6, z: 0, width: 0.5, depth: 0.5, yaw: 0, horizontal: true, source: 'mesh' };
+    for (const order of [[front, table], [table, front]]) expect(chooseSurface(facing(order)).desk).toEqual(front);
+  });
+
+  it('the desk whose landing point is nearer wins, even if its centre is further', () => {
+    const deep: SurfaceCandidate = { x: 0, y: 0.75, z: -0.825, width: 1.6, depth: 0.75, yaw: 0, horizontal: true, source: 'plane' };
+    const small: SurfaceCandidate = { x: 0.2, y: 0.75, z: -0.7, width: 0.3, depth: 0.2, yaw: 0, horizontal: true, source: 'plane' };
+    expect(Math.hypot(small.x, small.z)).toBeLessThan(Math.hypot(deep.x, deep.z));
+    expect(chooseSurface(facing([small, deep])).desk).toEqual(deep);
+  });
 });
