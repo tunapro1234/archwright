@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  chooseSurface, DESK_FORWARD, DESK_INSET, DESK_MAX_ANGLE, deskRect, inFront, isDesk, LAP_BELOW_EYES, PICK_UNTIL, placeOnDesk,
+  chooseSurface, DESK_FORWARD, DESK_INSET, DESK_MAX_ANGLE, DESK_REACH, deskReachPoint, deskRect, inFront, isDesk, LAP_BELOW_EYES, PICK_UNTIL, placeOnDesk,
   ROOM_WAIT, type DeskPlacement, type SurfaceCandidate, type SurfaceInput,
 } from '../src/scene/surface-chain.js';
 import { BOARD } from '../src/scene/layout.js';
@@ -242,5 +242,53 @@ describe('a desk turned against the room', () => {
         expect(r.yaw).toBeCloseTo(plain.yaw, 9);
       }
     }
+  });
+});
+
+// The reach is measured to the nearest point where the board's centre can land (the desk drawn in by DESK_INSET), not to
+// the desk's centre: a player seated 45 cm back from a deep desk still gets the board on it.
+describe('desk reach', () => {
+  const eyes = { x: 0, y: 1.15, z: 0 };
+  const facing = (o: Partial<SurfaceInput>): SurfaceInput =>
+    ({ inXR: true, passthrough: true, head: eyes, fwd: { x: 0, z: -1 }, candidates: [], hitTest: true, elapsed: 3, ...o });
+  // A 1.60 × 0.75 m desk whose near edge is 45 cm ahead: its centre 0.825 m away, its inner rectangle 0.55 m.
+  const deep: SurfaceCandidate = { x: 0, y: 0.75, z: -(0.45 + 0.375), width: 1.6, depth: 0.75, horizontal: true, source: 'plane' };
+
+  it('a deep desk with its centre 0.83 m away is a desk, and the board lands on it', () => {
+    expect(Math.hypot(deep.x, deep.z)).toBeGreaterThan(DESK_REACH);
+    const near = deskReachPoint(deep, eyes);
+    expect(near.inside).toBe(false);
+    expect(Math.hypot(near.x, near.z)).toBeCloseTo(0.45 + DESK_INSET, 9);
+    expect(isDesk(eyes, deep)).toBe(true);
+    const c = chooseSurface(facing({ candidates: [deep] }));
+    expect(c.kind).toBe('plane');
+    const p = placeOnDesk(eyes, { x: 0, z: -1 }, c.desk!);
+    expect(deskReachPoint(deep, p.centre).inside).toBe(true);
+  });
+
+  it('turned 30°, the same desk is still in reach', () => {
+    expect(isDesk(eyes, { ...deep, yaw: Math.PI / 6 })).toBe(true);
+  });
+
+  it('a desk whose nearest landing point is 0.80 m away is not a desk', () => {
+    const far: SurfaceCandidate = { ...deep, z: -(0.8 - DESK_INSET + 0.375) };
+    const near = deskReachPoint(far, eyes);
+    expect(Math.hypot(near.x, near.z)).toBeCloseTo(0.8, 9);
+    expect(isDesk(eyes, far)).toBe(false);
+    expect(chooseSurface(facing({ candidates: [far] })).kind).not.toBe('plane');
+  });
+
+  it('the deep desk behind the player is in reach but still not chosen (DESK_MAX_ANGLE is to its centre)', () => {
+    const behind = { ...deep, z: -deep.z };
+    expect(isDesk(eyes, behind)).toBe(true);
+    expect(inFront(eyes, { x: 0, z: -1 }, behind)).toBe(false);
+    expect(chooseSurface(facing({ candidates: [behind] })).kind).not.toBe('plane');
+  });
+
+  it('a desk small enough that its inner rectangle is its centre: the reach is to the centre, as before', () => {
+    const small: SurfaceCandidate = { x: 0, y: 0.75, z: -0.74, width: 0.2, depth: 0.2, horizontal: true, source: 'plane' };
+    const near = deskReachPoint(small, eyes);
+    expect(near.x).toBeCloseTo(small.x, 12);
+    expect(near.z).toBeCloseTo(small.z, 12);
   });
 });

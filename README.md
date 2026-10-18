@@ -74,8 +74,8 @@ down from 35° and frames each level: as close as it can be with the arch, its t
 view, so a tall pointed arch pulls it back (`frameView`, src/game/desktop.ts).
 
 Where the board goes (`src/scene/surface-chain.ts`, pure functions with their own tests): if the headset's scene data has a
-table mesh or a horizontal plane at desk height within reach (25 to 85 cm below the eyes, centre at most 75 cm away, at least
-30 × 20 cm) and not behind you (its centre within 100° of the way you face, or under your head), the board goes on it, scene
+table mesh or a horizontal plane at desk height within reach (25 to 85 cm below the eyes, the nearest point where the board's
+centre can land at most 75 cm away, at least 30 × 20 cm) and not behind you (its centre within 100° of the way you face, or under your head), the board goes on it, scene
 meshes first. On that desk the board stands 50 cm ahead of your eyes, facing the way you face, as long as its centre is then at
 least 10 cm in from every edge of the desk (on its middle line, if the desk is only 20 cm deep). If not, the centre moves to the
 nearest point that is, and the board turns to face you from there: a desk off to one side gets the board on it, square to you,
@@ -83,6 +83,8 @@ rather than in the air in front of you. A real table is rarely square to the hea
 smallest rectangle round its mesh vertices or plane outline seen from above, turned the way the table stands; the size test, the
 10 cm margin and the move onto the desk all work in that rectangle (unit tests: a 1.2 × 0.6 m desk turned 30° or 45° keeps the
 board's centre inside its margin for every way you face, and a 0.6 × 0.15 m shelf turned 45° is still too narrow to count).
+The reach is measured to where the board lands on the desk, not to the desk's centre, so a 1.60 × 0.75 m desk you sit 45 cm
+back from (its centre 0.83 m from your eyes) still takes the board (unit test).
 The table in the emulator's synthetic office stands half a degree off square to the room's axes, so the turned case is covered
 by those tests alone. If no desk turns up within 1.5 s and hit-test is available, a ring follows
 your hand's ray over real surfaces and you pinch to pick a spot on your desk; a spot at floor or shelf height is refused. After

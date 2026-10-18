@@ -60,7 +60,7 @@ export interface DeskPlacement {
 
 /** A desk top is this far below the eyes of someone seated at it (floor and shelves fall outside). */
 export const DESK_BELOW_EYES = { min: 0.25, max: 0.85 } as const;
-/** Horizontal distance from the head to the desk centre (m). */
+/** Horizontal distance from the head to the nearest point of the desk where the board's centre can land (m; deskReachPoint). */
 export const DESK_REACH = 0.75;
 /** Smallest top that takes the board (m). */
 export const DESK_MIN = { width: 0.3, depth: 0.2 } as const;
@@ -89,10 +89,25 @@ const inBand = (head: Vec3, y: number) => {
 
 const flatDistance = (head: Vec3, c: { x: number; z: number }) => Math.hypot(c.x - head.x, c.z - head.z);
 
-/** Can the board stand on this surface? Either way round counts for the size. */
+/**
+ * The point of the desk drawn in by DESK_INSET (at most half the desk each way: the rectangle the board's centre may land
+ * in) nearest to `p`, worked out in the desk's own frame (its yaw); `inside` when that is `p` itself.
+ */
+export function deskReachPoint(desk: SurfaceCandidate, p: { x: number; z: number }): { x: number; z: number; inside: boolean } {
+  const hw = desk.width / 2 - Math.min(DESK_INSET, desk.width / 2), hd = desk.depth / 2 - Math.min(DESK_INSET, desk.depth / 2);
+  const c = Math.cos(desk.yaw ?? 0), s = Math.sin(desk.yaw ?? 0);
+  // u along its width, v along its depth.
+  const dx = p.x - desk.x, dz = p.z - desk.z, u = c * dx - s * dz, v = s * dx + c * dz;
+  if (Math.abs(u) <= hw && Math.abs(v) <= hd) return { x: p.x, z: p.z, inside: true };
+  const cu = Math.min(hw, Math.max(-hw, u)), cv = Math.min(hd, Math.max(-hd, v));
+  return { x: desk.x + cu * c + cv * s, z: desk.z - cu * s + cv * c, inside: false };
+}
+
+/** Can the board stand on this surface? Either way round counts for the size; the reach is to where the board's centre
+ *  would land nearest the head, so a deep desk the player sits back from still counts. */
 export function isDesk(head: Vec3, c: SurfaceCandidate): boolean {
   const long = Math.max(c.width, c.depth), short = Math.min(c.width, c.depth);
-  return c.horizontal && inBand(head, c.y) && flatDistance(head, c) <= DESK_REACH
+  return c.horizontal && inBand(head, c.y) && flatDistance(head, deskReachPoint(c, head)) <= DESK_REACH
     && long >= DESK_MIN.width && short >= DESK_MIN.depth;
 }
 
@@ -183,16 +198,12 @@ function hull(points: readonly { x: number; z: number }[]): { x: number; z: numb
  * so a desk turned against the room's axes keeps the board inside its real edges.
  */
 export function placeOnDesk(head: Vec3, fwd: { x: number; z: number }, desk: SurfaceCandidate): DeskPlacement {
-  const hw = desk.width / 2 - Math.min(DESK_INSET, desk.width / 2), hd = desk.depth / 2 - Math.min(DESK_INSET, desk.depth / 2);
-  const c = Math.cos(desk.yaw ?? 0), s = Math.sin(desk.yaw ?? 0);
   const x = head.x + fwd.x * DESK_FORWARD, z = head.z + fwd.z * DESK_FORWARD;
   // Site +z is towards the player (-fwd), so the centre is BOARD_CENTRE back from the site.
   const cx = x - fwd.x * BOARD_CENTRE, cz = z - fwd.z * BOARD_CENTRE;
-  // The centre in the desk's frame: u along its width, v along its depth.
-  const dx = cx - desk.x, dz = cz - desk.z, u = c * dx - s * dz, v = s * dx + c * dz;
-  if (Math.abs(u) <= hw && Math.abs(v) <= hd) return { x, z, yaw: Math.atan2(-fwd.x, -fwd.z), centre: { x: cx, z: cz } };
-  const cu = Math.min(hw, Math.max(-hw, u)), cv = Math.min(hd, Math.max(-hd, v));
-  const centre = { x: desk.x + cu * c + cv * s, z: desk.z - cu * s + cv * c };
+  const near = deskReachPoint(desk, { x: cx, z: cz });
+  if (near.inside) return { x, z, yaw: Math.atan2(-fwd.x, -fwd.z), centre: { x: cx, z: cz } };
+  const centre = { x: near.x, z: near.z };
   let ax = centre.x - head.x, az = centre.z - head.z;
   const d = Math.hypot(ax, az);
   if (d < 1e-6) { ax = fwd.x; az = fwd.z; } else { ax /= d; az /= d; }
