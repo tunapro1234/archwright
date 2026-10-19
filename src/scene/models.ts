@@ -9,7 +9,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Vec2 } from '../statics/index.js';
 import type { Stroke } from '../statics/failure-view.js';
 import type { LoadKind, Material } from '../game/arch-state.js';
-import { A11Y_ICONS, A11Y_PANEL, a11yIconSpot, ABUTMENT_HEIGHT, BOARD, CENTERING, MARKER, PLAQUE, TABLET, TRAY } from './layout.js';
+import { A11Y_ICONS, A11Y_PANEL, a11yIconSpot, ABUTMENT_HEIGHT, BOARD, BOARD_FRAME, CENTERING, MARKER, PLAQUE, TABLET, TRAY } from './layout.js';
 import { COLORS, paint, type PaletteKey } from './palette.js';
 import { MATERIAL_COLOR } from './meshes.js';
 
@@ -359,9 +359,8 @@ export function boardMesh(material: MeshStandardMaterial): Mesh {
   return m;
 }
 
-/** The board drawn as its edge only (src/scene/board-style.ts 'frame'): band `band` wide round it, `thick` deep under
- *  its top; felt `felt` thick under the tray, inside the band from TRAY.z less `trayPad` to the near band. */
-export const BOARD_FRAME = { band: 0.008, thick: 0.006, felt: 0.0015, trayPad: 0.012 } as const;
+/** The frame's sizes live in layout.ts (board-style.ts needs them without three.js). */
+export { BOARD_FRAME };
 
 /** The stone frame round the board's edge, its top level with the board's (y = 0): four bars in one geometry. */
 export function boardFrame(material: MeshStandardMaterial): Mesh {

@@ -18,6 +18,9 @@ export const BOARD = { width: 0.46, zMin: -0.08, zMax: 0.3, thickness: 0.012 };
 // TRAY.z: far edge (towards the arch) of the first row; rowGap: clear space between rows;
 // gap: between two stones of a kind; groupGap: between kinds.
 export const TRAY = { z: 0.15, rowGap: 0.015, maxWidth: 0.42, gap: 0.012, groupGap: 0.03 };
+/** The board drawn as its edge only (src/scene/board-style.ts 'frame'): band `band` wide round it, `thick` deep under
+ *  its top; felt `felt` thick under the tray, inside the band from TRAY.z less `trayPad` to the near band. */
+export const BOARD_FRAME = { band: 0.008, thick: 0.006, felt: 0.0015, trayPad: 0.012 } as const;
 const MATERIAL_ORDER = ['sandstone', 'tuff', 'basalt'] as const;
 export const CENTERING = { handleDepth: 0.03, strikeExtra: 0.012, maxPull: 0.085 };
 export const LYING = -Math.PI / 2; // tilt of a stone lying face up in the tray

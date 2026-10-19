@@ -1,10 +1,11 @@
 // How the board is drawn where it stands (src/scene/board-style.ts): a stone frame and a felt under the tray on a
-// detected desk in passthrough with the whole board on it, the solid board everywhere else; the frame and the felt
-// (src/scene/models.ts) and the runtime that switches between them (ArchRuntime.placeBoard, setBoardStyle, the
-// palette's repaint), on its prototype with the meshes it uses.
-import { describe, expect, it } from 'vitest';
+// detected desk in passthrough with the board's arch end on it (the tray band may hang over the desk's near edge), the
+// solid board everywhere else; the frame and the felt (src/scene/models.ts) and the runtime that switches between them
+// (ArchRuntime.placeBoard, setBoardStyle, the palette's repaint, on its prototype with the meshes it uses; load(), on a
+// stub world).
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Box3, Color, Float32BufferAttribute, Mesh, Object3D } from '@iwsdk/core';
-import { boardStyle, footprintInsideDesk, parseBoardParam, type BoardStyleInput } from '../src/scene/board-style.js';
+import { ARCH_END, archInsideDesk, boardStyle, footprintInsideDesk, parseBoardParam, type BoardStyleInput } from '../src/scene/board-style.js';
 import { BOARD, TRAY, trayPoses, stoneOutline } from '../src/scene/layout.js';
 import { BOARD_FRAME, boardFrame, boardMesh, boardOutline, flatMaterial, recolorBoardOutline, trayFelt } from '../src/scene/models.js';
 import { COLORS, HIGH_CONTRAST, PALETTE, onRepaint, usePalette } from '../src/scene/palette.js';
@@ -30,6 +31,14 @@ describe('boardStyle', () => {
     ['mesh desk, high contrast', { highContrast: true }, 'solid'],
     ['mesh desk, ?board=solid', { override: 'solid' }, 'solid'],
     ['mesh desk, the board overhangs it', { site: { x: 0.5, z: -0.66, yaw: 0 } }, 'solid'],
+    // Near edge z = -0.25. Site z -0.46: the board's near edge at -0.16 (9 cm over), its arch end's at -0.322.
+    ['mesh desk, the tray hangs over, the arch end on it', { site: { x: 0, z: -0.46, yaw: 0 } }, 'frame'],
+    ['mesh desk, the arch end hangs over', { site: { x: 0, z: -0.3, yaw: 0 } }, 'solid'],
+    // Only the kind differs from the frame row: passthrough, a desk, the board all on it.
+    ['atelier, with a desk and passthrough', { kind: 'atelier' }, 'solid'],
+    ['picked spot, with a desk', { kind: 'pick' }, 'solid'],
+    ['lap tray, with a desk', { kind: 'lap' }, 'solid'],
+    ['desk (the page), with a desk and passthrough', { kind: 'desk' }, 'solid'],
   ])('%s → %s', (_, o, style) => {
     expect(boardStyle({ ...base, ...o })).toBe(style);
   });
@@ -88,6 +97,41 @@ describe('footprintInsideDesk', () => {
       // The same desk the other way round (width and depth swapped, turned a quarter) is the same rectangle.
       expect(footprintInsideDesk(at, { ...tight, width: tight.depth, depth: tight.width, yaw: yaw + Math.PI / 2 })).toBe(true);
     }
+  });
+});
+
+describe('archInsideDesk', () => {
+  it('the arch end is the board\'s width from its far edge to where the felt starts', () => {
+    expect(ARCH_END.zMin).toBe(BOARD.zMin);
+    expect(ARCH_END.zMax).toBeCloseTo(TRAY.z - BOARD_FRAME.trayPad, 12);
+    expect(ARCH_END.zMax).toBeLessThan(BOARD.zMax);
+  });
+
+  it('yaw 0: the tray may hang over the near edge, the arch end may not', () => {
+    // Near edge -0.25, margin 0.01: the arch end's near edge (site z + 0.138) at -0.26 at most.
+    const nearest = -0.26 - ARCH_END.zMax;
+    expect(archInsideDesk({ x: 0, z: nearest - 0.001, yaw: 0 }, desk)).toBe(true);
+    expect(archInsideDesk({ x: 0, z: nearest + 0.001, yaw: 0 }, desk)).toBe(false);
+    expect(footprintInsideDesk({ x: 0, z: nearest - 0.001, yaw: 0 }, desk)).toBe(false); // the tray over the edge
+    expect(archInsideDesk({ x: 0, z: -0.3, yaw: 0 }, desk)).toBe(false);
+    // Off the side: the arch end is the board's whole width.
+    expect(archInsideDesk({ x: 0.45, z: -0.6, yaw: 0 }, desk)).toBe(false);
+    expect(archInsideDesk({ x: 0.36, z: -0.6, yaw: 0 }, desk)).toBe(true);
+    expect(archInsideDesk({ x: 0.37, z: -0.6, yaw: 0 }, desk)).toBe(false);
+  });
+
+  it('45°: the boundary sits where the arch end\'s far corner meets the margin, short of the whole board\'s', () => {
+    const y = Math.PI / 4, c = Math.cos(y), sn = Math.sin(y);
+    // Rightmost corner of the arch end at site x + (width/2)·cos + zMax·sin; the desk's right margin at 0.59.
+    const edge = 0.59 - (BOARD.width / 2) * c - ARCH_END.zMax * sn;
+    // z: the band's middle on the desk's middle line, well inside its depth.
+    const z = desk.cz - ((ARCH_END.zMin + ARCH_END.zMax) / 2) * c;
+    expect(archInsideDesk({ x: edge - 0.001, z, yaw: y }, desk)).toBe(true);
+    expect(archInsideDesk({ x: edge + 0.001, z, yaw: y }, desk)).toBe(false);
+    // The whole board reaches further right (its tray corner): already over there.
+    expect(footprintInsideDesk({ x: edge - 0.001, z, yaw: y }, desk)).toBe(false);
+    expect(boardStyle({ ...base, site: { x: edge - 0.001, z, yaw: y } })).toBe('frame');
+    expect(boardStyle({ ...base, site: { x: edge + 0.001, z, yaw: y } })).toBe('solid');
   });
 });
 
@@ -211,5 +255,39 @@ describe('ArchRuntime draws the style SurfaceSystem works out', () => {
     usePalette(HIGH_CONTRAST);
     usePalette(PALETTE);
     expect(hook.board.style).toBe('solid');
+  });
+});
+
+describe('ArchRuntime.load() keeps the style on a level change', () => {
+  // The real runtime on a stub world, window and 2D canvas (node has none): any call on the 2D context or its
+  // gradients does nothing and returns something that does nothing.
+  const g = globalThis as unknown as { window?: unknown; document?: unknown };
+  const saved = { window: g.window, document: g.document };
+  beforeAll(() => {
+    const inert: object = new Proxy(function () {}, { get: () => inert, apply: () => inert, set: () => true });
+    g.window = {};
+    g.document = { createElement: () => ({ width: 0, height: 0, getContext: () => inert }) };
+  });
+  afterAll(() => { g.window = saved.window; g.document = saved.document; });
+  const where = ({ highContrast: _, ...w }: BoardStyleInput) => w;
+
+  it('frame: each new level\'s board is hidden and the frame shown; solid again: the board shown', () => {
+    const world = { createTransformEntity: (o: unknown) => ({ object3D: o, dispose() {} }) };
+    const arch = new ArchRuntime(world as never);
+    const board = () => arch.site.children.find(o => o.name === 'board') as Mesh;
+    const outline = () => arch.site.children.find(o => o.name === 'board-outline') as Mesh;
+    arch.load(LEVELS[0]);
+    arch.hook.board = { kind: 'mesh' } as never;
+    arch.placeBoard(where(base));
+    expect([board().visible, outline().visible]).toEqual([false, true]);
+    const first = board();
+    arch.load(LEVELS[1]);
+    expect(board()).not.toBe(first);
+    expect([board().visible, outline().visible]).toEqual([false, true]);
+    expect(arch.hook.board!.style).toBe('frame');
+    arch.placeBoard(where({ ...base, kind: 'lap', desk: null }));
+    arch.load(LEVELS[2]);
+    expect(arch.hook.board!.style).toBe('solid');
+    expect([board().visible, outline().visible]).toEqual([true, false]);
   });
 });
