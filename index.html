@@ -8,8 +8,18 @@
     />
     <link rel="icon" href="data:," />
     <title>Archwright</title>
+    <style>
+      #boot-overlay{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#2b2e33;color:#e8e2d6;font:16px/1.4 system-ui,sans-serif;pointer-events:none}
+      #boot-overlay b{font-size:28px;font-weight:600;letter-spacing:.04em}
+      #boot-overlay i{display:block;width:180px;height:3px;background:#44484f;overflow:hidden;position:relative}
+      #boot-overlay i::after{content:"";position:absolute;inset:0;width:40%;background:#cdb68e;animation:boot 1.4s ease-in-out infinite}
+      #boot-overlay[data-failed] i::after{animation:none;width:100%;background:#8a5a4a}
+      @keyframes boot{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
+      @media (prefers-reduced-motion:reduce){#boot-overlay i::after{animation-duration:4s}}
+    </style>
   </head>
   <body style="margin: 0">
+    <div id="boot-overlay" role="status" aria-live="polite"><b>Archwright</b><i></i><span id="boot-text">Loading…</span></div>
     <div id="scene-container"></div>
     <script type="module" src="/src/index.ts"></script>
   </body>

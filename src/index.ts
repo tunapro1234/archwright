@@ -1,6 +1,7 @@
 import { AssetManager, SessionMode, World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
-import { ArchRuntime } from './game/runtime.js';
+import { ArchRuntime, type Hook } from './game/runtime.js';
+import { watchBoot } from './game/boot-overlay.js';
 import { HandSystem } from './systems/hands.js';
 import { GrabSnapSystem } from './systems/grab-snap.js';
 import { SpotHoverSystem } from './systems/spot-hover.js';
@@ -173,4 +174,12 @@ async function main(): Promise<void> {
 
 const AUTOXR: Record<string, SessionMode> = { ar: SessionMode.ImmersiveAR, vr: SessionMode.ImmersiveVR };
 
+// index.html's inline "Loading…" overlay goes once the first level is up (src/game/boot-overlay.ts); the hook
+// appears only after World.create, so it is read through window each frame.
+watchBoot(
+  { get state() { return (window as unknown as { __archwright?: Hook }).__archwright?.state; } },
+  document,
+  f => requestAnimationFrame(f),
+  window,
+);
 void main();
