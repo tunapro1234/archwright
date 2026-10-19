@@ -1,7 +1,8 @@
 // The sounds of taking a stone and of a stone going home (music.grabCue, music.homeCue), and where they are played:
-// GrabSnapSystem.tryGrab knocks with the stone's material, ArchRuntime.sendHome slides, and a refused placement
-// (ArchRuntime.place) plays only its refusal, not the slide as well. synth.ts is replaced by recording stand-ins, so
-// nothing here makes a sound; ArchRuntime and GrabSnapSystem run on their prototypes with a real level's state.
+// GrabSnapSystem.tryGrab knocks with the stone's material (each of the three), a click in DesktopSystem and a look and a
+// pinch in GazeSystem knock when they lift a stone, ArchRuntime.sendHome slides (a second click or pick too), and a refused
+// placement (ArchRuntime.place) plays only its refusal, not the slide as well. synth.ts is replaced by recording stand-ins, so
+// nothing here makes a sound; ArchRuntime and the systems run on their prototypes with a real level's state.
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { Object3D, Vector3 } from '@iwsdk/core';
 
@@ -14,8 +15,9 @@ import { CUE_MAX_VOICES, grabCue, homeCue } from '../src/audio/music.js';
 import { ArchRuntime, type StoneView } from '../src/game/runtime.js';
 import { GrabSnapSystem } from '../src/systems/grab-snap.js';
 import { GazeSystem } from '../src/systems/gaze.js';
+import { DesktopSystem } from '../src/systems/desktop.js';
 import { SelectPlace } from '../src/systems/select.js';
-import { createLevel, type Material, type Side } from '../src/game/arch-state.js';
+import { createLevel, type LevelDef, type Material, type Side } from '../src/game/arch-state.js';
 import type { HandState } from '../src/systems/hands.js';
 import { LEVELS } from '../src/levels/index.js';
 
@@ -47,9 +49,8 @@ describe('grabCue and homeCue', () => {
   });
 });
 
-/** An ArchRuntime on w1-1's state, with its tray stones as views (only what place/sendHome touch). */
-function runtime() {
-  const def = LEVELS[0];
+/** An ArchRuntime on a level's state (w1-1 by default), with its tray stones as views (only what place/sendHome touch). */
+function runtime(def: LevelDef = LEVELS[0]) {
   const arch = Object.create(ArchRuntime.prototype) as ArchRuntime;
   const state = createLevel(def);
   const stones = state.tray.map((s, i) => ({
@@ -86,15 +87,23 @@ describe('where the sounds play', () => {
     expect(v.tween?.then).toBe('tray');
   });
 
-  it('a pinch that takes a stone knocks with its material', () => {
-    const { arch, stones } = runtime();
+  // The first level with a stone of each material in its tray, and that stone.
+  const MATERIALS: Material[] = ['basalt', 'sandstone', 'tuff'];
+  const withMaterial = (m: Material) => {
+    const def = LEVELS.find(l => createLevel(l).tray.some(s => s.material === m));
+    if (!def) throw new Error(`no level has a ${m} stone`);
+    return def;
+  };
+
+  for (const m of MATERIALS) it(`a pinch that takes a ${m} stone knocks as ${m}`, () => {
+    const { arch, stones } = runtime(withMaterial(m));
     const site = new Object3D();
     site.position.set(0.1, 0.75, -0.5);
     site.updateMatrixWorld();
     Object.assign(arch, { site, shown: true, stoneById: (id: string) => stones.find(s => s.def.id === id) });
     const sys = Object.create(GrabSnapSystem.prototype) as GrabSnapSystem;
     Object.assign(sys, { held: { left: undefined, right: undefined }, local: new Vector3(), p: new Vector3(), candidates: [], pool: [] });
-    const v = stones[0];
+    const v = stones.find(s => s.def.material === m)!;
     const h: HandState = {
       tracked: true, pinching: true, pinchStarted: true, pinchEnded: false, lostFor: 0, palmUp: false,
       point: new Vector3(v.pose.x, v.pose.y + 0.005, v.pose.z).applyMatrix4(site.matrixWorld),
@@ -102,7 +111,42 @@ describe('where the sounds play', () => {
     (sys as unknown as { tryGrab(a: ArchRuntime, s: Side, h: HandState): void }).tryGrab(arch, 'right', h);
     expect(v.mode).toBe('held');
     expect(playCue).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(playCue).mock.calls[0][0]).toEqual(grabCue(v.def.material));
+    expect(vi.mocked(playCue).mock.calls[0][0]).toEqual(grabCue(m));
+    expect(vi.mocked(playCue).mock.calls[0][0][0].hz).toBe(grabCue(m)[0].hz);
+  });
+
+  it('a click in desktop mode: lifting knocks, a second click slides it home, another stone sends the first home and knocks', () => {
+    const def = LEVELS.find(l => new Set(createLevel(l).tray.map(s => s.material)).size > 1)!;
+    const { arch, stones } = runtime(def);
+    Object.assign(arch, { shown: true });
+    const sys = Object.create(DesktopSystem.prototype) as DesktopSystem;
+    const select = new SelectPlace();
+    Object.assign(sys, { select, active: true, refreshFaces: () => {} });
+    const click = (v: StoneView) => (sys as unknown as { pick(a: ArchRuntime, v: StoneView): void }).pick(arch, v);
+    const a = stones[0], b = stones.find(s => s.def.material !== a.def.material)!;
+    expect(b).toBeDefined(); // two materials, so the second knock is told apart from the first
+    const played = () => vi.mocked(playCue).mock.calls.map(c => c[0]);
+
+    click(a);
+    expect(select.selected).toBe(a);
+    expect(played()).toEqual([grabCue(a.def.material)]);
+    click(a);
+    expect(select.selected).toBeUndefined();
+    expect(a.tween?.then).toBe('tray');
+    expect(played()).toEqual([grabCue(a.def.material), homeCue()]);
+
+    vi.clearAllMocks();
+    click(a);
+    click(b);
+    expect(select.selected).toBe(b);
+    expect(a.tween?.then).toBe('tray');
+    expect(played()).toEqual([grabCue(a.def.material), homeCue(), grabCue(b.def.material)]);
+
+    // Off (a session took over): a click does nothing and plays nothing.
+    vi.clearAllMocks();
+    Object.assign(sys, { active: false });
+    click(a);
+    expect(played()).toEqual([]);
   });
 
   it('a look and a pinch that lifts a stone knocks as a click does; picking it again slides it home', () => {
