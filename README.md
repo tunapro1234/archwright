@@ -33,15 +33,15 @@ the arch carries itself or collapses across your desk. No controllers are needed
 
 | Feature | How Archwright uses it | Code | Seen in |
 |---|---|---|---|
-| Mesh and plane detection | a desk 25–85 cm below the eyes and in reach takes the board | `src/scene/surface-chain.ts` | IWER, synthetic rooms |
+| Mesh and plane detection | a desk 25–85 cm below the eyes and in reach takes the board | `src/scene/surface-chain.ts` | IWER, synthetic rooms (the desk as a mesh); a desk plane in unit tests only |
 | Hit-test | no desk after 1.5 s: a ring on real surfaces, pinch to pick the spot | `src/systems/surface.ts` | IWER, controller ray |
-| Lap tray | no desk and no pick by 9.5 s: the board 40 cm ahead, 42 cm below the eyes | `src/scene/surface-chain.ts` | IWER |
+| Lap tray | no desk and no pick by 9.5 s (by 1.5 s without hit-test): the arch 40 cm ahead (the board's centre about 29 cm), 42 cm below the eyes | `src/scene/surface-chain.ts` | IWER |
 | Passthrough board | on a detected desk, a stone frame and a felt under the tray, so the table shows through | `src/scene/board-style.ts` | IWER, synthetic office |
 | Persistent anchors | each museum plinth tied to an anchor and restored next session | `src/systems/museum.ts` | IWER, after a reload |
 | Hand tracking | pinch from the thumb and index tips; a palm-up pinch (system gesture) takes nothing | `src/systems/hands.ts`, `src/game/palm.ts` | IWER, emulated hands |
 | Gaze | the head's ray picks, any pinch or trigger confirms (`?a11y=gaze`) | `src/systems/gaze.ts` | IWER, emulated controllers |
-| Clean pause | `visible-blurred`, `hidden` or a hidden tab stops game time, Havok and sound | `src/game/pause.ts`, `src/systems/pause.ts` | IWER |
-| Same-origin assets | input profiles and synthetic rooms served from this site, nothing from another origin | `src/net/local-assets.ts`, `public/input-profiles/` | desktop and IWER |
+| Clean pause | `visible-blurred`, `hidden` or a hidden tab stops game time, Havok and sound | `src/game/pause.ts`, `src/systems/pause.ts` | IWER (`visible-blurred`); `hidden` and a hidden tab in unit tests |
+| Same-origin assets | input profiles and synthetic rooms served from this site, nothing from another origin | `src/net/local-assets.ts`, `public/input-profiles/`, `public/emulator/rooms/` | desktop and IWER |
 | Device report | after a session, a link to a filled-in GitHub issue (build, browser, frame rates) | `src/game/debug.ts`, `src/systems/xr-entry.ts` | IWER |
 
 ## How to play
@@ -140,9 +140,9 @@ The frame has been seen only in IWER's synthetic rooms, not on a headset.
 The table in the emulator's synthetic office stands half a degree off square to the room's axes, so the turned case is covered
 by those tests alone. If no desk turns up within 1.5 s and hit-test is available, a ring follows
 your hand's ray over real surfaces and you pinch to pick a spot on your desk; a spot at floor or shelf height is refused. After
-9.5 s with no pick, or without hit-test, the board sits on a lap tray 40 cm in front of you, 42 cm below the eyes. A lap tray or
-a picked spot gives way if a real desk is detected before the first stone goes down; after that the board stays put. In an
-opaque VR session (no passthrough) you sit in the atelier, a plain virtual room with a walnut desk, a shelf and a window.
+9.5 s with no pick, or without hit-test, the board sits on a lap tray, the arch 40 cm in front of you (the board's centre about
+29 cm), 42 cm below the eyes. A lap tray or a picked spot gives way if a real desk is detected before the first stone goes
+down; after that the board stays put. In an opaque VR session (no passthrough) you sit in the atelier, a plain virtual room with a walnut desk, a shelf and a window.
 
 The chain has run on room data in the emulator, not yet on a headset. With Meta's synthetic office room loaded into IWER
 (`?emulator=1&room=office_small`, the emulated headset at a seated eye height of 1.15 m), the session reported ten planes

@@ -9,7 +9,7 @@
 //                                          is a turned rectangle, deskRect)
 //   first 1.5 s                          → wait for the room data to arrive
 //   hit-test, up to 9.5 s                → pick: the player pinches a spot on their desk
-//   otherwise                            → lap: a tray 40 cm ahead, 42 cm below the eyes
+//   otherwise                            → lap: the site (where the arch stands) 40 cm ahead, 42 cm below the eyes
 
 import { BOARD } from './layout.js';
 
