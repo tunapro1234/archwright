@@ -210,7 +210,7 @@ export class DesktopSystem extends createSystem({}) {
   private pick(arch: ArchRuntime, v: StoneView): void {
     if (!this.active) return;
     if (!this.select.pick(arch, v)) return;
-    if (this.select.selected === v) playCue(grabCue(v.def.material)); // lifted (a second click puts it back)
+    if (this.select.selected === v) playCue(grabCue(v.def.material)); // lifted (a second click puts it back, sliding home: ArchRuntime.sendHome)
     this.refreshFaces(arch);
   }
 

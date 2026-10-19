@@ -6,7 +6,7 @@
 // in whatever order, they sound together without a clash; a held arch rings all its notes as a
 // chord. A collapse is a short score of layered events (crack, slide, impacts, pebbles) and the
 // strike is the centering's creak; both are deterministic, from a seed, with no Math.random. Taking a
-// stone is a short unpitched knock, lower for a heavier stone, and a stone going back to the tray a
+// stone is a short dry knock, pitched lower for a heavier stone, and a stone going back to the tray a
 // soft slide.
 import type { GameState, Material, PlacedStone } from '../game/arch-state.js';
 
@@ -111,8 +111,8 @@ export function strikeCue(held: boolean): Cue[] {
 const KNOCK_HZ: Record<Material, number> = { basalt: 320, sandstone: 520, tuff: 760 };
 
 /**
- * A hand takes a stone (a pinch, a click): a short, dry knock with no note, so it never mixes with
- * the arch's scale. A body at the stone's knock and a faint click above it; 0.06 s in all.
+ * A hand takes a stone (a pinch, a click, a look and a pinch): a short, dry knock pitched by the stone,
+ * with no ring. A body at the stone's knock and a faint click above it; 0.06 s in all.
  */
 export function grabCue(material: Material): Cue[] {
   const hz = KNOCK_HZ[material];
