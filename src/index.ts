@@ -3,6 +3,7 @@ import projectOptions from 'virtual:iwsdk-project';
 import { ArchRuntime } from './game/runtime.js';
 import { HandSystem } from './systems/hands.js';
 import { GrabSnapSystem } from './systems/grab-snap.js';
+import { SpotHoverSystem } from './systems/spot-hover.js';
 import { CenteringSystem } from './systems/centering.js';
 import { StaticsSystem } from './systems/statics.js';
 import { CollapseSystem } from './systems/collapse.js';
@@ -116,7 +117,7 @@ async function main(): Promise<void> {
   world.renderer.xr.addEventListener('sessionend', () => { arch.hook.xr = { mode: null, features: [], inputs: [], room, head: null }; });
   // Every system that runs game time; drawing (StoneRenderSystem), the performance numbers and the overlay go on through a pause.
   const game: unknown[] = [
-    HandSystem, AutotestSystem, SurfaceSystem, A11ySystem, DesktopSystem, GazeSystem, GrabSnapSystem, CenteringSystem,
+    HandSystem, AutotestSystem, SurfaceSystem, A11ySystem, DesktopSystem, GazeSystem, GrabSnapSystem, SpotHoverSystem, CenteringSystem,
     StaticsSystem, CollapseSystem, GameLoopSystem, OnboardSystem, MuseumSystem, LoadSystem,
   ];
   world
@@ -128,6 +129,7 @@ async function main(): Promise<void> {
     .registerSystem(DesktopSystem, { priority: 9 })
     .registerSystem(GazeSystem, { priority: 9.5 })
     .registerSystem(GrabSnapSystem, { priority: 10 })
+    .registerSystem(SpotHoverSystem, { priority: 10.5 })
     .registerSystem(CenteringSystem, { priority: 11 })
     .registerSystem(StaticsSystem, { priority: 12 })
     .registerSystem(CollapseSystem, { priority: 13 })

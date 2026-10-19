@@ -29,6 +29,25 @@ const STONE_R = [0.016, 0.03];   // a stone's pick radius: 70 % of its bounding 
 const ICON_R = 0.011;
 const MAX_TARGETS = 64;
 
+let ringParts: { geo: RingGeometry; mat: MeshBasicMaterial } | undefined;
+
+/**
+ * A thin ring of unit radius in the pinch colour, drawn over everything, hidden until placed: the mark on a target.
+ * Every ring shares one geometry and one material (gaze mode's and the hands' spot mark, src/systems/spot-hover.ts).
+ */
+export function targetRing(name: string): Mesh {
+  if (!ringParts) {
+    const mat = new MeshBasicMaterial({ transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
+    paint(mat.color, 'pinch');
+    ringParts = { geo: new RingGeometry(0.88, 1, 40), mat };
+  }
+  const ring = new Mesh(ringParts.geo, ringParts.mat);
+  ring.name = name;
+  ring.renderOrder = 11;
+  ring.visible = false;
+  return ring;
+}
+
 type Kind = 'stone' | 'face' | 'lever' | 'spot' | 'icon';
 interface Target extends GazeTarget { center: Vector3; kind: Kind; stone?: StoneView; side?: Side; icon?: A11yKey }
 
@@ -51,12 +70,7 @@ export class GazeSystem extends createSystem({}) {
   init(): void {
     this.select = SelectPlace.of(this.globals);
     for (let i = 0; i < MAX_TARGETS; i++) this.pool.push({ id: '', center: new Vector3(), radius: 0, kind: 'spot' });
-    const mat = new MeshBasicMaterial({ transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
-    paint(mat.color, 'pinch');
-    this.ring = new Mesh(new RingGeometry(0.88, 1, 40), mat);
-    this.ring.name = 'gaze-ring';
-    this.ring.renderOrder = 11;
-    this.ring.visible = false;
+    this.ring = targetRing('gaze-ring');
     this.world.createTransformEntity(this.ring, { persistent: true });
   }
 

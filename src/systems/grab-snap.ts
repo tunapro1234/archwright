@@ -89,8 +89,9 @@ export class GrabSnapSystem extends createSystem({}) {
     let bestD = Infinity;
     for (const side of ['left', 'right'] as const) {
       const h = hands[side];
+      arch.handStone[side] = undefined;
       if (this.held[side] || !h.tracked || h.pinching || h.palmUp) continue;
-      const v = this.pick(arch, h);
+      const v = (arch.handStone[side] = this.pick(arch, h));
       if (!v) continue;
       const d = this.p.set(v.pose.x, v.pose.y, v.pose.z).distanceTo(this.local);
       if (d < bestD) { bestD = d; best = v; }

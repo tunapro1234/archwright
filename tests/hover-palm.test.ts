@@ -15,7 +15,7 @@ function setup() {
   const stone = (id: string, x: number) => ({ def: { id }, mode: 'tray', pose: { x, y: 0.02, z: 0.1, angle: 0, tilt: 0 } });
   const stones = [stone('A', -0.06), stone('B', 0.06)];
   const arch = {
-    shown: true, site, stones, state: { phase: 'building', placed: [] },
+    shown: true, site, stones, state: { phase: 'building', placed: [] }, handStone: { left: undefined, right: undefined },
     stoneById: (id: string) => stones.find(s => s.def.id === id),
   } as unknown as ArchRuntime;
   const hand = (): HandState => ({

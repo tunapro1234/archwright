@@ -111,6 +111,9 @@ export interface Hook {
    *  'face:left', 'lever', 'a11y:gaze', ... as for project()) and `stone` that stone's id when it is a stone a pinch
    *  would take; all off outside gaze mode. */
   gaze: { on: boolean; target: string | null; stone: string | null };
+  /** The spot a hand is over in an XR session (src/systems/spot-hover.ts), marked with a ring: a level marker, the rebuild
+   *  stone, the share tablet or an icon, by its project() name; null outside XR, in gaze mode, or when no spot is near. */
+  handHover: string | null;
   /** The last strike on this level (src/statics/failure-view.ts): why it fell, the joints its line of thrust leaves and
    *  the joints where it breaks (kind 'none' when it held); null until the first strike after a level load. */
   failure: { kind: FailureKind; outside: number[]; joints: number[] } | null;
@@ -206,6 +209,8 @@ export class ArchRuntime {
   /** What gaze mode looked at this frame (GazeSystem writes it before GrabSnapSystem reads it): `on` while it looks at
    *  a target, whose pinch confirms that target, and `stone` when that target is a stone it may take. */
   readonly gaze: GazeLook<StoneView> = { on: false, stone: undefined };
+  /** The stone each hand's pinch would take this frame (GrabSnapSystem, in XR): the spot mark leaves such a hand to it. */
+  readonly handStone: Record<Side, StoneView | undefined> = { left: undefined, right: undefined };
   private armed = false;
   private levelEntities: Entity[] = [];
   /** Plain objects this level built (board, shadow, piers, centering, plaque): not entities, so clear() frees them. */
@@ -228,6 +233,7 @@ export class ArchRuntime {
       build: typeof __BUILD__ === 'string' ? __BUILD__ : 'dev',
       hover: null,
       gaze: { on: false, target: null, stone: null },
+      handHover: null,
       failure: null,
       marks: null,
       physics: { registered: null, ready: null },
@@ -379,6 +385,8 @@ export class ArchRuntime {
     this.hook.hover = null;
     this.gaze.on = false;
     this.gaze.stone = undefined;
+    this.handStone.left = this.handStone.right = undefined;
+    this.hook.handHover = null;
     this.hook.gaze.on = false;
     this.hook.gaze.target = this.hook.gaze.stone = null;
     const roots = this.levelEntities.flatMap(e => e.object3D ? [e.object3D] : []);

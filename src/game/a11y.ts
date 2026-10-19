@@ -90,6 +90,54 @@ export function gazePick(origin: V3, dir: V3, targets: readonly GazeTarget[], ma
   return best;
 }
 
+/** A hand's spot stays marked while it is this much (m) past the spot's reach, unless another is this much nearer. */
+export const SPOT_HOLD = 0.005;
+
+const dist = (a: V3, b: V3) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+
+/**
+ * The spot (a level marker, the rebuild stone, an icon ...) a hand at `point` is over: the nearest one closer than
+ * twice its radius. `prev`, the spot marked last frame, is kept while it stays within reach plus SPOT_HOLD and no
+ * other is more than SPOT_HOLD nearer, so a hand halfway between two spots does not make the mark flicker.
+ */
+export function nearestSpot(point: V3, spots: readonly GazeTarget[], prev: string | null): string | null {
+  return spotAt(point, spots, prev)?.id ?? null;
+}
+
+function spotAt(point: V3, spots: readonly GazeTarget[], prev: string | null): GazeTarget | null {
+  let best: GazeTarget | null = null;
+  let bestD = Infinity;
+  let kept: GazeTarget | null = null;
+  for (const s of spots) {
+    const d = dist(point, s.center);
+    if (d < 2 * s.radius && d < bestD) { bestD = d; best = s; }
+    if (s.id === prev && d < 2 * s.radius + SPOT_HOLD) kept = s;
+  }
+  if (kept && !(bestD < dist(point, kept.center) - SPOT_HOLD)) return kept;
+  return best;
+}
+
+/** One hand as the spot mark sees it: `stone` when the stone mark already has this hand (a stone comes first). */
+export interface SpotHand { tracked: boolean; pinching: boolean; palmUp: boolean; stone: boolean; point: V3 }
+
+/**
+ * The spot to mark for the hands in an XR session: of the hands that are tracked, not pinching, palm down and over
+ * no stone, the nearer one's nearestSpot. Null in gaze mode, where a pinch confirms what the eyes are on instead.
+ */
+export function handSpot(hands: readonly SpotHand[], spots: readonly GazeTarget[], prev: string | null, gaze: boolean): string | null {
+  if (gaze) return null;
+  let best: string | null = null;
+  let bestD = Infinity;
+  for (const h of hands) {
+    if (!h.tracked || h.pinching || h.palmUp || h.stone) continue;
+    const s = spotAt(h.point, spots, prev);
+    if (!s) continue;
+    const d = dist(h.point, s.center);
+    if (d < bestD) { bestD = d; best = s.id; }
+  }
+  return best;
+}
+
 /**
  * Centering pull while a pinch is held on its handle for `held` seconds, from `pull0` when it began:
  * a full strike pull after HOLD_TO_STRIKE (the centering slides out as the hold goes on).
