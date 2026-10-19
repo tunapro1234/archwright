@@ -3,7 +3,8 @@
 // round its edge with a felt under the tray, and the table shows through ('frame'). Everywhere else ('solid'): the
 // page's desk, the atelier, the lap tray, a picked spot (no desk under it), opaque VR, a board whose arch end overhangs
 // its desk, high contrast (its palette is the legible one) and ?board=solid. The tray's end may hang over the desk's
-// near edge: it sits on the felt, which is opaque. The look only: the board's collider is the same.
+// edge, near or side, up to about 15 cm when the board is turned to face the player (placeOnDesk turns it to the
+// player, not the desk): it sits on the felt, which is opaque. The look only: the board's collider is the same.
 import { BOARD, BOARD_FRAME, TRAY } from './layout.js';
 import type { SurfaceKind } from './surface-chain.js';
 import type { DeskTop } from '../game/rest.js';

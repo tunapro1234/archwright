@@ -134,8 +134,9 @@ landing points are within 10 cm of that nearest one, the one most in front of yo
 a side table a few centimetres nearer (unit tests).
 In passthrough, on a detected desk, when the arch's end of the board (all of it but the tray band) is on the desk, 1 cm in from
 its edges, the board is drawn as a thin stone frame round its edge with a felt under the tray, so the table shows through; the
-tray's end may hang over the desk's near edge, on its felt. Anywhere else, in high contrast and with `?board=solid` it is the
-solid board (`src/scene/board-style.ts`; the board's collider is the same either way).
+tray's end may hang over the desk's edge (near or side, up to about 15 cm when the board is turned to face you), on its felt.
+Anywhere else, in high contrast and with `?board=solid` it is the solid board (`src/scene/board-style.ts`; the board's collider
+is the same either way).
 The frame has been seen only in IWER's synthetic rooms, not on a headset.
 The table in the emulator's synthetic office stands half a degree off square to the room's axes, so the turned case is covered
 by those tests alone. If no desk turns up within 1.5 s and hit-test is available, a ring follows

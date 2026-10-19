@@ -1,5 +1,5 @@
 // How the board is drawn where it stands (src/scene/board-style.ts): a stone frame and a felt under the tray on a
-// detected desk in passthrough with the board's arch end on it (the tray band may hang over the desk's near edge), the
+// detected desk in passthrough with the board's arch end on it (the tray band may hang over the desk's edge, near or side), the
 // solid board everywhere else; the frame and the felt (src/scene/models.ts) and the runtime that switches between them
 // (ArchRuntime.placeBoard, setBoardStyle, the palette's repaint, on its prototype with the meshes it uses; load(), on a
 // stub world).
@@ -13,6 +13,7 @@ import { ArchRuntime } from '../src/game/runtime.js';
 import { LEVELS } from '../src/levels/index.js';
 import { dailyLevel } from '../src/game/daily.js';
 import type { DeskTop } from '../src/game/rest.js';
+import { isDesk, placeOnDesk, type SurfaceCandidate } from '../src/scene/surface-chain.js';
 
 // A 1.2 × 0.6 m desk; the board (0.46 × [-0.08, 0.30] in the site frame) on it, its centre on the desk's.
 const desk: DeskTop = { cx: 0, cz: -0.55, y: 0.75, width: 1.2, depth: 0.6, yaw: 0 };
@@ -132,6 +133,49 @@ describe('archInsideDesk', () => {
     expect(footprintInsideDesk({ x: edge - 0.001, z, yaw: y }, desk)).toBe(false);
     expect(boardStyle({ ...base, site: { x: edge - 0.001, z, yaw: y } })).toBe('frame');
     expect(boardStyle({ ...base, site: { x: edge + 0.001, z, yaw: y } })).toBe('solid');
+  });
+});
+
+describe('the tray band over the desk\'s edge, as placeOnDesk leaves it', () => {
+  // A desk ahead, axis-aligned, the head at (0, 1.2, 0). placeOnDesk turns the board to face the player, not the desk,
+  // so with the board turned the tray's corner hangs over further than the 9 cm of a board square to the desk, and
+  // over a side edge as well; the frame is still drawn (the arch end is on the desk, 3 mm and more inside the margin).
+  const head = { x: 0, y: 1.2, z: 0 };
+  const place = (c: Omit<SurfaceCandidate, 'y' | 'horizontal' | 'source' | 'yaw'>, deg: number) => {
+    const desk: SurfaceCandidate = { ...c, y: 0.75, horizontal: true, source: 'mesh', yaw: 0 };
+    expect(isDesk(head, desk)).toBe(true);
+    const a = (deg * Math.PI) / 180;
+    const p = placeOnDesk(head, { x: -Math.sin(a), z: -Math.cos(a) }, desk);
+    const top: DeskTop = { cx: c.x, cz: c.z, y: 0.75, width: c.width, depth: c.depth, yaw: 0 };
+    const site = { x: p.x, z: p.z, yaw: p.yaw };
+    // How far the board's corners reach past the near edge (+z) and past either side edge.
+    let near = -Infinity, side = -Infinity;
+    for (const u of [-BOARD.width / 2, BOARD.width / 2]) for (const v of [BOARD.zMin, BOARD.zMax]) {
+      const x = p.x + u * Math.cos(p.yaw) + v * Math.sin(p.yaw), z = p.z - u * Math.sin(p.yaw) + v * Math.cos(p.yaw);
+      near = Math.max(near, z - (c.z + c.depth / 2));
+      side = Math.max(side, Math.abs(x - c.x) - c.width / 2);
+    }
+    return { style: boardStyle({ ...base, desk: top, site }), slack: archInsideDesk(site, top, 0.013), near, side, yaw: (p.yaw * 180) / Math.PI };
+  };
+
+  it('turned to face the player (15°): the tray\'s corner about 14 cm over the near edge, framed', () => {
+    const r = place({ x: -0.15, z: -0.55, width: 0.6, depth: 0.5 }, 16);
+    expect(r.yaw).toBeGreaterThan(14);
+    expect(r.style).toBe('frame');
+    expect(r.slack).toBe(true);
+    expect(r.near).toBeGreaterThan(0.14);
+    expect(r.near).toBeLessThan(0.15);
+  });
+
+  it('a desk in front of the player, the head within its width: the tray over the side edge, framed', () => {
+    const c = { x: -0.35, z: -0.4, width: 0.8, depth: 0.5 };
+    expect(c.z + c.depth / 2).toBeLessThan(head.z); // the desk's near edge is in front of the head
+    expect(Math.abs(head.x - c.x)).toBeLessThan(c.width / 2); // and the head within its width
+    const r = place(c, 28);
+    expect(r.style).toBe('frame');
+    expect(r.slack).toBe(true);
+    expect(r.side).toBeGreaterThan(0.05); // about 6 cm past the right edge (side edge)
+    expect(r.side).toBeLessThan(0.15);
   });
 });
 
