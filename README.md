@@ -10,6 +10,23 @@ the arch carries itself or collapses across your desk. No controllers are needed
 > described here was tested with the emulator or with a desktop browser; hand tracking, passthrough, plane detection and
 > anchors on an actual Quest are untested.
 
+## For judges, 60 seconds
+
+- **Play it in a desktop browser:** https://tunapro1234.github.io/archwright/ (click a stone, click an open end; drag the centering's handle down).
+- **See the verdict without playing:** [`?autotest=w3-1:collapse;w3-1:hold`](https://tunapro1234.github.io/archwright/?autotest=w3-1:collapse;w3-1:hold)
+  builds w3-1 twice with the same five stones, one sandstone and one tuff swapped: the first falls, the second holds.
+- **Watch an emulated hand play:** [`?emulator=1&autoxr=vr&level=w1-1&handplay=trap`](https://tunapro1234.github.io/archwright/?emulator=1&autoxr=vr&level=w1-1&handplay=trap)
+  (IWER, Meta's WebXR emulator, in the browser: a hand pinches the stones by their joints and pulls the centering).
+- **On a Quest:** open the link in the Quest Browser and accept its offer to enter AR (or press **Enter AR**). A photo of the
+  `?debug=1` slate in an [issue](https://github.com/tunapro1234/archwright/issues) tells us the build and the frame rate.
+
+<table><tr>
+<td><img src="docs/img/held.jpg" width="400" alt="w1-1 held, its line of thrust lit inside the stones"><br><sub>Desktop browser: w1-1 holds, its line of thrust lit</sub></td>
+<td><img src="docs/img/collapse.jpg" width="400" alt="w1-1 trap falling, the line of thrust marked where it leaves the stones"><br><sub>Desktop browser: the w1-1 trap falls, the failed thrust line marked</sub></td>
+</tr><tr>
+<td colspan="2"><img src="docs/img/hand.jpg" width="400" alt="an emulated hand carrying a stone on the board in the VR workshop"><br><sub>IWER emulator, VR session, not a headset: an emulated hand plays w1-1</sub></td>
+</tr></table>
+
 ## How to play
 
 - **Pinch** a stone in the tray (thumb and index finger together, close to the stone) and carry it to one of the two open ends
@@ -28,6 +45,7 @@ the arch carries itself or collapses across your desk. No controllers are needed
   clears the stones the arch is on its own.
 - From world 3 on, a small tower, bell or cart waits on the board behind the arch. When a stone covers its course, it comes down
   onto that stone's back, and the arch has to carry it as well as itself. A heavier load is drawn a little bigger.
+  <br><img src="docs/img/tower.jpg" width="360" alt="w3-1 held with its tower on the arch"><br><sub>Desktop browser: w3-1 holds with its tower</sub>
 - If the arch stands, its line of thrust (the path the load takes through the stones) lights up as a cyan thread. If it does
   not, it opens at the joints the solver named and falls.
 - A held arch is then crossed by a small passenger, walking over its back from one pier to the other; after that, unless it
@@ -207,6 +225,8 @@ about either bridge is claimed: no height, and the game scale is not the real sc
 a third of a metre across, and only the arch's shape follows the bridge. Malabadi's rise-to-span ratio in the game is a design
 choice, not the bridge's real proportion. Both levels are solver-checked like the others: the reference solution holds, the
 trap closes the arch and falls. The data and plaque text live in `src/levels/monuments.ts`.
+
+<img src="docs/img/malabadi.jpg" width="400" alt="the Malabadi level held, its plaque on the desk in front of the board"><br><sub>Desktop browser: the Malabadi level holds, its plaque in front of the board</sub>
 
 ## Accessibility
 
