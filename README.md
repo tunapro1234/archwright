@@ -143,7 +143,9 @@ by those tests alone. If no desk turns up within 1.5 s and hit-test is available
 your hand's ray over real surfaces and you pinch to pick a spot on your desk; a spot at floor or shelf height is refused. After
 9.5 s with no pick, or without hit-test, the board sits on a lap tray, the arch 40 cm in front of you (the board's centre about
 29 cm), 42 cm below the eyes. A lap tray or a picked spot gives way if a real desk is detected before the first stone goes
-down; after that the board stays put. In an opaque VR session (no passthrough) you sit in the atelier, a plain virtual room with a walnut desk, a shelf and a window.
+down (and not while a stone is in your hand or on its way;
+once a stone has gone down on this board, even if you lift it back off, the board stays put).
+Seen only in IWER, with the room loaded after the session started. In an opaque VR session (no passthrough) you sit in the atelier, a plain virtual room with a walnut desk, a shelf and a window.
 
 The chain has run on room data in the emulator, not yet on a headset. With Meta's synthetic office room loaded into IWER
 (`?emulator=1&room=office_small`, the emulated headset at a seated eye height of 1.15 m), the session reported ten planes
