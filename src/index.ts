@@ -1,4 +1,4 @@
-import { AssetManager, SessionMode, World } from '@iwsdk/core';
+import { AssetManager, SessionMode, World, type Mesh } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
 import { ArchRuntime, type Hook } from './game/runtime.js';
 import { watchBoot } from './game/boot-overlay.js';
@@ -161,6 +161,16 @@ async function main(): Promise<void> {
   installPause(world, arch, game);
   // "Enter AR" / "Enter VR" on the page, for when the browser's offer does not show or is closed (src/systems/xr-entry.ts).
   installXREntry(world, arch);
+  // __archwright.scene(): what the scene holds, walked only when asked (for the XR session cycle check).
+  arch.hook.scene = () => {
+    let boards = 0, meshes = 0, site = 0;
+    world.scene.traverse(o => {
+      if (o.name === 'board') boards++;
+      if ((o as Mesh).isMesh) meshes++;
+    });
+    arch.site.traverse(o => { if (o !== arch.site) site++; });
+    return { boards, meshes, site };
+  };
 
   // ?autotest, then ?level=, then wherever the saved progress left off.
   const autotest = params.get('autotest')?.split(';')[0]?.split(':')[0] ?? null;

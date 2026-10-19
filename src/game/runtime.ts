@@ -124,6 +124,9 @@ export interface Hook {
   pinchTarget: Record<Side, string | null>;
   /** Every spot a pick may take now with its world centre (m): forEachSpot (src/systems/loop.ts) and the icons. */
   spots?: () => { id: string; x: number; y: number; z: number }[];
+  /** What the scene holds, counted only when called (src/index.ts): objects named exactly 'board', meshes (instanced
+   *  ones too) and every object under the site. Same before and after an XR session cycle: nothing piles up. */
+  scene?: () => { boards: number; meshes: number; site: number };
   /** The last strike on this level (src/statics/failure-view.ts): why it fell, the joints its line of thrust leaves and
    *  the joints where it breaks (kind 'none' when it held); null until the first strike after a level load. */
   failure: { kind: FailureKind; outside: number[]; joints: number[] } | null;
