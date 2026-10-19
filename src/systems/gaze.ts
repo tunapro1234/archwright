@@ -16,6 +16,8 @@ import type { HandState } from './hands.js';
 import type { LoopPicker } from './loop.js';
 import { A11Y_TARGETS, type A11yKey, type A11yPanel } from './a11y.js';
 import { SelectPlace } from './select.js';
+import { playCue } from '../audio/synth.js';
+import { grabCue } from '../audio/music.js';
 import { gazePick, holdPull, HOLD_TO_STRIKE, type GazeTarget } from '../game/a11y.js';
 import { A11Y_ICONS, CENTERING, strikePull } from '../scene/layout.js';
 import { paint } from '../scene/palette.js';
@@ -168,8 +170,10 @@ export class GazeSystem extends createSystem({}) {
   }
 
   private confirm(arch: ArchRuntime, panel: A11yPanel, t: Target, side: Side): void {
-    if (t.kind === 'stone' && t.stone) this.select.pick(arch, t.stone);
-    else if (t.kind === 'face' && t.side) this.select.seat(arch, t.side);
+    if (t.kind === 'stone' && t.stone) {
+      // Lifted: the same knock as a click in desktop mode (a second pick puts it back, silently).
+      if (this.select.pick(arch, t.stone) && this.select.selected === t.stone) playCue(grabCue(t.stone.def.material));
+    } else if (t.kind === 'face' && t.side) this.select.seat(arch, t.side);
     else if (t.kind === 'icon' && t.icon) panel.toggle(t.icon);
     else if (t.kind === 'spot') (this.globals.loop as LoopPicker | undefined)?.pick(t.center);
     else if (t.kind === 'lever') {
