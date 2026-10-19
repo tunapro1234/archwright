@@ -388,6 +388,37 @@ export function trayFelt(material: MeshStandardMaterial): Mesh {
   return m;
 }
 
+/**
+ * The frame and the felt as one mesh, coloured per vertex (frame, then felt; recolorBoardOutline after a palette change):
+ * one draw call, as the solid board it stands in for (in XR, one per eye).
+ */
+export function boardOutline(): Mesh {
+  const frame = boardFrame(new MeshStandardMaterial()), felt = trayFelt(new MeshStandardMaterial());
+  const parts = [frame.geometry, felt.geometry].map(g => (g.index ? g.toNonIndexed() : g));
+  const geo = mergeGeometries(parts)!;
+  const n = parts[0].getAttribute('position').count;
+  geo.setAttribute('color', new Float32BufferAttribute(new Float32Array(geo.getAttribute('position').count * 3), 3));
+  for (const g of [frame.geometry, felt.geometry, ...parts]) g.dispose();
+  const material = flatMaterial(0xffffff);
+  material.vertexColors = true;
+  const m = new Mesh(geo, material);
+  m.name = 'board-outline';
+  m.userData.colorKeys = [{ key: 'frame', start: 0, count: n }, { key: 'felt', start: n, count: geo.getAttribute('position').count - n }];
+  recolorBoardOutline(m);
+  return m;
+}
+
+/** Paint the outline's frame and felt from the palette now in use. */
+export function recolorBoardOutline(m: Mesh): void {
+  const attr = m.geometry.getAttribute('color') as Float32BufferAttribute;
+  const c = new Color();
+  for (const { key, start, count } of m.userData.colorKeys as { key: PaletteKey; start: number; count: number }[]) {
+    c.setHex(COLORS[key]);
+    for (let i = start; i < start + count; i++) attr.setXYZ(i, c.r, c.g, c.b);
+  }
+  attr.needsUpdate = true;
+}
+
 /** Soft shadow under the arch: one transparent quad with a radial gradient. No real-time shadows. */
 export function blobShadow(width: number, depth: number): Mesh {
   const c = document.createElement('canvas');

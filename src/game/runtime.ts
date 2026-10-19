@@ -16,8 +16,8 @@ import {
   abutments, ABUTMENT_HEIGHT, ashlarBlocks, BOARD, centeringTop, PIER_EXTRA, PLAQUE, facePose, loadRest, shapeKey, stoneOutline, trayPoses, type Pose2,
 } from '../scene/layout.js';
 import {
-  abutmentMaterial, ashlarMaterial, ashlarMesh, blobShadow, boardFrame, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, loadMaterials, loadMesh, memoryMesh, plaqueMesh, prism, stoneMaterial,
-  trayFelt, woodMaterial,
+  abutmentMaterial, ashlarMaterial, ashlarMesh, blobShadow, boardMesh, boardOutline, centeringMesh, flatMaterial, ghostColor, ghostMesh, loadMaterials, loadMesh, memoryMesh, plaqueMesh, prism, stoneMaterial,
+  recolorBoardOutline, woodMaterial,
 } from '../scene/models.js';
 import { freeObjects } from '../scene/free.js';
 import { MATERIAL_COLOR } from '../scene/meshes.js';
@@ -239,10 +239,9 @@ export class ArchRuntime {
   private readonly woodMat = woodMaterial();
   private readonly loadMats = loadMaterials();
   private readonly boardMat = flatMaterial('board');
-  /** This level's solid board, and the frame and felt drawn instead of it in the frame style (built once, kept). */
+  /** This level's solid board, and the frame and felt drawn instead of it in the frame style (one mesh, built once, kept). */
   private board?: Mesh;
-  private readonly frame: Mesh;
-  private readonly felt: Mesh;
+  private readonly outline: Mesh;
   /** How the board is drawn now, and where it stands for that (SurfaceSystem, placeBoard): kept so a palette change
    *  (high contrast on or off) can work the style out again. */
   boardLook: BoardStyle = 'solid';
@@ -285,13 +284,10 @@ export class ArchRuntime {
     // Aimed at the board wherever it stands (the default target is the world origin, under the player).
     sun.target.userData.keep = true;
     this.site.add(sun.target);
-    this.frame = boardFrame(flatMaterial('frame'));
-    this.felt = trayFelt(flatMaterial('felt'));
-    for (const m of [this.frame, this.felt]) {
-      m.userData.keep = true; // survives load()
-      m.visible = false;
-      this.site.add(m);
-    }
+    this.outline = boardOutline();
+    this.outline.userData.keep = true; // survives load()
+    this.outline.visible = false;
+    this.site.add(this.outline);
     this.ghosts = { left: ghostMesh('ghost-left'), right: ghostMesh('ghost-right') };
     for (const g of Object.values(this.ghosts)) world.createTransformEntity(g, { persistent: true });
     onRepaint(() => this.repaint());
@@ -299,6 +295,7 @@ export class ArchRuntime {
 
   /** The palette changed (high-contrast mode): stone tints and the line of thrust follow it, and the board's style. */
   private repaint(): void {
+    recolorBoardOutline(this.outline);
     this.restyleBoard();
     for (const v of this.stones) this.tint(v);
     if (this.thrustLine) ((this.thrustLine as Mesh).material as MeshBasicMaterial).color.setHex(COLORS.thrust);
@@ -321,7 +318,7 @@ export class ArchRuntime {
   setBoardStyle(s: BoardStyle): void {
     this.boardLook = s;
     if (this.board) this.board.visible = s === 'solid';
-    this.frame.visible = this.felt.visible = s === 'frame';
+    this.outline.visible = s === 'frame';
     if (this.hook.board) this.hook.board.style = s;
   }
 

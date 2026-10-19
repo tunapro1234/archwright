@@ -3,11 +3,11 @@
 // (src/scene/models.ts) and the runtime that switches between them (ArchRuntime.placeBoard, setBoardStyle, the
 // palette's repaint), on its prototype with the meshes it uses.
 import { describe, expect, it } from 'vitest';
-import { Box3, Mesh, Object3D } from '@iwsdk/core';
+import { Box3, Color, Float32BufferAttribute, Mesh, Object3D } from '@iwsdk/core';
 import { boardStyle, footprintInsideDesk, parseBoardParam, type BoardStyleInput } from '../src/scene/board-style.js';
 import { BOARD, TRAY, trayPoses, stoneOutline } from '../src/scene/layout.js';
-import { BOARD_FRAME, boardFrame, boardMesh, flatMaterial, trayFelt } from '../src/scene/models.js';
-import { HIGH_CONTRAST, PALETTE, onRepaint, usePalette } from '../src/scene/palette.js';
+import { BOARD_FRAME, boardFrame, boardMesh, boardOutline, flatMaterial, recolorBoardOutline, trayFelt } from '../src/scene/models.js';
+import { COLORS, HIGH_CONTRAST, PALETTE, onRepaint, usePalette } from '../src/scene/palette.js';
 import { ArchRuntime } from '../src/game/runtime.js';
 import { LEVELS } from '../src/levels/index.js';
 import { dailyLevel } from '../src/game/daily.js';
@@ -136,42 +136,73 @@ describe('the frame and the felt', () => {
   });
 });
 
+describe('the frame and the felt are one mesh', () => {
+  const colours = (m: Mesh) => {
+    const a = m.geometry.getAttribute('color') as Float32BufferAttribute, seen = new Set<number>();
+    for (let i = 0; i < a.count; i++) seen.add(new Color(a.getX(i), a.getY(i), a.getZ(i)).getHex());
+    return seen;
+  };
+
+  it('one geometry, no groups (one draw call; in XR one per eye, as the solid board), the frame\'s and the felt\'s extent', () => {
+    const o = boardOutline();
+    expect(o.geometry.groups).toHaveLength(0);
+    expect(Array.isArray(o.material)).toBe(false);
+    const b = new Box3().setFromObject(o), f = new Box3().setFromObject(boardFrame(flatMaterial('frame')));
+    for (const k of ['x', 'y', 'z'] as const) {
+      expect(b.min[k]).toBeCloseTo(f.min[k], 6);
+      expect(b.max[k]).toBeCloseTo(f.max[k], 6);
+    }
+  });
+
+  it('coloured frame and felt from the palette, and only recolorBoardOutline changes them', () => {
+    const o = boardOutline();
+    expect(colours(o)).toEqual(new Set([COLORS.frame, COLORS.felt]));
+    usePalette(HIGH_CONTRAST);
+    expect(colours(o)).toEqual(new Set([PALETTE.frame, PALETTE.felt])); // only the runtime's repaint recolours it
+    recolorBoardOutline(o);
+    expect(colours(o)).toEqual(new Set([HIGH_CONTRAST.frame, HIGH_CONTRAST.felt]));
+    usePalette(PALETTE);
+  });
+});
+
 describe('ArchRuntime draws the style SurfaceSystem works out', () => {
   function runtime() {
     const arch = Object.create(ArchRuntime.prototype) as ArchRuntime;
-    const board = boardMesh(flatMaterial('board')), frame = boardFrame(flatMaterial('frame')), felt = trayFelt(flatMaterial('felt'));
-    frame.visible = felt.visible = false;
+    const board = boardMesh(flatMaterial('board')), outline = boardOutline();
+    outline.visible = false;
     const hook = { board: { kind: 'mesh', style: 'solid' } };
-    Object.assign(arch, { board, frame, felt, hook, stones: [], boardLook: 'solid', boardWhere: null, site: new Object3D() });
+    Object.assign(arch, { board, outline, hook, stones: [], boardLook: 'solid', boardWhere: null, site: new Object3D() });
     // The palette change reaches it as in the constructor (onRepaint).
     onRepaint(() => (arch as unknown as { repaint(): void }).repaint());
-    return { arch, board, frame, felt, hook };
+    return { arch, board, outline, hook };
   }
   const where = ({ highContrast: _, ...w }: BoardStyleInput) => w;
 
-  it('frame: the board hidden, the frame and the felt shown, the hook says so', () => {
-    const { arch, board, frame, felt, hook } = runtime();
+  it('frame: the board hidden, the frame and felt shown, the hook says so', () => {
+    const { arch, board, outline, hook } = runtime();
     arch.placeBoard(where(base));
     expect(arch.boardLook).toBe('frame');
     expect(hook.board.style).toBe('frame');
-    expect([board.visible, frame.visible, felt.visible]).toEqual([false, true, true]);
+    expect([board.visible, outline.visible]).toEqual([false, true]);
     arch.placeBoard(where({ ...base, kind: 'lap', desk: null }));
     expect(hook.board.style).toBe('solid');
-    expect([board.visible, frame.visible, felt.visible]).toEqual([true, false, false]);
+    expect([board.visible, outline.visible]).toEqual([true, false]);
   });
 
   it('high contrast turns it solid, and off again back to the frame', () => {
-    const { arch, board, frame, hook } = runtime();
+    const { arch, board, outline, hook } = runtime();
     arch.placeBoard(where(base));
     usePalette(HIGH_CONTRAST);
     expect(hook.board.style).toBe('solid');
-    expect([board.visible, frame.visible]).toEqual([true, false]);
+    expect([board.visible, outline.visible]).toEqual([true, false]);
+    const a = outline.geometry.getAttribute('color') as Float32BufferAttribute;
+    expect(new Color(a.getX(0), a.getY(0), a.getZ(0)).getHex()).toBe(HIGH_CONTRAST.frame); // repainted
     // Placed again while high contrast is on: still solid.
     arch.placeBoard(where(base));
     expect(hook.board.style).toBe('solid');
     usePalette(PALETTE);
     expect(hook.board.style).toBe('frame');
-    expect([board.visible, frame.visible]).toEqual([false, true]);
+    expect([board.visible, outline.visible]).toEqual([false, true]);
   });
 
   it('?board=solid stays solid through a palette change', () => {
