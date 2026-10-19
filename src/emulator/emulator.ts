@@ -3,12 +3,15 @@
 //   &room=<name>   Meta's synthetic room module gives the emulated headset a room to see through to, with its planes
 //                  and meshes (a table among them) for the surface chain; the room file comes from this site
 //                  (public/emulator/rooms/), never from the module's own loader.
+//   &roomLater=1   with a room: the module is installed and the room file fetched, but the room is not loaded until a
+//                  test calls __archwright.emulator.room('load') (a desk the headset finds after the session started).
 //   &head=<yaw>[,<eye height>]   the emulated headset starts turned by yaw degrees (positive = left) at that eye height.
 //   &seat=table    with a room: the headset sits instead at the room's table nearest to where it would start, out from
 //                  the middle of its long edge, facing it (head.ts seatAtTable), at the eye height of &head=.
 // __archwright.emulator (EmulatorHook) lets a test drive the device: the session's visibility, hands or controllers,
 // where a controller or a hand points, and its pinch (a controller's trigger); which way a hand's palm faces; where the
-// headset looks, and where a hand or a controller is, as the device holds it and as the game sees it; ending the session.
+// headset looks, and where a hand or a controller is, as the device holds it and as the game sees it; ending the session;
+// loading or clearing the room.
 import { createSystem, Matrix4, Quaternion, Vector3, type World } from '@iwsdk/core';
 import { XRDevice, metaQuest3 } from 'iwer';
 import type { HandState } from '../systems/hands.js';
@@ -41,13 +44,17 @@ export interface EmulatorHook {
   palm(hand: Hand, way: 'up' | 'down'): void;
   /** End the XR session that is running, if any, as taking the headset off for good would. */
   end(): void;
+  /** Load the room fetched for &room= into the synthetic room module, or clear everything it holds; false without one. */
+  room(action: 'load' | 'clear'): boolean;
 }
 
 /** Where reach() put each side, and how far the game's point for that side lies from the input's own position (world m). */
 interface Reach { at: Record<Hand, Vector3 | null>; offset: Record<Hand, Vector3 | null> }
 
 /** Install IWER (and the room, when asked for) and place the headset. */
-export async function startEmulator(params: URLSearchParams, base: string): Promise<{ device: XRDevice; room: string | null }> {
+export async function startEmulator(
+  params: URLSearchParams, base: string,
+): Promise<{ device: XRDevice; room: string | null; roomJson: unknown | null }> {
   const room = emulatorRoom(params.get('room'));
   const device = new XRDevice(metaQuest3);
   // Chromium exposes its own navigator.xr even without a headset; replace it with the emulator.
@@ -55,6 +62,7 @@ export async function startEmulator(params: URLSearchParams, base: string): Prom
   const { yaw, eyeY } = parseHead(params.get('head'));
   device.position.set(0, eyeY, HEAD_Z);
   device.quaternion.set(...yawQuat(yaw));
+  let roomJson: unknown | null = null;
   if (room) {
     try {
       const [{ SyntheticEnvironmentModule }, json] = await Promise.all([
@@ -65,7 +73,8 @@ export async function startEmulator(params: URLSearchParams, base: string): Prom
         }),
       ]);
       device.installSEM(SyntheticEnvironmentModule);
-      device.sem?.loadEnvironment(json);
+      roomJson = json;
+      if (params.get('roomLater') !== '1') device.sem?.loadEnvironment(json);
       const seat = params.get('seat') === 'table' ? seatAtTable(roomTables(json), { x: 0, z: HEAD_Z }) : null;
       if (seat) {
         device.position.set(seat.x, eyeY, seat.z);
@@ -75,7 +84,7 @@ export async function startEmulator(params: URLSearchParams, base: string): Prom
       console.warn('archwright: no synthetic room', e);
     }
   }
-  return { device, room };
+  return { device, room, roomJson };
 }
 
 /** The emulated headset's pose as __archwright.xr.head has it (IWER's space is the world here: the player rig never moves). */
@@ -84,7 +93,7 @@ export function headPose(device: XRDevice): { x: number; y: number; z: number; y
   return { x: p.x, y: p.y, z: p.z, yaw: yawOf([q.x, q.y, q.z, q.w]) };
 }
 
-export function emulatorHook(device: XRDevice, world: World): EmulatorHook {
+export function emulatorHook(device: XRDevice, world: World, roomJson: unknown | null = null): EmulatorHook {
   const input = (hand: Hand) => (device.primaryInputMode === 'hand' ? device.hands[hand] : device.controllers[hand]);
   const reached: Reach = { at: { left: null, right: null }, offset: { left: null, right: null } };
   world.globals.reach = reached;
@@ -138,6 +147,13 @@ export function emulatorHook(device: XRDevice, world: World): EmulatorHook {
     },
     end() {
       world.renderer.xr.getSession()?.end().catch(xrError);
+    },
+    room(action) {
+      const sem = device.sem;
+      if (!sem || roomJson === null) return false;
+      if (action === 'load') sem.loadEnvironment(roomJson);
+      else sem.deleteAll();
+      return true;
     },
   };
 }

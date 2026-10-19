@@ -96,7 +96,7 @@ async function main(): Promise<void> {
   world.globals.arch = arch;
   if (emulator) {
     world.globals.emulator = emulator;
-    arch.hook.emulator = emu!.emulatorHook(emulator, world);
+    arch.hook.emulator = emu!.emulatorHook(emulator, world, started?.roomJson ?? null);
   }
   arch.hook.xr = { mode: null, features: [], inputs: [], room, head: null, frames: 0 };
   passthrough = () => {

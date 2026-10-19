@@ -179,3 +179,20 @@ describe('emulator.end', () => {
     expect(ended).toBe(1);
   });
 });
+
+describe('emulator.room', () => {
+  it('loads the fetched room into the synthetic room module, or clears it; false without either', () => {
+    const calls: unknown[] = [];
+    const sem = { loadEnvironment: (j: unknown) => calls.push(['load', j]), deleteAll: () => calls.push(['clear']) };
+    const player = new Object3D();
+    const world = { player, globals: {} } as unknown as World;
+    const json = { room: 'office_small' };
+    const hook = emulatorHook({ sem } as unknown as XRDevice, world, json);
+    expect(hook.room('load')).toBe(true);
+    expect(hook.room('clear')).toBe(true);
+    expect(calls).toEqual([['load', json], ['clear']]);
+    expect(emulatorHook({ sem } as unknown as XRDevice, world).room('load')).toBe(false);
+    expect(emulatorHook({} as unknown as XRDevice, world, json).room('clear')).toBe(false);
+    expect(calls).toHaveLength(2);
+  });
+});
