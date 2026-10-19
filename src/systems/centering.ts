@@ -29,7 +29,8 @@ export class CenteringSystem extends createSystem({}) {
     const hands = this.globals.hands as Record<Side, HandState> | undefined;
     if (!arch?.centering || !hands) return;
     const c = arch.centering;
-    const usable = arch.state.placed.length > 0 && !c.struck;
+    // A hidden board (no surface chosen yet in this session) has no handle to take.
+    const usable = arch.shown !== false && arch.state.placed.length > 0 && !c.struck;
     const oneHand = !!(this.globals.a11y as A11yPanel | undefined)?.settings.oneHand;
 
     let pull = c.pull;

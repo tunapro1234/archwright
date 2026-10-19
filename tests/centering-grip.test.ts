@@ -47,7 +47,7 @@ function setup() {
     sys.update(DT, 0);
   };
   const lose = (s: number) => { for (let t = 0; t < s - 1e-9; t += DT) frame({ tracked: false, pinching: true }); };
-  return { centering, frame, lose, gripped: () => !!(sys as unknown as { grip: Record<string, unknown> }).grip.right };
+  return { arch: arch as typeof arch & { shown?: boolean }, centering, frame, lose, gripped: () => !!(sys as unknown as { grip: Record<string, unknown> }).grip.right };
 }
 
 describe('centering grip through a tracking loss', () => {
@@ -82,5 +82,24 @@ describe('centering grip through a tracking loss', () => {
     frame({ tracked: true, pinching: true });
     frame({ tracked: true, pinching: false });
     expect(gripped()).toBe(false);
+  });
+});
+
+describe('centering grip on a hidden board', () => {
+  it('shown false (no surface yet in this session): a pinch on the handle takes nothing; shown true or unset: it does', () => {
+    const hidden = setup();
+    hidden.arch.shown = false;
+    hidden.frame({ tracked: true, pinching: true });
+    hidden.frame({ tracked: true, pinching: true, dz: 0.02 });
+    expect(hidden.gripped()).toBe(false);
+    expect(hidden.centering.pull).toBe(0);
+    for (const shown of [true, undefined]) {
+      const t = setup();
+      t.arch.shown = shown;
+      t.frame({ tracked: true, pinching: true });
+      t.frame({ tracked: true, pinching: true, dz: 0.02 });
+      expect(t.gripped()).toBe(true);
+      expect(t.centering.pull).toBeCloseTo(0.02, 6);
+    }
   });
 });
