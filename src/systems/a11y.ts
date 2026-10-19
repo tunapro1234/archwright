@@ -1,12 +1,11 @@
 // The accessibility settings (src/game/a11y.ts) in the scene: read from the save and ?a11y= at start,
 // shown on a small stone panel beside the board (three icons, no text: gaze, one hand, contrast),
-// switched by a pinch on an icon, a click (desktop mode) or a look and a pinch (gaze mode). Every
+// switched by a pinch on an icon (src/systems/spot-hover.ts takes it, as it rings it), a click (desktop mode) or a look
+// and a pinch (gaze mode). Every
 // change is saved and applied at once: high contrast repaints the scene with HIGH_CONTRAST; gaze
 // and one-hand are read by GazeSystem and CenteringSystem. __archwright.a11y reports the settings.
 import { createSystem, Vector3 } from '@iwsdk/core';
 import type { ArchRuntime } from '../game/runtime.js';
-import type { Side } from '../game/arch-state.js';
-import type { HandState } from './hands.js';
 import { activePalette, loadA11y, parseA11yParam, saveA11y, type A11ySettings } from '../game/a11y.js';
 import { browserStorage, type ProgressStorage } from '../game/progress.js';
 import { A11Y_ICONS, A11Y_PANEL, a11yIconSpot } from '../scene/layout.js';
@@ -34,7 +33,6 @@ export class A11ySystem extends createSystem({}) {
   private settings!: A11ySettings;
   private panel!: ReturnType<typeof a11yPanel>;
   private placed = false;
-  private v = new Vector3();
 
   init(): void {
     this.storage = browserStorage();
@@ -59,21 +57,6 @@ export class A11ySystem extends createSystem({}) {
       this.panel.group.userData.keep = true; // survives ArchRuntime.load
       arch.site.add(this.panel.group);
       this.showIcons();
-    }
-    const hands = this.globals.hands as Record<Side, HandState> | undefined;
-    if (!hands || !arch.shown) return;
-    for (const side of ['left', 'right'] as const) {
-      const h = hands[side];
-      if (!h.tracked || !h.pinchStarted) continue;
-      let best: A11yKey | undefined;
-      let bestD = ICON_PICK;
-      for (const k of A11Y_ICONS) {
-        const d = this.iconAt(k, this.v)!.distanceTo(h.point);
-        if (d < bestD) { bestD = d; best = k; }
-      }
-      if (!best) continue;
-      h.pinchStarted = false; // taken: no other system sees this pinch
-      this.toggle(best);
     }
   }
 

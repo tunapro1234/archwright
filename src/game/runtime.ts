@@ -116,6 +116,11 @@ export interface Hook {
   /** The spot a hand is over in an XR session (src/systems/spot-hover.ts), marked with a ring: a level marker, the rebuild
    *  stone, the share tablet or an icon, by its project() name; null outside XR, in gaze mode, or when no spot is near. */
   handHover: string | null;
+  /** The spot each hand's pinch would take if it began now (src/systems/spot-hover.ts: the code the pinch itself runs),
+   *  by its project() name; the ring is on the nearer of the two. Null for a hand with no spot, outside XR, in gaze mode. */
+  pinchTarget: Record<Side, string | null>;
+  /** Every spot a pick may take now with its world centre (m): forEachSpot (src/systems/loop.ts) and the icons. */
+  spots?: () => { id: string; x: number; y: number; z: number }[];
   /** The last strike on this level (src/statics/failure-view.ts): why it fell, the joints its line of thrust leaves and
    *  the joints where it breaks (kind 'none' when it held); null until the first strike after a level load. */
   failure: { kind: FailureKind; outside: number[]; joints: number[] } | null;
@@ -244,6 +249,7 @@ export class ArchRuntime {
       hover: null,
       gaze: { on: false, target: null, stone: null },
       handHover: null,
+      pinchTarget: { left: null, right: null },
       failure: null,
       marks: null,
       failureMemory: null,
@@ -407,6 +413,7 @@ export class ArchRuntime {
     this.gaze.stone = undefined;
     this.handStone.left = this.handStone.right = undefined;
     this.hook.handHover = null;
+    this.hook.pinchTarget.left = this.hook.pinchTarget.right = null;
     this.hook.gaze.on = false;
     this.hook.gaze.target = this.hook.gaze.stone = null;
     const roots = this.levelEntities.flatMap(e => e.object3D ? [e.object3D] : []);

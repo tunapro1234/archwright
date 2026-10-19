@@ -39,7 +39,8 @@ the arch carries itself or collapses across your desk. No controllers are needed
   mode the stone under the mouse that a click would take does the same, and in gaze mode the stone you look at, since there
   the pinch confirms what you look at. In XR the smaller targets get a thin ring the same way: a level marker, the rebuild
   stone, the share tablet or an accessibility icon within a pinch's reach of a hand that is over no stone. The ring shows what
-  a pinch would take, and nothing past that reach (checked in the emulator; not in gaze mode).
+  a pinch would take, and nothing past that reach (checked in the emulator; not in gaze mode). The pinch takes the spot the
+  ring is on, the nearest one where two are in reach, and a pinch with no ring takes no spot (`tests/spot-hover.test.ts`).
 - A pinch with the palm facing up is Quest's own system gesture, so it never takes a stone. If the headset loses the hand
   that holds a stone for more than 0.3 s, the stone floats back to the tray; a shorter gap, such as one hand passing behind
   the other, keeps it in hand. The centering's handle is kept the same way (it does not move while the hand is gone).
@@ -375,6 +376,9 @@ plinths, how many follow an anchor and this session's anchor counts (requested, 
 `collapse` holds the last collapse's `rest` and `simTime` (the game seconds it has run), `paused` whether the game is paused
 now and `pauses` how often it has paused, and `audio` the sound's state (`none` before it starts, then the AudioContext's) and
 whether the limiter is in. `hover` is the id of the stone a pinch (or, outside XR, a click) would take now, or null.
+In XR `handHover` is the spot with the ring (a marker, the rebuild stone, the tablet or an icon, by its `project()` name),
+`pinchTarget` the spot each hand's pinch would take now (`left`, `right`; the ring is on the nearer), and `spots()` lists every
+spot a pick may take with its world centre.
 `hands` has each hand as the game reads it this frame: `tracked`, `pinching` and `palmUp`. `xrEntry` says whether the browser
 supports an AR and a VR session (`ar`, `vr`; null until it answers), which of the page's buttons are shown (`shown`) and the last
 session request or offer the browser turned down (`error`, else null).

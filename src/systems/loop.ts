@@ -7,13 +7,14 @@
 // part of the progress and leads to no next level: once struck, a small tablet rises on the board
 // with the day's card (one tile per stone); a pinch on it copies the card to the clipboard, and
 // where the page may not write there the tablet only shakes.
-// The desktop mouse mode reaches the same rebuild stone and markers through globals.loop (LoopPicker).
+// The desktop mouse mode and gaze mode reach the same rebuild stone and markers through globals.loop (LoopPicker pick:
+// the nearest spot in reach); a hand's pinch in XR takes the spot SpotHoverSystem marked for it (take).
 // Under ?autotest the arch stays held or collapsed: the passenger may cross, but nothing is saved
 // and no other level is loaded.
 import { Color, createSystem, Group, Matrix4, Quaternion, Vector3, type Mesh, type MeshStandardMaterial } from '@iwsdk/core';
 import { ArchRuntime } from '../game/runtime.js';
-import type { Side } from '../game/arch-state.js';
-import type { HandState } from './hands.js';
+import { nearestSpot } from '../game/a11y.js';
+import { SpotList } from './spots.js';
 import {
   browserStorage, loadProgress, nextLevel, recordWin, saveProgress, unlocked, type Progress, type ProgressStorage,
 } from '../game/progress.js';
@@ -45,8 +46,10 @@ const MAX_STEP = 0.1;
 
 /** What the desktop mouse mode needs from the loop: the same picks a pinch makes. */
 export interface LoopPicker {
-  /** A pick at `point` (world): the rebuild stone or a level marker within PICK_RADIUS. */
+  /** A pick at `point` (world, the mouse or the eyes' target): the nearest spot whose pick reaches it (nearestSpot). */
   pick(point: Vector3): boolean;
+  /** A hand's pinch took spot `id` (a forEachSpot name; src/systems/spot-hover.ts chose it): false if it is not there now. */
+  take(id: string): boolean;
   /** World position of the rebuild stone while it is offered, else null. */
   rebuildAt(out: Vector3): Vector3 | null;
   /** World position of the share tablet's face while it is up, else null. */
@@ -90,6 +93,8 @@ export class GameLoopSystem extends createSystem({}) {
   private c = new Color();
   private w = new Vector3();
   private repainted = false;
+  private near = new SpotList();
+  private nearFn = (id: string, at: Vector3, pick: number) => { this.near.add(id, at, pick); };
 
   init(): void {
     this.autotest = new URLSearchParams(location.search).has('autotest');
@@ -105,7 +110,15 @@ export class GameLoopSystem extends createSystem({}) {
     const picker: LoopPicker = {
       pick: point => {
         const arch = this.globals.arch as ArchRuntime | undefined;
-        return !!arch?.state && this.pinch(arch, point);
+        if (!arch?.state) return false;
+        this.near.clear();
+        this.forEachSpot(this.nearFn);
+        const id = nearestSpot(point, this.near.live, null);
+        return id !== null && this.pinch(arch, id);
+      },
+      take: id => {
+        const arch = this.globals.arch as ArchRuntime | undefined;
+        return !!arch?.state && this.pinch(arch, id);
       },
       rebuildAt: out => (this.rebuild?.visible ? this.rebuild.getWorldPosition(out) : null),
       tabletAt: out => (this.tablet?.group.visible ? this.tabletFace(out) : null),
@@ -119,7 +132,6 @@ export class GameLoopSystem extends createSystem({}) {
 
   update(delta: number): void {
     const arch = this.globals.arch as ArchRuntime | undefined;
-    const hands = this.globals.hands as Record<Side, HandState> | undefined;
     if (!arch?.state) return;
     if (!this.rebuild) {
       this.rebuild = rebuildStone(arch.abutmentMat);
@@ -144,12 +156,6 @@ export class GameLoopSystem extends createSystem({}) {
     else if (this.verdict === 'collapsed') this.afterCollapse();
     if (this.card) this.animateTablet(delta);
 
-    if (hands) {
-      for (const side of ['left', 'right'] as const) {
-        const h = hands[side];
-        if (h.tracked && h.pinchStarted && this.pinch(arch, h.point)) break;
-      }
-    }
   }
 
   private reset(arch: ArchRuntime): void {
@@ -211,34 +217,32 @@ export class GameLoopSystem extends createSystem({}) {
     this.rebuild.position.y = REBUILD_AT.y + 0.004 * Math.sin(this.t * 2);
   }
 
-  /** A pinch began at `point` (world): take the rebuild stone, the share tablet or a level marker. */
-  private pinch(arch: ArchRuntime, point: Vector3): boolean {
+  /** Spot `id` was picked (a forEachSpot name): load the rebuild, share the card, open Today's Span or a level. */
+  private pinch(arch: ArchRuntime, id: string): boolean {
     if (!arch.shown) return false;
-    if (this.rebuild.visible && this.rebuild.getWorldPosition(this.v).distanceTo(point) < PICK_RADIUS) {
+    if (id === 'rebuild') {
+      if (!this.rebuild.visible) return false;
       playTick();
       arch.load(arch.def);
       return true;
     }
-    if (this.tablet.group.visible && this.tabletFace(this.v).distanceTo(point) < TABLET_PICK) {
+    if (id === 'tablet') {
+      if (!this.tablet.group.visible) return false;
       this.share();
       return true;
     }
-    if (this.daily.getWorldPosition(this.v).distanceTo(point) < PICK_RADIUS) {
+    if (id === 'marker:today') {
       if (arch.def.id === `daily-${localDateISO()}` && arch.state.placed.length === 0) return true;
       playTick();
       arch.load(ArchRuntime.levelById('today'));
       return true;
     }
-    for (const spot of this.spots) {
-      if (!this.open.has(spot.id)) continue;
-      arch.site.localToWorld(this.v.set(spot.x, 0.006, spot.z));
-      if (this.v.distanceTo(point) >= PICK_RADIUS) continue;
-      if (spot.id === arch.def.id && arch.state.placed.length === 0) return true;
-      playTick();
-      arch.load(ArchRuntime.levelById(spot.id));
-      return true;
-    }
-    return false;
+    const level = id.startsWith('marker:') ? id.slice('marker:'.length) : null;
+    if (!level || !this.open.has(level)) return false;
+    if (level === arch.def.id && arch.state.placed.length === 0) return true;
+    playTick();
+    arch.load(ArchRuntime.levelById(level));
+    return true;
   }
 
   private showMarkers(current: string): void {
