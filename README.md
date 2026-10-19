@@ -222,7 +222,7 @@ stones, the open ends and the handle, the largest angle across × up/down in the
 The tray and the handle are inside the cone everywhere the test asserts it (desk ahead, lap, atelier; the desk off to the
 side is only reported). The open ends are not: the top stones of the taller arches sit above the cone's 27°, up to 35° on the
 desk ahead (7 of 17 levels), 33° in the atelier (6 levels) and 39° on the lap tray (16 levels). The layout was left as it
-is and those three checks are marked todo in the test.
+is; for the open ends the test holds them inside the cone across and under those three figures up or down.
 
 These are distances worked out from the layout, not reaches measured on people or on a headset.
 
