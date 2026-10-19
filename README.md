@@ -103,20 +103,28 @@ view, so a tall pointed arch pulls it back (`frameView`, src/game/desktop.ts).
 Where the board goes (`src/scene/surface-chain.ts`, pure functions with their own tests): if the headset's scene data has a
 table mesh or a horizontal plane at desk height within reach (25 to 85 cm below the eyes, the nearest point where the board's
 centre can land at most 75 cm away, at least 30 × 20 cm) and not behind you (its centre within 100° of the way you face, or under your head), the board goes on it, scene
-meshes first. On that desk the board stands 50 cm ahead of your eyes, facing the way you face, as long as its centre is then at
-least 10 cm in from every edge of the desk (on its middle line, if the desk is only 20 cm deep). If not, the centre moves to the
-nearest point that is, and the board turns to face you from there: a desk off to one side gets the board on it, square to you,
-rather than in the air in front of you. A real table is rarely square to the headset's floor axes, so the desk's top is the
-smallest rectangle round its mesh vertices or plane outline seen from above, turned the way the table stands; the size test, the
-10 cm margin and the move onto the desk all work in that rectangle (unit tests: a 1.2 × 0.6 m desk turned 30° or 45° keeps the
-board's centre inside its margin for every way you face, and a 0.6 × 0.15 m shelf turned 45° is still too narrow to count).
+meshes first. On that desk the board stands 50 cm ahead of your eyes, facing the way you face, as long as the whole board
+(46 × 38 cm) is then on the desk, at least 1 cm in from every edge, with its centre at least 10 cm in. If not, the board moves to
+the nearest place where it is, and turns to face you from there: a desk you sit close to gets the board just far enough back
+to be all on it, and a desk off to one side gets it on it, square to you, rather than in the air in front of you. Where the
+desk cannot take the whole board that way round (smaller than the board, or too narrow for it turned as it would be), only the
+board's centre keeps 10 cm in (on its middle line, if the desk is only 20 cm deep) and the board overhangs. A real table is
+rarely square to the headset's floor axes, so the desk's top is the smallest rectangle round its mesh vertices or plane outline
+seen from above, turned the way the table stands; the size test, the margins and the move onto the desk all work in that
+rectangle (unit tests: a 1.2 × 0.6 m desk turned 30° or 45° keeps the board's centre inside its margin for every way you face;
+on a 1.60 × 0.75 m desk, the size of the table in Meta's synthetic office, turned 0°, 30° or 90°, all four corners of the board
+are on it for every way you face that takes the desk; a 0.6 × 0.15 m shelf turned 45° is still too narrow to count).
 The reach is measured to where the board lands on the desk, not to the desk's centre, so a 1.60 × 0.75 m desk you sit 45 cm
-back from (its centre 0.83 m from your eyes) still takes the board (unit test). If the nearest point inside the margin is
+back from (its centre 0.83 m from your eyes) still takes the board (unit test). If the nearest such place is
 more than 75 cm from your eyes (a long desk off to one side), the board's centre goes to the point of the desk within reach
 nearest to where it would have stood, so it stays as far in front of you as the reach allows (unit tests, one against a 5 mm
 grid search). With more than one desk in reach, the one whose landing point is nearest wins, except that of the desks whose
 landing points are within 10 cm of that nearest one, the one most in front of you wins (`DESK_TIE`): a deep desk ahead beats
 a side table a few centimetres nearer (unit tests).
+In passthrough, on a detected desk the whole board is on (1 cm in from its edges), the board is drawn as a thin stone frame round
+its edge with a felt under the tray, so the table shows through; anywhere else, in high contrast and with `?board=solid` it is
+the solid board (`src/scene/board-style.ts`; the board's collider is the same either way).
+The frame has been seen only in IWER's synthetic rooms, not on a headset.
 The table in the emulator's synthetic office stands half a degree off square to the room's axes, so the turned case is covered
 by those tests alone. If no desk turns up within 1.5 s and hit-test is available, a ring follows
 your hand's ray over real surfaces and you pinch to pick a spot on your desk; a spot at floor or shelf height is refused. After
@@ -130,7 +138,8 @@ The chain has run on room data in the emulator, not yet on a headset. With Meta'
 The table mesh passed the desk test and the board went onto it, 40 cm below the eyes; `?autotest=w1-1:hold` then built the
 arch there and it held, with no console error and no request to another origin (headless Chromium, 15 October 2026).
 Turning the emulated head in the same room (`&head=<yaw>`, eyes at 1.15 m, 17 October 2026): facing the table (0°), the board
-went onto the table mesh with its centre 10 cm in from the table's near edge; turned 90° left or right, with the table's centre
+went onto the table mesh with its centre 10 cm in from the table's near edge (the rule then; the board's near half hung over
+the edge); turned 90° left or right, with the table's centre
 85° to 95° off to one side, the board went onto the table there, turned to face the player; turned round (180°), the table
 behind was skipped and, with no pick, the board went to the lap tray. `?autotest=w1-1:hold` held in all four, with no console
 error and no request to another origin.
@@ -185,13 +194,14 @@ rings and four cracks are drawn in front of the centering. On the tempting wrong
 Archwright is played sitting down, so nothing a hand goes to may be out of a seated reach. `tests/reach.test.ts` checks it from
 the board's layout for every level: from the eyes of a seated player (1.15 m above the floor, looking straight ahead) to the
 centre of every tray stone, every open end as the level's solution fills it, the centering's handle at rest and fully pulled,
-the rebuild stone, every level marker, the share tablet and the accessibility panel's icons, on a 0.75 m desk (the board 50 cm
-ahead, or moved onto a desk whose centre is 60 cm off to the left), on the lap tray and in the atelier. Everything must be within
+the rebuild stone, every level marker, the share tablet and the accessibility panel's icons, on a 0.75 m desk (a 1.2 × 0.6 m desk
+ahead, its near edge 25 cm from the eyes, the board moved back from 50 cm to 56 cm to be all on it; or a desk whose centre is
+60 cm off to the left), on the lap tray and in the atelier. Everything must be within
 0.8 m; the test fails otherwise. The largest values (angles from straight ahead; the side angle is how far the head turns):
 
 | Where the board is | Tray, open ends, handle | Anything | Widest to the side | Lowest below eye level |
 |---|---|---|---|---|
-| Desk ahead | 0.62 m | 0.72 m (a level marker) | 53° | 55° |
+| Desk ahead | 0.67 m | 0.76 m (a level marker) | 47° | 50° |
 | Desk off to the side | 0.56 m | 0.67 m (a level marker) | 82° | 64° |
 | Lap tray | 0.55 m | 0.66 m (a level marker) | 67° | 68° |
 | Atelier | 0.65 m | 0.75 m (a level marker) | 53° | 59° |
@@ -348,6 +358,7 @@ URL parameters, for development and tests:
 | `?emulator=1&head=90,1.6` | with the emulator only: the emulated headset starts turned by that many degrees (positive turns left) with its eyes that many metres above the floor (default 0°, 1.15 m) |
 | `?emulator=1&room=office_small&seat=table` | with the emulator and a room only: the emulated headset sits at the room's table nearest to where it would start, 45 cm out from the middle of the table's long edge, facing the table, with its eyes at the height from `&head=` (default 1.15 m) |
 | `?surface=lap` | force a surface in an XR session: `mesh`, `plane`, `pick`, `lap` or `atelier` |
+| `?board=solid` | keep the solid board in passthrough on a detected desk too, where it is otherwise drawn as a frame (see Where the board goes) |
 | `?a11y=gaze,contrast` | turn accessibility settings on: `gaze`, `onehand`, `contrast` (saved ones stay on) |
 | `?debug=1` | show the performance numbers: a text box in the page corner, or a small slate on the desk in an XR session (see Performance) |
 | `?autotest=w1-1:hold` | place the level's solution (`hold`) or its trap (`collapse`) by program and pull the centering; runs can be chained with `;` |
@@ -371,7 +382,8 @@ profiles, the emulator room (`room`), the head (`head`: where the eyes are and t
 `frames`, the XR frames drawn in the session (or in the last one, once it has ended).
 `detected` lists the semantic label of every plane and mesh the session reports, `board` where the board went (surface kind, its
 top, how far below the eyes, the board's centre and, on a detected desk, that desk's top: its own rectangle as `cx`, `cz`,
-`width`, `depth` and `yaw`, and the world box round it as `minX` to `maxZ`), and `museum` the
+`width`, `depth` and `yaw`, and the world box round it as `minX` to `maxZ`; and `style`, how the board is drawn there:
+`frame` or `solid`), and `museum` the
 plinths, how many follow an anchor and this session's anchor counts (requested, created, persisted, failed, restored, lost).
 `collapse` holds the last collapse's `rest` and `simTime` (the game seconds it has run), `paused` whether the game is paused
 now and `pauses` how often it has paused, and `audio` the sound's state (`none` before it starts, then the AudioContext's) and

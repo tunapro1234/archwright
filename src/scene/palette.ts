@@ -23,6 +23,10 @@ export const PALETTE = {
   thrustFail: 0xff6a00,
   /** The board the arch is built on: light cool grey, so dark and pale stones both stand out on it. */
   board: 0x8d969e,
+  /** In passthrough on a detected desk (src/scene/board-style.ts) the board is only its edge: a pale sand stone frame. */
+  frame: 0xcdb68e,
+  /** ... and a felt under the tray: muted deep blue, well off all three stones (the basalt included), also simulated. */
+  felt: 0x355c80,
   /** The two piers (cut ashlar) and the stone props: a warm grey limestone, none of the three playable stones. */
   abutment: 0x80786b,
   /** Opaque VR (atelier) background. */
@@ -59,6 +63,9 @@ export const HIGH_CONTRAST: Palette = {
   thrustFail: 0xffbe19,
   /** Mid grey: white, orange and black stones all stand off it. */
   board: 0x5c5c5c,
+  /** Never shown: high contrast keeps the solid board (src/scene/board-style.ts). */
+  frame: 0xffffff,
+  felt: 0x1f3a7a,
   abutment: 0x9e9e9e,
   background: 0x000000,
   room: 0x262626,
@@ -70,6 +77,12 @@ export const HIGH_CONTRAST: Palette = {
 
 /** The colours the scene is painted with now: PALETTE until usePalette says otherwise. */
 export const COLORS: Record<PaletteKey, number> = { ...PALETTE };
+let current: Palette = PALETTE;
+
+/** Is `p` the palette the scene is painted with now (the last one usePalette was given)? */
+export function paletteIs(p: Palette): boolean {
+  return current === p;
+}
 
 interface Paintable { setHex(hex: number): unknown }
 const painted: { color: Paintable; key: PaletteKey }[] = [];
@@ -89,6 +102,7 @@ export function onRepaint(f: () => void): void {
 
 /** Switches the scene to `p`: COLORS, every painted colour and every onRepaint callback. */
 export function usePalette(p: Palette): void {
+  current = p;
   let same = true;
   for (const k of Object.keys(COLORS) as PaletteKey[]) if (COLORS[k] !== p[k]) { same = false; COLORS[k] = p[k]; }
   if (same) return;

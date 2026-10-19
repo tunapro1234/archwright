@@ -4,7 +4,8 @@
 // on it), else a spot the player pinches through hit-test, else a lap tray. This system only gathers the inputs
 // (a desk top is the turned rectangle round its points, deskRect) and carries the choice out.
 // ?surface=mesh|plane|pick|lap|atelier forces a kind; __archwright.surface reports the last one,
-// __archwright.board where it went, and __archwright.xr.head the head every XR frame.
+// __archwright.board where it went, and __archwright.xr.head the head every XR frame. Where the board goes also sets
+// how it is drawn (src/scene/board-style.ts: a frame on a detected desk in passthrough; ?board=solid keeps it solid).
 import {
   BoxGeometry, Color, createSystem, Matrix4, Mesh, Vector3, XRMesh, XRPlane, type Group,
 } from '@iwsdk/core';
@@ -18,6 +19,7 @@ import {
 } from '../scene/surface-chain.js';
 import { playReject, playTick, unlockAudio } from '../audio/synth.js';
 import { BOARD } from '../scene/layout.js';
+import { parseBoardParam } from '../scene/board-style.js';
 
 export const DESK_HEIGHT = 0.75;
 const MAX_CANDIDATES = 24;
@@ -36,6 +38,7 @@ export class SurfaceSystem extends createSystem({
   /** The kind the board was placed for in this session, null while still looking. */
   private placed: SurfaceKind | null = null;
   private force: SurfaceInput['force'];
+  private boardParam: 'solid' | null = null;
   private desk!: Mesh;
   private atelier!: Group;
   private rings!: Record<Side, Mesh>;
@@ -78,6 +81,7 @@ export class SurfaceSystem extends createSystem({
     for (let i = 0; i < MAX_CANDIDATES; i++) this.pool.push({ x: 0, y: 0, z: 0, width: 0, depth: 0, horizontal: false, source: 'plane' });
     const f = new URLSearchParams(location.search).get('surface') as SurfaceInput['force'];
     this.force = FORCE.has(f) ? f : undefined;
+    this.boardParam = parseBoardParam(new URLSearchParams(location.search).get('board'));
     this.scene.background = this.background;
     const unlock = () => unlockAudio();
     window.addEventListener('pointerdown', unlock);
@@ -199,8 +203,12 @@ export class SurfaceSystem extends createSystem({
     const at = site.position, d = c.desk;
     // The board's centre: half way along its depth, from the site towards the player (site +z).
     const mid = (BOARD.zMin + BOARD.zMax) / 2, yaw = site.rotation.y;
+    arch.placeBoard({
+      kind: c.kind, passthrough: !!this.session && this.session.environmentBlendMode !== 'opaque', desk: arch.desk,
+      site: { x: at.x, z: at.z, yaw }, override: this.boardParam,
+    });
     arch.hook.board = {
-      kind: c.kind, at: { x: at.x, y: at.y, z: at.z },
+      kind: c.kind, at: { x: at.x, y: at.y, z: at.z }, style: arch.boardLook,
       // Outside XR there is no head pose to measure from: the desk board has no height below the eyes.
       belowEyes: c.kind === 'desk' ? null : this.head.y - at.y,
       centre: { x: at.x + Math.sin(yaw) * mid, z: at.z + Math.cos(yaw) * mid },

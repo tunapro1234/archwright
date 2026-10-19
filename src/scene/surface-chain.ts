@@ -70,6 +70,8 @@ export const DESK_MAX_ANGLE = 100;
 export const DESK_UNDER_HEAD = 0.15;
 /** The board's centre keeps this far in from each edge of the desk (m; at most half the desk). */
 export const DESK_INSET = 0.1;
+/** On a desk that takes the whole board, the board's edges keep this far in from the desk's (m; placeOnDesk). */
+export const DESK_EDGE = 0.01;
 /** On a desk the site goes this far ahead of the eyes, when the board's centre lands on the desk from there. */
 export const DESK_FORWARD = 0.5;
 /** Seconds to wait for detected meshes and planes before asking the player. */
@@ -94,7 +96,35 @@ const flatDistance = (head: Vec3, c: { x: number; z: number }) => Math.hypot(c.x
  * in) nearest to `p`, worked out in the desk's own frame (its yaw); `inside` when that is `p` itself.
  */
 export function deskReachPoint(desk: SurfaceCandidate, p: { x: number; z: number }): { x: number; z: number; inside: boolean } {
-  const hw = desk.width / 2 - Math.min(DESK_INSET, desk.width / 2), hd = desk.depth / 2 - Math.min(DESK_INSET, desk.depth / 2);
+  return clampOnto(desk, p, centreRect(desk));
+}
+
+/** Half-sizes (the desk's own frame: hw along its width, hd along its depth) of the rectangle the board's centre may land in. */
+interface Inner { hw: number; hd: number }
+
+/** DESK_INSET in from each edge, at most half the desk: where deskReachPoint and isDesk let the centre land. */
+const centreRect = (desk: SurfaceCandidate): Inner =>
+  ({ hw: desk.width / 2 - Math.min(DESK_INSET, desk.width / 2), hd: desk.depth / 2 - Math.min(DESK_INSET, desk.depth / 2) });
+
+/** Half the board's footprint round its centre (m): BOARD.width across, its depth along; the centre is mid-depth. */
+const FOOT = { u: BOARD.width / 2, v: (BOARD.zMax - BOARD.zMin) / 2 };
+
+/**
+ * Where the centre of a board turned by `yaw` may land so that the whole board is on the desk: along each of the desk's
+ * axes, in from both edges by the footprint's half-extent along it plus DESK_EDGE (but never less than DESK_INSET).
+ * Null if the desk is too short for the board, so turned, along either axis.
+ */
+export function footRect(desk: SurfaceCandidate, yaw: number): Inner | null {
+  const a = yaw - (desk.yaw ?? 0), c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
+  const eu = FOOT.u * c + FOOT.v * s + DESK_EDGE, ev = FOOT.u * s + FOOT.v * c + DESK_EDGE;
+  const hw = desk.width / 2, hd = desk.depth / 2;
+  if (hw < eu - 1e-9 || hd < ev - 1e-9) return null;
+  return { hw: hw - Math.max(DESK_INSET, eu), hd: hd - Math.max(DESK_INSET, ev) };
+}
+
+/** The point of the desk's inner rectangle `r` nearest to `p`, worked out in the desk's own frame; `inside` when it is `p`. */
+function clampOnto(desk: SurfaceCandidate, p: { x: number; z: number }, r: Inner): { x: number; z: number; inside: boolean } {
+  const { hw, hd } = r;
   const c = Math.cos(desk.yaw ?? 0), s = Math.sin(desk.yaw ?? 0);
   // u along its width, v along its depth.
   const dx = p.x - desk.x, dz = p.z - desk.z, u = c * dx - s * dz, v = s * dx + c * dz;
@@ -208,21 +238,46 @@ function hull(points: readonly { x: number; z: number }[]): { x: number; z: numb
 }
 
 /**
- * Where the board stands on a desk. From DESK_FORWARD ahead of the eyes, facing where the player faces, if the
- * board's centre then lands inside the desk drawn in by DESK_INSET. Otherwise the centre moves to the nearest point
- * of that inner rectangle and the board turns so that its far end points from the head through the centre: a desk
- * off to one side gets the board on it, square to the player. Both are worked out in the desk's own frame (its yaw),
- * so a desk turned against the room's axes keeps the board inside its real edges.
+ * Where the board stands on a desk. From DESK_FORWARD ahead of the eyes, facing where the player faces, if the whole
+ * board then lies on the desk, DESK_EDGE in from its edges (footRect). Otherwise the centre moves to the nearest point
+ * where it does and the board turns so that its far end points from the head through the centre: a desk off to one side
+ * gets the board on it, square to the player. How far in the centre must be depends on how the board is turned against
+ * the desk, and that turn on where the centre lands, so the two are worked out together, in half steps until the turn
+ * settles. All of it is in the desk's own frame (its yaw), so a desk turned against the room's axes keeps the board
+ * inside its real edges. Where the whole board cannot lie on the desk within DESK_REACH (a desk too small or too narrow
+ * for it so turned), only its centre keeps DESK_INSET in, the same way round, and the board overhangs (board-style.ts:
+ * solid).
  */
 export function placeOnDesk(head: Vec3, fwd: { x: number; z: number }, desk: SurfaceCandidate): DeskPlacement {
   const x = head.x + fwd.x * DESK_FORWARD, z = head.z + fwd.z * DESK_FORWARD;
   // Site +z is towards the player (-fwd), so the centre is BOARD_CENTRE back from the site.
   const cx = x - fwd.x * BOARD_CENTRE, cz = z - fwd.z * BOARD_CENTRE;
-  const near = deskReachPoint(desk, { x: cx, z: cz });
-  if (near.inside) return { x, z, yaw: Math.atan2(-fwd.x, -fwd.z), centre: { x: cx, z: cz } };
-  // Clamped towards where the player faces, the centre may end up out of reach along a long desk off to the side:
-  // then it goes to the point within reach nearest to where the player faces.
-  const centre = flatDistance(head, near) > DESK_REACH ? reachableNearest(desk, head, { x: cx, z: cz }) : { x: near.x, z: near.z };
+  const yaw0 = Math.atan2(-fwd.x, -fwd.z);
+  const f0 = footRect(desk, yaw0);
+  if (f0 && clampOnto(desk, { x: cx, z: cz }, f0).inside) return { x, z, yaw: yaw0, centre: { x: cx, z: cz } };
+  // Half steps: a full step can swing back and forth between two turns on a desk turned against the player.
+  let yaw = yaw0;
+  for (let k = 0; k < 48; k++) {
+    const r = footRect(desk, yaw);
+    const placed = r && turnedTo(head, fwd, desk, { x: cx, z: cz }, r, false);
+    if (!placed) break;
+    const step = Math.atan2(Math.sin(placed.yaw - yaw), Math.cos(placed.yaw - yaw));
+    if (Math.abs(step) < 1e-9) return placed;
+    yaw += step / 2;
+  }
+  return turnedTo(head, fwd, desk, { x: cx, z: cz }, centreRect(desk), true)!;
+}
+
+/**
+ * The board with its centre at the point of the inner rectangle `r` nearest to `p` (clamped towards where the player
+ * faces, the centre may end up out of reach along a long desk off to the side: then the point of `r` within reach
+ * nearest to `p`), turned to face the head. Null if no point of `r` is within reach, unless `fallback`: then the point
+ * isDesk measured.
+ */
+function turnedTo(head: Vec3, fwd: { x: number; z: number }, desk: SurfaceCandidate, p: { x: number; z: number }, r: Inner, fallback: boolean): DeskPlacement | null {
+  const near = clampOnto(desk, p, r);
+  const centre = flatDistance(head, near) > DESK_REACH ? reachableNearest(desk, head, p, r, fallback) : { x: near.x, z: near.z };
+  if (!centre) return null;
   let ax = centre.x - head.x, az = centre.z - head.z;
   const d = Math.hypot(ax, az);
   if (d < 1e-6) { ax = fwd.x; az = fwd.z; } else { ax /= d; az /= d; }
@@ -230,13 +285,13 @@ export function placeOnDesk(head: Vec3, fwd: { x: number; z: number }, desk: Sur
 }
 
 /**
- * The point nearest to `p` of the desk's inset rectangle (deskReachPoint's) that is also within DESK_REACH of the head:
- * the rectangle and the reach circle are both convex, so it is the best of the projection onto either one that lies in
- * the other, each edge's nearest point within reach, and where the circle crosses the edges. isDesk has made sure the
- * two overlap; failing that, the point isDesk measured.
+ * The point nearest to `p` of the desk's inner rectangle `r` that is also within DESK_REACH of the head: the rectangle
+ * and the reach circle are both convex, so it is the best of the projection onto either one that lies in the other, each
+ * edge's nearest point within reach, and where the circle crosses the edges. For the centre rectangle isDesk has made
+ * sure the two overlap; failing that, the point isDesk measured if `fallback`, else null.
  */
-function reachableNearest(desk: SurfaceCandidate, head: Vec3, p: { x: number; z: number }): { x: number; z: number } {
-  const hw = desk.width / 2 - Math.min(DESK_INSET, desk.width / 2), hd = desk.depth / 2 - Math.min(DESK_INSET, desk.depth / 2);
+function reachableNearest(desk: SurfaceCandidate, head: Vec3, p: { x: number; z: number }, r: Inner, fallback: boolean): { x: number; z: number } | null {
+  const { hw, hd } = r;
   const c = Math.cos(desk.yaw ?? 0), s = Math.sin(desk.yaw ?? 0);
   const local = (q: { x: number; z: number }) => { const dx = q.x - desk.x, dz = q.z - desk.z; return { u: c * dx - s * dz, v: s * dx + c * dz }; };
   const h = local(head), t = local(p), R = DESK_REACH + 1e-9;
@@ -259,7 +314,11 @@ function reachableNearest(desk: SurfaceCandidate, head: Vec3, p: { x: number; z:
     if (left < 0) continue;
     for (const a of [ha - Math.sqrt(left), ha + Math.sqrt(left)]) if (Math.abs(a) <= span + 1e-9) found.push(at(a));
   }
-  if (!found.length) { const r = deskReachPoint(desk, head); return { x: r.x, z: r.z }; }
+  if (!found.length) {
+    if (!fallback) return null;
+    const q = deskReachPoint(desk, head);
+    return { x: q.x, z: q.z };
+  }
   let best = found[0];
   for (const q of found) if (Math.hypot(q.u - t.u, q.v - t.v) < Math.hypot(best.u - t.u, best.v - t.v)) best = q;
   return { x: desk.x + best.u * c + best.v * s, z: desk.z - best.u * s + best.v * c };

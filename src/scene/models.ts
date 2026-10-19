@@ -9,7 +9,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Vec2 } from '../statics/index.js';
 import type { Stroke } from '../statics/failure-view.js';
 import type { LoadKind, Material } from '../game/arch-state.js';
-import { A11Y_ICONS, A11Y_PANEL, a11yIconSpot, ABUTMENT_HEIGHT, BOARD, CENTERING, MARKER, PLAQUE, TABLET } from './layout.js';
+import { A11Y_ICONS, A11Y_PANEL, a11yIconSpot, ABUTMENT_HEIGHT, BOARD, CENTERING, MARKER, PLAQUE, TABLET, TRAY } from './layout.js';
 import { COLORS, paint, type PaletteKey } from './palette.js';
 import { MATERIAL_COLOR } from './meshes.js';
 
@@ -356,6 +356,35 @@ export function boardMesh(material: MeshStandardMaterial): Mesh {
   g.translate(0, -BOARD.thickness / 2, (BOARD.zMin + BOARD.zMax) / 2);
   const m = new Mesh(g, material);
   m.name = 'board';
+  return m;
+}
+
+/** The board drawn as its edge only (src/scene/board-style.ts 'frame'): band `band` wide round it, `thick` deep under
+ *  its top; felt `felt` thick under the tray, inside the band from TRAY.z less `trayPad` to the near band. */
+export const BOARD_FRAME = { band: 0.008, thick: 0.006, felt: 0.0015, trayPad: 0.012 } as const;
+
+/** The stone frame round the board's edge, its top level with the board's (y = 0): four bars in one geometry. */
+export function boardFrame(material: MeshStandardMaterial): Mesh {
+  const { band, thick } = BOARD_FRAME, w = BOARD.width, d = BOARD.zMax - BOARD.zMin;
+  const bar = (sx: number, sz: number, x: number, z: number) => new BoxGeometry(sx, thick, sz).translate(x, -thick / 2, z);
+  const parts = [
+    bar(w, band, 0, BOARD.zMin + band / 2),
+    bar(w, band, 0, BOARD.zMax - band / 2),
+    bar(band, d - 2 * band, -w / 2 + band / 2, (BOARD.zMin + BOARD.zMax) / 2),
+    bar(band, d - 2 * band, w / 2 - band / 2, (BOARD.zMin + BOARD.zMax) / 2),
+  ];
+  const m = new Mesh(mergeGeometries(parts)!, material);
+  for (const g of parts) g.dispose();
+  m.name = 'board-frame';
+  return m;
+}
+
+/** The felt the tray's stones wait on in the frame style: inside the band, its top level with the board's. */
+export function trayFelt(material: MeshStandardMaterial): Mesh {
+  const { band, felt, trayPad } = BOARD_FRAME, z0 = TRAY.z - trayPad, z1 = BOARD.zMax - band;
+  const g = new BoxGeometry(BOARD.width - 2 * band, felt, z1 - z0).translate(0, -felt / 2, (z0 + z1) / 2);
+  const m = new Mesh(g, material);
+  m.name = 'tray-felt';
   return m;
 }
 

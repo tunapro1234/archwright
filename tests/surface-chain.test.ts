@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  chooseSurface, DESK_FORWARD, DESK_INSET, DESK_MAX_ANGLE, DESK_REACH, DESK_TIE, deskReachPoint, deskRect, inFront, isDesk, LAP_BELOW_EYES, PICK_UNTIL, placeOnDesk,
+  chooseSurface, DESK_EDGE, DESK_FORWARD, DESK_INSET, DESK_MAX_ANGLE, DESK_REACH, DESK_TIE, deskReachPoint, deskRect, footRect, inFront, isDesk, LAP_BELOW_EYES, PICK_UNTIL, placeOnDesk,
   ROOM_WAIT, type DeskPlacement, type SurfaceCandidate, type SurfaceInput,
 } from '../src/scene/surface-chain.js';
 import { BOARD } from '../src/scene/layout.js';
+import { footprintInsideDesk } from '../src/scene/board-style.js';
 
 const head = { x: 0.3, y: 1.15, z: 0.2 };
 const top = (o: Partial<SurfaceCandidate> = {}): SurfaceCandidate =>
@@ -97,8 +98,8 @@ describe('placeOnDesk', () => {
     expect(deg(far(r), r.centre)).toBeLessThan(1e-6);
   });
 
-  it('the centre goes to the nearest point of the inner rectangle (a side and a corner)', () => {
-    const m = desk(0, -0.75, 1.0, 0.4); // near edge z = -0.55
+  it('too shallow for the whole board: the centre goes to the nearest point of the inner rectangle (a side and a corner)', () => {
+    const m = desk(0, -0.725, 1.0, 0.35); // near edge z = -0.55; the board needs 0.38 + 2 x DESK_EDGE
     const edge = placeOnDesk(eyes, { x: 0, z: -1 }, m);
     expect(edge.centre.x).toBeCloseTo(0, 9);
     expect(edge.centre.z).toBeCloseTo(-0.55 - DESK_INSET, 9);
@@ -390,14 +391,20 @@ describe('desk reach: where the board lands and which desk wins', () => {
       if (deskReachPoint(desk, want).inside) continue;
       clamped++;
       expect(Math.hypot(p.centre.x, p.centre.z)).toBeLessThanOrEqual(DESK_REACH + 1e-6);
-      const back = deskReachPoint(desk, p.centre); // on the rectangle (its edge, to rounding)
-      expect(Math.hypot(back.x - p.centre.x, back.z - p.centre.z)).toBeLessThan(1e-9);
+      // The rectangle it clamped to: the whole board's (footRect, at the yaw it settled on) if the board is on the desk,
+      // else the centre's (deskReachPoint's).
+      const cs = Math.cos(desk.yaw ?? 0), sn = Math.sin(desk.yaw ?? 0);
+      const local = (q: { x: number; z: number }) =>
+        ({ u: cs * (q.x - desk.x) - sn * (q.z - desk.z), v: sn * (q.x - desk.x) + cs * (q.z - desk.z) });
+      const whole = footprintInsideDesk(p, { cx: desk.x, cz: desk.z, y: desk.y, width: desk.width, depth: desk.depth, yaw: desk.yaw ?? 0 });
+      const rect = whole ? footRect(desk, p.yaw)! : { hw: desk.width / 2 - DESK_INSET, hd: desk.depth / 2 - DESK_INSET };
+      const inRect = (q: { x: number; z: number }) => { const l = local(q); return Math.abs(l.u) <= rect.hw + 1e-9 && Math.abs(l.v) <= rect.hd + 1e-9; };
+      expect(inRect(p.centre)).toBe(true);
       // Brute force over the desk's top on a 5 mm grid.
       const got = Math.hypot(p.centre.x - want.x, p.centre.z - want.z);
-      const cs = Math.cos(desk.yaw ?? 0), sn = Math.sin(desk.yaw ?? 0);
       for (let u = -desk.width / 2; u <= desk.width / 2; u += 0.005) for (let v = -desk.depth / 2; v <= desk.depth / 2; v += 0.005) {
         const q = { x: desk.x + u * cs + v * sn, z: desk.z - u * sn + v * cs };
-        if (Math.hypot(q.x, q.z) > DESK_REACH || !deskReachPoint(desk, q).inside) continue;
+        if (Math.hypot(q.x, q.z) > DESK_REACH || !inRect(q)) continue;
         expect(Math.hypot(q.x - want.x, q.z - want.z)).toBeGreaterThan(got - 1e-6);
       }
     }
@@ -409,5 +416,80 @@ describe('desk reach: where the board lands and which desk wins', () => {
     const small: SurfaceCandidate = { x: 0.2, y: 0.75, z: -0.7, width: 0.3, depth: 0.2, yaw: 0, horizontal: true, source: 'plane' };
     expect(Math.hypot(small.x, small.z)).toBeLessThan(Math.hypot(deep.x, deep.z));
     expect(chooseSurface(facing([small, deep])).desk).toEqual(deep);
+  });
+});
+
+describe('the whole board on the desk', () => {
+  const eyes = { x: 0, y: 1.15, z: 0 };
+  // The office_small room's table (uretim/rapor/oda-matris-v2.json): 1.60 x 0.75 m, its near edge 0.27 m ahead.
+  const office = (yaw: number, x = 0.06, z = -0.655): SurfaceCandidate =>
+    ({ x, y: 0.745, z, width: 1.6, depth: 0.75, yaw, horizontal: true, source: 'plane' });
+  const top = (m: SurfaceCandidate) => ({ cx: m.x, cz: m.z, y: m.y, width: m.width, depth: m.depth, yaw: m.yaw ?? 0 });
+  const heading = (deg: number) => { const r = (deg * Math.PI) / 180; return { x: -Math.sin(r), z: -Math.cos(r) }; };
+
+  it('on the office_small table, turned 0, 30 or 90 degrees, all four corners are DESK_EDGE in, whichever way the player faces', () => {
+    let n = 0;
+    for (const yaw of [0, Math.PI / 6, Math.PI / 2]) for (let deg = -90; deg <= 90; deg += 15) {
+      const m = office(yaw), fwd = heading(deg);
+      if (chooseSurface({ inXR: true, passthrough: true, head: eyes, fwd, candidates: [m], hitTest: true, elapsed: 2 }).desk === undefined) continue;
+      const p = placeOnDesk(eyes, fwd, m);
+      expect(footprintInsideDesk(p, top(m)), `yaw ${yaw}, facing ${deg}°`).toBe(true);
+      expect(Math.hypot(p.centre.x - eyes.x, p.centre.z - eyes.z)).toBeLessThanOrEqual(DESK_REACH + 1e-9);
+      n++;
+    }
+    expect(n).toBeGreaterThan(20);
+  });
+
+  it('facing the table, the board moves back just far enough: its near edge DESK_EDGE in from the table\'s', () => {
+    const m = office(0, 0, -0.655);
+    const p = placeOnDesk(eyes, { x: 0, z: -1 }, m);
+    expect(p.yaw).toBeCloseTo(0, 9);
+    expect(p.x).toBeCloseTo(0, 9);
+    expect(p.z + BOARD.zMax).toBeCloseTo(m.z + m.depth / 2 - DESK_EDGE, 9);
+    expect(footprintInsideDesk(p, top(m))).toBe(true);
+  });
+
+  it('a board that is on the desk as it is stays where DESK_FORWARD puts it; one that overhangs moves back', () => {
+    const m = office(0, 0, -0.8); // near edge -0.425, and the board's would be at -0.5 + 0.30 = -0.2
+    const deep = { ...m, z: -0.6, depth: 1.2 }; // near edge 0.0
+    const p = placeOnDesk(eyes, { x: 0, z: -1 }, deep);
+    expect(p.x).toBeCloseTo(0, 9);
+    expect(p.z).toBeCloseTo(-DESK_FORWARD, 9);
+    expect(placeOnDesk(eyes, { x: 0, z: -1 }, m).z).toBeLessThan(-DESK_FORWARD);
+  });
+
+  it('a desk too narrow for the board keeps the old rule: only the centre DESK_INSET in', () => {
+    for (const m of [office(0, 0, -0.5), { ...office(0, 0, -0.6), width: 0.4, depth: 0.6 }, { ...office(0, 0, -0.6), depth: 0.3 }]) {
+      const narrow = m.width < BOARD.width + 2 * DESK_EDGE || m.depth < BOARD.zMax - BOARD.zMin + 2 * DESK_EDGE;
+      if (!narrow) continue;
+      expect(footRect(m, 0)).toBeNull();
+      const p = placeOnDesk(eyes, { x: 0, z: -1 }, m);
+      const r = deskReachPoint(m, p.centre);
+      expect(Math.hypot(r.x - p.centre.x, r.z - p.centre.z)).toBeLessThan(1e-9);
+      expect(footprintInsideDesk(p, top(m))).toBe(false);
+    }
+    // 0.40 x 0.60: the old clamp exactly (centre 0.10 in from the near edge at -0.3).
+    const p = placeOnDesk(eyes, { x: 0, z: -1 }, { ...office(0, 0, -0.6), width: 0.4, depth: 0.6 });
+    expect(p.centre.z).toBeCloseTo(-0.4, 9);
+  });
+
+  it('footRect: the turn matters, never less than DESK_INSET in, null when the board cannot fit so turned', () => {
+    const m = office(0);
+    const r0 = footRect(m, 0)!, r90 = footRect(m, Math.PI / 2)!;
+    expect(r0.hw).toBeCloseTo(0.8 - BOARD.width / 2 - DESK_EDGE, 9);
+    expect(r0.hd).toBeCloseTo(0.375 - (BOARD.zMax - BOARD.zMin) / 2 - DESK_EDGE, 9);
+    expect(r90.hw).toBeCloseTo(0.8 - (BOARD.zMax - BOARD.zMin) / 2 - DESK_EDGE, 9);
+    expect(r90.hd).toBeCloseTo(0.375 - BOARD.width / 2 - DESK_EDGE, 9);
+    // The desk's own turn counts the same as the board's.
+    const t = footRect(office(0.4), 0.4)!;
+    expect(t.hw).toBeCloseTo(r0.hw, 9);
+    expect(t.hd).toBeCloseTo(r0.hd, 9);
+    // A desk with room to spare: still DESK_INSET in.
+    const big = footRect({ ...m, width: 3, depth: 3 }, 0)!;
+    expect(big.hw).toBeLessThanOrEqual(1.5 - DESK_INSET);
+    // 0.48 x 0.40 takes the board square on, not at 45 degrees.
+    const tight = { ...m, width: 0.48, depth: 0.4 };
+    expect(footRect(tight, 0)).not.toBeNull();
+    expect(footRect(tight, Math.PI / 4)).toBeNull();
   });
 });

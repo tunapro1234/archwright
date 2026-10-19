@@ -16,12 +16,13 @@ import {
   abutments, ABUTMENT_HEIGHT, ashlarBlocks, BOARD, centeringTop, PIER_EXTRA, PLAQUE, facePose, loadRest, shapeKey, stoneOutline, trayPoses, type Pose2,
 } from '../scene/layout.js';
 import {
-  abutmentMaterial, ashlarMaterial, ashlarMesh, blobShadow, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, loadMaterials, loadMesh, memoryMesh, plaqueMesh, prism, stoneMaterial,
-  woodMaterial,
+  abutmentMaterial, ashlarMaterial, ashlarMesh, blobShadow, boardFrame, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, loadMaterials, loadMesh, memoryMesh, plaqueMesh, prism, stoneMaterial,
+  trayFelt, woodMaterial,
 } from '../scene/models.js';
 import { freeObjects } from '../scene/free.js';
 import { MATERIAL_COLOR } from '../scene/meshes.js';
-import { COLORS, onRepaint } from '../scene/palette.js';
+import { COLORS, HIGH_CONTRAST, onRepaint, paletteIs } from '../scene/palette.js';
+import { boardStyle, type BoardStyle, type BoardStyleInput } from '../scene/board-style.js';
 import type { SurfaceKind } from '../scene/surface-chain.js';
 import type { HandplayHook } from '../systems/handplay.js';
 import type { EmulatorHook } from '../emulator/emulator.js';
@@ -75,9 +76,11 @@ export interface Hook {
   /** Where the board went last (SurfaceSystem): the surface kind, the board's top in world space, how far below the eyes
    *  (null outside XR), the board's centre (world x, z) and, on a detected desk (mesh, plane), that desk's top (null
    *  otherwise): its own rectangle (centre cx, cz, width, depth, turned by yaw radians as rotationY) and the world
-   *  x/z box round it. */
+   *  x/z box round it; and how the board is drawn there now (src/scene/board-style.ts: 'frame' on a detected desk in
+   *  passthrough, else 'solid'). */
   board?: {
     kind: SurfaceKind; at: { x: number; y: number; z: number }; belowEyes: number | null;
+    style: BoardStyle;
     centre: { x: number; z: number } | null;
     desk: {
       minX: number; maxX: number; minZ: number; maxZ: number; y: number;
@@ -236,6 +239,14 @@ export class ArchRuntime {
   private readonly woodMat = woodMaterial();
   private readonly loadMats = loadMaterials();
   private readonly boardMat = flatMaterial('board');
+  /** This level's solid board, and the frame and felt drawn instead of it in the frame style (built once, kept). */
+  private board?: Mesh;
+  private readonly frame: Mesh;
+  private readonly felt: Mesh;
+  /** How the board is drawn now, and where it stands for that (SurfaceSystem, placeBoard): kept so a palette change
+   *  (high contrast on or off) can work the style out again. */
+  boardLook: BoardStyle = 'solid';
+  private boardWhere: Omit<BoardStyleInput, 'highContrast'> | null = null;
   /** Snap ghosts, one per hand: where the stone that hand holds would seat (desktop mode: one per face). */
   readonly ghosts: Record<Side, Mesh>;
   private readonly proxyMat = new MeshBasicMaterial({ visible: false });
@@ -274,17 +285,44 @@ export class ArchRuntime {
     // Aimed at the board wherever it stands (the default target is the world origin, under the player).
     sun.target.userData.keep = true;
     this.site.add(sun.target);
+    this.frame = boardFrame(flatMaterial('frame'));
+    this.felt = trayFelt(flatMaterial('felt'));
+    for (const m of [this.frame, this.felt]) {
+      m.userData.keep = true; // survives load()
+      m.visible = false;
+      this.site.add(m);
+    }
     this.ghosts = { left: ghostMesh('ghost-left'), right: ghostMesh('ghost-right') };
     for (const g of Object.values(this.ghosts)) world.createTransformEntity(g, { persistent: true });
     onRepaint(() => this.repaint());
   }
 
-  /** The palette changed (high-contrast mode): stone tints and the line of thrust follow it. */
+  /** The palette changed (high-contrast mode): stone tints and the line of thrust follow it, and the board's style. */
   private repaint(): void {
+    this.restyleBoard();
     for (const v of this.stones) this.tint(v);
     if (this.thrustLine) ((this.thrustLine as Mesh).material as MeshBasicMaterial).color.setHex(COLORS.thrust);
     if (this.failureMarks) (this.failureMarks.material as MeshBasicMaterial).color.setHex(COLORS.thrustFail);
     if (this.memoryRings) (this.memoryRings.material as MeshBasicMaterial).color.setHex(COLORS.thrustFail);
+  }
+
+  /** SurfaceSystem put the board here: work out its style (src/scene/board-style.ts) and draw it so. */
+  placeBoard(where: Omit<BoardStyleInput, 'highContrast'>): void {
+    this.boardWhere = where;
+    this.restyleBoard();
+  }
+
+  private restyleBoard(): void {
+    const w = this.boardWhere;
+    this.setBoardStyle(w ? boardStyle({ ...w, highContrast: paletteIs(HIGH_CONTRAST) }) : 'solid');
+  }
+
+  /** Draw the board solid, or as its frame and the felt under the tray (the real desk shows through); the hook says which. */
+  setBoardStyle(s: BoardStyle): void {
+    this.boardLook = s;
+    if (this.board) this.board.visible = s === 'solid';
+    this.frame.visible = this.felt.visible = s === 'frame';
+    if (this.hook.board) this.hook.board.style = s;
   }
 
   /** A stone's colour from the palette, HOVER_LIGHTEN lighter while it is the hover stone. */
@@ -334,7 +372,8 @@ export class ArchRuntime {
     }
 
     const add = (o: Object3D) => { this.site.add(o); this.levelObjects.push(o); return o; };
-    add(boardMesh(this.boardMat));
+    this.board = add(boardMesh(this.boardMat)) as Mesh;
+    this.board.visible = this.boardLook === 'solid';
     add(blobShadow(def.span + 0.16, def.depth + 0.14)).position.set(0, 0.0006, 0);
     // Two piers of cut stone, two courses each, in one mesh.
     add(ashlarMesh(abutments(def).flatMap(a => ashlarBlocks(a, def.depth + PIER_EXTRA)), this.ashlarMat));
@@ -429,6 +468,7 @@ export class ArchRuntime {
     if (this.memoryRings) roots.push(this.memoryRings);
     freeObjects(roots, new Set<Material>([this.stoneMat, this.abutmentMat, this.ashlarMat, this.woodMat, this.boardMat, this.proxyMat, ...Object.values(this.loadMats)]));
     this.levelObjects = [];
+    this.board = undefined;
     this.stones = [];
     this.batches = [];
     this.loads = [];
