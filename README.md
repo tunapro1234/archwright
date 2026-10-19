@@ -412,7 +412,7 @@ numbers are in `window.__archwright.perf` every frame, in XR as well (`p50` and 
 
 When an XR session that drew at least one frame ends, a **Send device report** link appears next to the Enter AR / Enter VR
 buttons. It is a link to a new GitHub issue with the same numbers as of the session's last frame, one `key: value` per line:
-build, browser (`ua`, name and version only), the session mode and its environment blend mode, where the board went (`surface`),
+build, browser (`ua`: the short form of the `?debug` slate, e.g. `OculusBrowser/<version>`), the session mode and its environment blend mode, where the board went (`surface`),
 the detected planes and meshes with their labels, the input profiles, the median and slow-frame rates over the last frames, and
 the session's enabled features (`src/game/debug.ts` `reportBody`; `.github/ISSUE_TEMPLATE/quest-report.md` has the same fields to
 fill by hand). The page makes no request for it: the link opens the issue form, and only the player sends it. Each session
