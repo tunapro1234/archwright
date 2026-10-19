@@ -55,7 +55,10 @@ try {
   const t0 = Date.now();
   while (taken.length < SHOTS.length && Date.now() - t0 < 480_000) {
     const shot = await page.evaluate(() => window.__archwright?.shot ?? null);
-    if (shot) {
+    if (shot && taken.includes(shot)) {
+      // Each run holds at its own key frames; the hold run's are kept, the collapse run's repeats are passed.
+      await page.evaluate(() => { window.__archwright.shot = undefined; });
+    } else if (shot) {
       await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))); // two frames drawn in the hold
       const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
       writeFileSync(join(outDir, `dilim-${shot}.png`), Buffer.from(data, 'base64'));

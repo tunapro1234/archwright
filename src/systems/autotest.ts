@@ -4,7 +4,7 @@
 // Several runs can be chained with ';', e.g. ?autotest=w1-1:hold;w1-1:collapse. In XR (?autoxr) it
 // waits for the session and for the board to stand on its surface.
 // With &shots=1 it also holds at seven key frames (tray, ghost, keystone, pulling, held,
-// collapse-mid, collapsed), naming each in window.__archwright.shot until the test clears it. Slow
+// collapse-mid, collapsed), once per run, naming each in window.__archwright.shot until the test clears it. Slow
 // software rendering would otherwise rush past the short moments between two screenshots. For
 // 'ghost' the keystone is shown hovering above its gap with the snap ghost lit, as a hand would hold it.
 import { createSystem } from '@iwsdk/core';
@@ -53,10 +53,12 @@ export class AutotestSystem extends createSystem({}) {
     this.awaitXR = params.get('emulator') === '1' && !!params.get('autoxr');
   }
 
-  /** Hold for a key frame (once per name). True when the autotest should wait this frame. */
+  /** Hold for a key frame (once per name in each run: a second run on the same level has its own 'tray'). True when the
+   *  autotest should wait this frame. */
   private shot(arch: ArchRuntime, name: string): boolean {
-    if (!this.shots || this.taken.has(name)) return false;
-    this.taken.add(name);
+    const key = `${this.run}:${name}`;
+    if (!this.shots || this.taken.has(key)) return false;
+    this.taken.add(key);
     arch.hook.shot = name;
     return true;
   }
@@ -83,7 +85,7 @@ export class AutotestSystem extends createSystem({}) {
         if (this.next === 0 && this.shot(arch, 'tray')) return;
         const s = this.steps[this.next];
         const v = arch.stoneById(s.stone);
-        if (v && this.next === this.steps.length - 1 && this.shots && !this.taken.has('ghost')) {
+        if (v && this.next === this.steps.length - 1 && this.shots && !this.taken.has(`${this.run}:ghost`)) {
           const t = arch.targets(v).find(q => q.side === s.side);
           if (t) {
             v.tween = undefined;
