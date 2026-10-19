@@ -4,9 +4,13 @@
 // part (taking the collapse request) is one line here.
 import { describe, expect, it } from 'vitest';
 import { Object3D, type Mesh, type MeshBasicMaterial } from '@iwsdk/core';
+import { memoryMesh } from '../src/scene/models.js';
+import { memoryStrokes } from '../src/statics/failure-view.js';
 import { createLevel, placeStone, type GameState } from '../src/game/arch-state.js';
 import { LEVELS } from '../src/levels/index.js';
 import { FAIL_OUT, FAIL_REST, SILENCE, StaticsSystem } from '../src/systems/statics.js';
+
+type Memory = { level: string; joints: number[] } | null;
 
 function run(steps: 'trap' | 'solution') {
   const def = LEVELS.find(l => l.id === 'w1-1')!;
@@ -14,8 +18,13 @@ function run(steps: 'trap' | 'solution') {
   for (const st of def[steps]) state = placeStone(state, st.stone, st.side);
   const arch = {
     def, state, site: new Object3D(), strikeRequested: true, collapseRequested: false,
-    hook: { state: 'ready', failure: null, marks: null } as { state: string; failure: unknown; marks: number | null },
-  } as Record<string, unknown> & { hook: { marks: number | null }; site: Object3D; failureMarks?: Mesh; collapseRequested: boolean };
+    hook: { state: 'ready', failure: null, marks: null, failureMemory: null } as
+      { state: string; failure: unknown; marks: number | null; failureMemory: Memory },
+    fall: null,
+  } as Record<string, unknown> & {
+    hook: { marks: number | null; failure: { joints: number[] } | null; failureMemory: Memory }; site: Object3D; failureMarks?: Mesh;
+    collapseRequested: boolean; fall: { level: string; joints: number[] } | null; memoryRings?: Mesh;
+  };
   const sys = Object.create(StaticsSystem.prototype) as StaticsSystem;
   Object.assign(sys, { world: { globals: { arch } }, pending: -1, glow: 0, failIn: 0, failOut: -1 });
   let t = 0;
@@ -55,5 +64,42 @@ describe('failure marks after a collapse', () => {
     while (at() < SILENCE + 2) frame();
     expect(arch.failureMarks).toBeUndefined();
     expect(arch.hook.marks).toBeNull();
+  });
+});
+
+describe('the last collapse\'s rings (the same level built again) go at the next strike', () => {
+  // As ArchRuntime.load() leaves a w1-1 rebuilt after a fall: the rings up, failureMemory set.
+  function rebuilt(steps: 'trap' | 'solution') {
+    const r = run(steps);
+    const rings = memoryMesh(memoryStrokes([{ x: 0, y: 0.1 }, { x: 0.05, y: 0.08 }]), 0.05, 0.175);
+    r.arch.site.add(rings);
+    r.arch.memoryRings = rings;
+    r.arch.fall = { level: 'w1-1', joints: [2, 5] };
+    r.arch.hook.failureMemory = { level: 'w1-1', joints: [2, 5] };
+    return { ...r, rings };
+  }
+
+  it('it holds: no rings, nothing remembered', () => {
+    const { arch, frame, rings } = rebuilt('solution');
+    const freed: string[] = [];
+    rings.geometry.addEventListener('dispose', () => freed.push('geometry'));
+    (rings.material as MeshBasicMaterial).addEventListener('dispose', () => freed.push('material'));
+    frame();
+    expect(arch.memoryRings).toBeUndefined();
+    expect(rings.parent).toBeNull();
+    expect(freed).toEqual(['geometry', 'material']); // freed on the GPU too (no leak per rebuild)
+    expect(arch.hook.failureMemory).toBeNull();
+    expect(arch.fall).toBeNull();
+  });
+
+  it('it falls again: the old rings go, this fall\'s joints are what the next rebuild marks', () => {
+    const { arch, frame, rings } = rebuilt('trap');
+    frame();
+    expect(arch.memoryRings).toBeUndefined();
+    expect(rings.parent).toBeNull();
+    expect(arch.hook.failureMemory).toBeNull();
+    expect(arch.fall!.level).toBe('w1-1');
+    expect(arch.fall!.joints).toEqual(arch.hook.failure!.joints);
+    expect(arch.fall!.joints.length).toBeGreaterThan(0);
   });
 });

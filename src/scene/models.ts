@@ -427,6 +427,18 @@ export function failureMesh(strokes: Stroke[], z: number): Mesh {
   return m;
 }
 
+/** The last collapse's broken joints on the same level built again (src/statics/failure-view.ts memoryStrokes): small
+ *  rings, one mesh, in the failure colour at half the marks' resting opacity, drawn over the snap ghosts. */
+export function memoryMesh(strokes: Stroke[], z: number, opacity: number): Mesh {
+  const m = failureMesh(strokes, z);
+  m.name = 'failure-memory';
+  const mat = m.material as MeshBasicMaterial;
+  mat.opacity = opacity;
+  mat.depthWrite = false;
+  m.renderOrder = 4; // after the ghosts (3), which write no depth either
+  return m;
+}
+
 /** Boxes ({size, centre}) welded into one geometry, so a piece of furniture is one draw call. */
 function boxes(parts: { w: number; h: number; d: number; x: number; y: number; z: number }[]): BufferGeometry {
   const pos: number[] = [], nor: number[] = [], uv: number[] = [];

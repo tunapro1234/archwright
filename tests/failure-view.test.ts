@@ -3,11 +3,12 @@
 import { describe, expect, it } from 'vitest';
 import { semicircularArch, solveArch, type Arch, type SolveResult } from '../src/statics/index.js';
 import {
-  crackPath, DASH, failureMarks, failureStrokes, hingeEdge, inMasonry, jointOffset, STROKE,
+  carryJoints, crackPath, DASH, failureMarks, failureStrokes, hingeEdge, inMasonry, jointMid, jointOffset, MEMORY_RING, memoryStrokes,
+  rememberFall, STROKE,
 } from '../src/statics/failure-view.js';
 import { createLevel, placeStone, strike, buildArch } from '../src/game/arch-state.js';
 import { LEVELS } from '../src/levels/index.js';
-import { failureMesh } from '../src/scene/models.js';
+import { failureMesh, memoryMesh } from '../src/scene/models.js';
 import { HIGH_CONTRAST, PALETTE } from '../src/scene/palette.js';
 
 const thick = semicircularArch({ R: 1, t: 0.2, n: 9 });
@@ -199,5 +200,81 @@ describe('failureMesh', () => {
   it('the high-contrast palette has its own failure colour, apart from its line of thrust', () => {
     expect(HIGH_CONTRAST.thrustFail).not.toBe(HIGH_CONTRAST.thrust);
     expect(PALETTE.thrustFail).not.toBe(PALETTE.thrust);
+  });
+});
+
+describe('the last collapse, on the same level built again (carryJoints, rememberFall, memoryStrokes)', () => {
+  // Every level's trap, struck: what it leaves to remember.
+  const falls = LEVELS.map(def => {
+    let s = createLevel(def);
+    for (const st of def.trap) s = placeStone(s, st.stone, st.side);
+    const { state, result } = strike(s);
+    const arch = buildArch(state);
+    return { def, arch, marks: failureMarks(result, arch) };
+  });
+
+  it('17 traps: one ring per broken joint, centred on that joint\'s middle as it was when the arch fell', () => {
+    expect(falls).toHaveLength(17);
+    for (const { def, arch, marks } of falls) {
+      const mem = rememberFall(def.id, marks, arch)!;
+      expect(mem.joints, def.id).toEqual(marks.joints);
+      const carried = carryJoints(mem, def);
+      expect(carried, def.id).toEqual(marks.joints);
+      const rings = memoryStrokes(mem.at);
+      expect(rings, def.id).toHaveLength(carried.length);
+      carried.forEach((j, i) => {
+        const [a, b] = arch.joints[j];
+        const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const pts = rings[i].points.slice(0, -1);
+        const mid = { x: pts.reduce((t, p) => t + p.x, 0) / pts.length, y: pts.reduce((t, p) => t + p.y, 0) / pts.length };
+        expect(Math.hypot(mid.x - c.x, mid.y - c.y), `${def.id} joint ${j}`).toBeLessThan(1e-6);
+        expect(jointMid(arch, j)).toEqual(c);
+      });
+    }
+  });
+
+  it('another level: nothing carried, no rings; nothing remembered at all: none either', () => {
+    for (const [i, { def, arch, marks }] of falls.entries()) {
+      const other = falls[(i + 1) % falls.length].def;
+      const mem = rememberFall(def.id, marks, arch);
+      expect(carryJoints(mem, other), `${def.id} → ${other.id}`).toEqual([]);
+      expect(carryJoints(null, def)).toEqual([]);
+    }
+  });
+
+  it('a held arch, an open one or a strike naming no joint leaves nothing to remember', () => {
+    const def = LEVELS[0];
+    let s = createLevel(def);
+    for (const st of def.solution) s = placeStone(s, st.stone, st.side);
+    const held = strike(s);
+    expect(rememberFall(def.id, failureMarks(held.result, buildArch(held.state)), buildArch(held.state))).toBeNull();
+    const open = { kind: 'hinge', line: null, outside: [], joints: [] } as const;
+    expect(rememberFall(def.id, { ...open, outside: [], joints: [] }, null)).toBeNull();
+    expect(rememberFall(def.id, { ...open, outside: [], joints: [] }, buildArch(held.state))).toBeNull();
+  });
+
+  it('carryJoints hands back a copy: the memory stays as it was', () => {
+    const prev = { level: 'w1-1', joints: [2, 5] };
+    const out = carryJoints(prev, { id: 'w1-1' });
+    out.push(9);
+    expect(prev.joints).toEqual([2, 5]);
+  });
+
+  it('small rings (under 14 mm across), one mesh at half the resting opacity, in the failure colour', () => {
+    expect(2 * (MEMORY_RING.radius + MEMORY_RING.tube)).toBeLessThanOrEqual(0.014);
+    const { def, arch, marks } = falls[0];
+    const mem = rememberFall(def.id, marks, arch)!;
+    const m = memoryMesh(memoryStrokes(mem.at), 0.05, 0.175);
+    expect(m.name).toBe('failure-memory');
+    expect(m.children).toHaveLength(0);
+    const mat = m.material as { color: { getHex(): number }; opacity: number; transparent: boolean; depthWrite: boolean };
+    expect(mat.color.getHex()).toBe(PALETTE.thrustFail);
+    expect(mat.opacity).toBe(0.175);
+    expect(mat.depthWrite).toBe(false);
+    const pos = m.geometry.getAttribute('position');
+    for (let i = 0; i < pos.count; i++) {
+      const near = mem.at.some(c => Math.hypot(pos.getX(i) - c.x, pos.getY(i) - c.y) <= MEMORY_RING.radius + MEMORY_RING.tube + 1e-6);
+      expect(near).toBe(true);
+    }
   });
 });

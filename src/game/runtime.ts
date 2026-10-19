@@ -8,7 +8,7 @@ import {
   createLevel, placeStone, takeBack, whyNot, type GameState, type LevelDef, type Load, type Side, type Step, type StoneDef,
 } from './arch-state.js';
 import type { SolveResult } from '../statics/index.js';
-import type { FailureKind } from '../statics/failure-view.js';
+import { carryJoints, memoryStrokes, MEMORY_RING, type FailureKind, type FallMemory } from '../statics/failure-view.js';
 import { LEVELS } from '../levels/index.js';
 import { dailyDate, dailyLevel, localDateISO } from './daily.js';
 import type { A11ySettings } from './a11y.js';
@@ -16,7 +16,7 @@ import {
   abutments, ABUTMENT_HEIGHT, ashlarBlocks, BOARD, centeringTop, PIER_EXTRA, PLAQUE, facePose, loadRest, shapeKey, stoneOutline, trayPoses, type Pose2,
 } from '../scene/layout.js';
 import {
-  abutmentMaterial, ashlarMaterial, ashlarMesh, blobShadow, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, loadMaterials, loadMesh, plaqueMesh, prism, stoneMaterial,
+  abutmentMaterial, ashlarMaterial, ashlarMesh, blobShadow, boardMesh, centeringMesh, flatMaterial, ghostColor, ghostMesh, loadMaterials, loadMesh, memoryMesh, plaqueMesh, prism, stoneMaterial,
   woodMaterial,
 } from '../scene/models.js';
 import { freeObjects } from '../scene/free.js';
@@ -24,6 +24,7 @@ import { MATERIAL_COLOR } from '../scene/meshes.js';
 import { COLORS, onRepaint } from '../scene/palette.js';
 import type { SurfaceKind } from '../scene/surface-chain.js';
 import type { HandplayHook } from '../systems/handplay.js';
+import { FAIL_REST } from '../systems/statics.js';
 import type { EmulatorHook } from '../emulator/emulator.js';
 import type { GazeLook } from '../systems/grab-snap.js';
 import type { XRButton } from './xr-entry.js';
@@ -120,6 +121,10 @@ export interface Hook {
   /** The failure marks' opacity now (src/systems/statics.ts): up after a failed strike, FAIL_REST once the stones have
    *  fallen; null when there are none (no failed strike, an open arch, or after the level is cleared). */
   marks: number | null;
+  /** The last collapse, still marked when the same level is built again (rebuild, the autotest's next run, its marker):
+   *  the level and the joints it broke at, a small ring on each where the arch stands; null after the next strike, on
+   *  another level, or when there is none. */
+  failureMemory: { level: string; joints: number[] } | null;
   /** Havok (src/systems/collapse.ts): when physics was registered and when its WASM was ready (performance.now ms);
    *  null until then. Registered once the board has been shown and the page is idle, or at the first stone. */
   physics: { registered: number | null; ready: number | null };
@@ -189,6 +194,10 @@ export class ArchRuntime {
   thrustLine?: Mesh;
   /** Why a struck arch falls, drawn over it from the strike until the collapse is under way (StaticsSystem). */
   failureMarks?: Mesh;
+  /** The last collapse on this level (StaticsSystem sets it at the strike, null when it held), kept while the same level
+   *  is built again and dropped on another; its rings, while shown (load() puts them up, the next strike takes them). */
+  fall: FallMemory | null = null;
+  memoryRings?: Mesh;
   result?: SolveResult;
   /** Set by CenteringSystem (or autotest) when the centering clears the stones. */
   strikeRequested = false;
@@ -236,6 +245,7 @@ export class ArchRuntime {
       handHover: null,
       failure: null,
       marks: null,
+      failureMemory: null,
       physics: { registered: null, ready: null },
       hands: {
         left: { tracked: false, pinching: false, palmUp: false },
@@ -267,6 +277,7 @@ export class ArchRuntime {
     for (const v of this.stones) this.tint(v);
     if (this.thrustLine) ((this.thrustLine as Mesh).material as MeshBasicMaterial).color.setHex(COLORS.thrust);
     if (this.failureMarks) (this.failureMarks.material as MeshBasicMaterial).color.setHex(COLORS.thrustFail);
+    if (this.memoryRings) (this.memoryRings.material as MeshBasicMaterial).color.setHex(COLORS.thrustFail);
   }
 
   /** A stone's colour from the palette, HOVER_LIGHTEN lighter while it is the hover stone. */
@@ -306,6 +317,14 @@ export class ArchRuntime {
     this.generation++;
     this.hook.level = def.id;
     this.hook.failure = null;
+    const carried = carryJoints(this.fall, def);
+    if (!carried.length) this.fall = null;
+    this.hook.failureMemory = carried.length ? { level: def.id, joints: carried } : null;
+    if (this.fall && carried.length) {
+      this.memoryRings = memoryMesh(memoryStrokes(this.fall.at), (def.depth + PIER_EXTRA) / 2 + MEMORY_RING.tube + 0.001, FAIL_REST / 2);
+      this.memoryRings.position.y = ABUTMENT_HEIGHT;
+      this.site.add(this.memoryRings);
+    }
 
     const add = (o: Object3D) => { this.site.add(o); this.levelObjects.push(o); return o; };
     add(boardMesh(this.boardMat));
@@ -399,6 +418,7 @@ export class ArchRuntime {
     roots.push(...this.levelObjects);
     if (this.thrustLine) roots.push(this.thrustLine);
     if (this.failureMarks) roots.push(this.failureMarks);
+    if (this.memoryRings) roots.push(this.memoryRings);
     freeObjects(roots, new Set<Material>([this.stoneMat, this.abutmentMat, this.ashlarMat, this.woodMat, this.boardMat, this.proxyMat, ...Object.values(this.loadMats)]));
     this.levelObjects = [];
     this.stones = [];
@@ -407,6 +427,8 @@ export class ArchRuntime {
     this.thrustLine = undefined;
     this.failureMarks = undefined;
     this.hook.marks = null;
+    this.memoryRings = undefined;
+    this.hook.failureMemory = null;
   }
 
   /** Track an extra entity that belongs to this level (physics colliders and the like). */

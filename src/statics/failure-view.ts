@@ -1,5 +1,6 @@
 // Why a struck arch falls, as something to draw (src/systems/statics.ts): the solver's least-bad line of thrust,
-// the joints it leaves (a hinge opens at the joint's edge there) and the joints the solver names critical.
+// the joints it leaves (a hinge opens at the joint's edge there) and the joints the solver names critical; and what
+// the same level, built again, still marks of that collapse: small rings where it broke.
 // Pure, no three.js: the same result and arch always give the same marks.
 import type { Arch, SolveResult, Vec2 } from './index.js';
 
@@ -137,5 +138,42 @@ export function crackPath(arch: Arch, j: number): Vec2[] {
   return Array.from({ length: CRACK_TEETH + 1 }, (_, i) => {
     const t = i / CRACK_TEETH, k = i === 0 || i === CRACK_TEETH ? 0 : (i % 2 ? 1 : -1) * CRACK_AMP;
     return { x: a.x + (b.x - a.x) * t + nx * k, y: a.y + (b.y - a.y) * t + ny * k };
+  });
+}
+
+/**
+ * A collapse remembered until its level is built again (src/game/runtime.ts): the level, the joints it broke at and
+ * where those joints' middles were when it fell (arch frame, m). Which stone to change is not said; only where it broke.
+ */
+export interface FallMemory { level: string; joints: number[]; at: Vec2[] }
+
+/** The joints a level load still marks from the last collapse: its joints when it fell on this very level, none otherwise. */
+export function carryJoints(prev: { level: string; joints: readonly number[] } | null, def: { id: string }): number[] {
+  return prev && prev.level === def.id ? [...prev.joints] : [];
+}
+
+/** The middle of joint j. */
+export function jointMid(arch: Arch, j: number): Vec2 {
+  const [a, b] = arch.joints[j];
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+/** What a strike leaves to remember: the joints a closed arch broke at and their middles; null when it held or names none. */
+export function rememberFall(level: string, marks: FailureMarks, arch: Arch | null): FallMemory | null {
+  if (marks.kind === 'none' || !arch || !marks.joints.length) return null;
+  return { level, joints: [...marks.joints], at: marks.joints.map(j => jointMid(arch, j)) };
+}
+
+/** A remembered joint's ring (m): centre-line radius and tube radius, under 14 mm across (2 · (radius + tube)). */
+export const MEMORY_RING = { radius: 0.005, tube: 0.0012 } as const;
+
+/** One small ring round each remembered joint middle. */
+export function memoryStrokes(at: readonly Vec2[]): Stroke[] {
+  return at.map(c => {
+    const points = Array.from({ length: RING_SIDES + 1 }, (_, i) => {
+      const a = (2 * Math.PI * i) / RING_SIDES;
+      return { x: c.x + MEMORY_RING.radius * Math.cos(a), y: c.y + MEMORY_RING.radius * Math.sin(a) };
+    });
+    return { points, radius: points.map(() => MEMORY_RING.tube) };
   });
 }

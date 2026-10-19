@@ -4,13 +4,15 @@
 // line of thrust dashed in a hot colour, thick where it has left the stones, a ring where it leaves
 // them and a crack at each joint the arch breaks at. Once the collapse is under way that drawing fades in
 // FAIL_OUT to FAIL_REST and stays there, faint, over the fallen stones, until the level is cleared (rebuild,
-// next level): ArchRuntime.clear() removes and frees it with the rest of the level.
+// next level): ArchRuntime.clear() removes and frees it with the rest of the level. What stays of it is the joints it
+// broke at (rememberFall): built again, the same level marks each with a small ring until the next strike.
 import { createSystem, type Mesh, type MeshBasicMaterial } from '@iwsdk/core';
 import type { ArchRuntime } from '../game/runtime.js';
 import { buildArch, isClosed, strike } from '../game/arch-state.js';
-import { failureMarks, failureStrokes, STROKE, type FailureMarks } from '../statics/failure-view.js';
+import { failureMarks, failureStrokes, rememberFall, STROKE, type FailureMarks } from '../statics/failure-view.js';
 import { ABUTMENT_HEIGHT, PIER_EXTRA } from '../scene/layout.js';
 import { failureMesh, thrustTube } from '../scene/models.js';
+import { freeObjects } from '../scene/free.js';
 import { playChord, playCue } from '../audio/synth.js';
 import { archChord, collapseCue, strikeCue } from '../audio/music.js';
 
@@ -39,6 +41,7 @@ export class StaticsSystem extends createSystem({}) {
       arch.state = state;
       arch.result = result;
       arch.hook.state = result.stands ? 'held' : 'collapsed';
+      this.forgetRings(arch);
       this.pending = SILENCE;
       this.glow = 0;
       playCue(strikeCue(result.stands));
@@ -76,6 +79,7 @@ export class StaticsSystem extends createSystem({}) {
       ? failureMarks(result, arc)
       : { kind: result.stands ? 'none' : result.failure ?? 'hinge', line: null, outside: [], joints: [] };
     arch.hook.failure = { kind: marks.kind, outside: [...marks.outside], joints: [...marks.joints] };
+    arch.fall = rememberFall(arch.def.id, marks, arc);
     if (!arc || marks.kind === 'none') return;
     const strokes = failureStrokes(marks, arc);
     if (!strokes.length) return;
@@ -86,6 +90,15 @@ export class StaticsSystem extends createSystem({}) {
     arch.hook.marks = 0;
     this.failIn = 0;
     this.failOut = -1;
+  }
+
+  /** A strike takes down the last collapse's rings: this one's own marks (or a held arch) say what is true now. */
+  private forgetRings(arch: ArchRuntime): void {
+    arch.hook.failureMemory = null;
+    if (!arch.memoryRings) return;
+    arch.site.remove(arch.memoryRings);
+    freeObjects([arch.memoryRings], new Set());
+    arch.memoryRings = undefined;
   }
 
   /** Up in FAIL_IN during the silence; once CollapseSystem has taken the stones, down to FAIL_REST in FAIL_OUT, and
