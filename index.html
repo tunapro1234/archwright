@@ -20,6 +20,21 @@
   </head>
   <body style="margin: 0">
     <div id="boot-overlay" role="status" aria-live="polite"><b>Archwright</b><i></i><span id="boot-text">Loading…</span></div>
+    <script>
+      // Before the module: if it does not load (404, network), does not parse or throws at the top level, the overlay
+      // shows one line instead of "Loading…" (the same text as BOOT_FAILED in src/game/boot-overlay.ts).
+      (function () {
+        function fail(e) {
+          if (e.type === 'error' && e.target !== window && !(e.target instanceof HTMLScriptElement)) return;
+          var o = document.getElementById('boot-overlay'), t = document.getElementById('boot-text');
+          if (!o) return;
+          o.setAttribute('data-failed', '');
+          if (t) t.textContent = 'Archwright could not start in this browser.';
+        }
+        addEventListener('error', fail, true);
+        addEventListener('unhandledrejection', fail);
+      })();
+    </script>
     <div id="scene-container"></div>
     <script type="module" src="/src/index.ts"></script>
   </body>

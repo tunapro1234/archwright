@@ -1,7 +1,9 @@
 // The page's first seconds, as a pure rule (no three.js, no real DOM). index.html carries an inline #boot-overlay
 // ("Archwright", a CSS bar, "Loading…") that shows while the main module downloads and parses. watchBoot takes it
 // away once, the first frame the hook leaves 'loading', and never brings it back (a later level load goes through
-// 'loading' too). An uncaught error before then stops the bar and leaves one line in place of "Loading…".
+// 'loading' too). An uncaught error before then stops the bar and leaves one line in place of "Loading…". A main
+// module that never runs (404, network, parse error, a throw at the top level) is caught the same way by a small
+// classic script in index.html, with this same BOOT_FAILED text.
 import type { HookState } from './runtime.js';
 
 export const BOOT_FAILED = 'Archwright could not start in this browser.';

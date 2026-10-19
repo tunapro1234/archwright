@@ -1,5 +1,6 @@
 // The boot overlay (src/game/boot-overlay.ts) with a stub document, frame queue and error target: it stays while the
 // hook is loading, goes once the hook is ready, never comes back, and shows one line on an uncaught error.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { BOOT_FAILED, bootDone, watchBoot, type BootErrors } from '../src/game/boot-overlay.js';
 import type { HookState } from '../src/game/runtime.js';
@@ -79,5 +80,18 @@ describe('watchBoot', () => {
       for (let i = 0; i < 3 && frames.length; i++) frames.shift()!();
     }).not.toThrow();
     expect(frames.length).toBe(0);
+  });
+});
+
+describe('index.html', () => {
+  it('a classic inline script before the module puts the same BOOT_FAILED line on a load, parse or top-level error', () => {
+    const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+    const classic = html.search(/<script>/), module = html.search(/<script[^>]*type="module"/);
+    expect(classic).toBeGreaterThan(-1);
+    expect(classic).toBeLessThan(module);
+    const code = html.slice(classic, html.indexOf('</script>', classic));
+    expect(code).toContain(`'${BOOT_FAILED}'`);
+    expect(code).toMatch(/addEventListener\('error', fail, true\)/);
+    expect(code).toContain("addEventListener('unhandledrejection', fail)");
   });
 });
