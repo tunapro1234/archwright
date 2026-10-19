@@ -363,8 +363,11 @@ first-minute lesson and the performance budget, each also failing on any console
 On a Quest, open the hosted page in the Quest Browser and accept its offer to enter AR. If the offer does not show, or you close
 it, the page has its own **Enter AR** and **Enter VR** buttons at the bottom, drawn only for the session modes the browser says it
 supports; they hide while a session runs and come back when it ends (checked in IWER: Enter AR opened an AR session, the buttons
-came back when it ended and Enter VR opened a VR session; a desktop browser without a headset shows none). Hand tracking, plane
-detection, anchors, hit-test and mesh detection are all requested as optional features, so the session starts on any setup.
+came back when it ended and Enter VR opened a VR session; a desktop browser without a headset shows none). Leaving XR and going
+back in (AR or VR) builds a collapse still under way again, as the rebuild stone does, and keeps the level and your progress; a
+level half built goes to the new surface with its stones, and the hit-test ring comes up for it too
+(checked over three IWER session cycles on one page). Hand tracking, plane detection, anchors, hit-test and mesh detection are
+all requested as optional features, so the session starts on any setup.
 
 URL parameters, for development and tests:
 
