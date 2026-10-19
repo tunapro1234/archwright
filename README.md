@@ -29,6 +29,21 @@ the arch carries itself or collapses across your desk. No controllers are needed
 <td colspan="2"><img src="docs/img/hand.jpg" width="400" alt="an emulated hand carrying a stone on the board in the VR workshop"><br><sub>IWER emulator, VR session, not a headset: an emulated hand plays w1-1</sub></td>
 </tr></table>
 
+## Platform features at a glance
+
+| Feature | How Archwright uses it | Code | Seen in |
+|---|---|---|---|
+| Mesh and plane detection | a desk 25–85 cm below the eyes and in reach takes the board | `src/scene/surface-chain.ts` | IWER, synthetic rooms |
+| Hit-test | no desk after 1.5 s: a ring on real surfaces, pinch to pick the spot | `src/systems/surface.ts` | IWER, controller ray |
+| Lap tray | no desk and no pick by 9.5 s: the board 40 cm ahead, 42 cm below the eyes | `src/scene/surface-chain.ts` | IWER |
+| Passthrough board | on a detected desk, a stone frame and a felt under the tray, so the table shows through | `src/scene/board-style.ts` | IWER, synthetic office |
+| Persistent anchors | each museum plinth tied to an anchor and restored next session | `src/systems/museum.ts` | IWER, after a reload |
+| Hand tracking | pinch from the thumb and index tips; a palm-up pinch (system gesture) takes nothing | `src/systems/hands.ts`, `src/game/palm.ts` | IWER, emulated hands |
+| Gaze | the head's ray picks, any pinch or trigger confirms (`?a11y=gaze`) | `src/systems/gaze.ts` | IWER, emulated controllers |
+| Clean pause | `visible-blurred`, `hidden` or a hidden tab stops game time, Havok and sound | `src/game/pause.ts`, `src/systems/pause.ts` | IWER |
+| Same-origin assets | input profiles and synthetic rooms served from this site, nothing from another origin | `src/net/local-assets.ts`, `public/input-profiles/` | desktop and IWER |
+| Device report | after a session, a link to a filled-in GitHub issue (build, browser, frame rates) | `src/game/debug.ts`, `src/systems/xr-entry.ts` | IWER |
+
 ## How to play
 
 - **Pinch** a stone in the tray (thumb and index finger together, close to the stone) and carry it to one of the two open ends
