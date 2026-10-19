@@ -1,4 +1,4 @@
-// Pinch a stone, carry it, release it near an open face: it snaps on with a tock. Proximity-gated
+// Pinch a stone (a short knock, music.grabCue), carry it, release it near an open face: it snaps on with a tock. Proximity-gated
 // (the pinch must start on a stone), no rotation (the stone orients itself), no throwing (release
 // velocity is ignored), and a stone whose hand loses tracking floats back to the tray. While a
 // stone is carried near an open face, a see-through ghost shows where it would seat. Before the
@@ -12,6 +12,8 @@ import type { Side } from '../game/arch-state.js';
 import type { HandState } from './hands.js';
 import { LOST_AFTER } from './hands.js';
 import type { Pose2 } from '../scene/layout.js';
+import { playCue } from '../audio/synth.js';
+import { grabCue } from '../audio/music.js';
 
 export const GRAB_RADIUS = 0.05;   // pinch must start this close to a stone's centre (m)
 export const SNAP_RADIUS = 0.06;   // release this close to a face pose and the stone seats
@@ -133,6 +135,7 @@ export class GrabSnapSystem extends createSystem({}) {
     best.tween = undefined;
     best.heldBy = side;
     this.held[side] = best;
+    playCue(grabCue(best.def.material));
   }
 
   private carry(arch: ArchRuntime, side: Side, v: StoneView, h: HandState, delta: number): void {

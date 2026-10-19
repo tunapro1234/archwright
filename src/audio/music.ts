@@ -5,8 +5,10 @@
 // the same note. A pentatonic scale has no semitone and no tritone, so whatever stones are seated,
 // in whatever order, they sound together without a clash; a held arch rings all its notes as a
 // chord. A collapse is a short score of layered events (crack, slide, impacts, pebbles) and the
-// strike is the centering's creak; both are deterministic, from a seed, with no Math.random.
-import type { GameState, PlacedStone } from '../game/arch-state.js';
+// strike is the centering's creak; both are deterministic, from a seed, with no Math.random. Taking a
+// stone is a short unpitched knock, lower for a heavier stone, and a stone going back to the tray a
+// soft slide.
+import type { GameState, Material, PlacedStone } from '../game/arch-state.js';
 
 const hz = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
 /** C major pentatonic, C3 to C6 (131 to 1047 Hz), rising; equal temperament, A4 = 440 Hz. */
@@ -27,7 +29,7 @@ export function archChord(state: GameState): number[] {
   return state.placed.map(p => stoneNote(state, p));
 }
 
-export type CueLayer = 'crack' | 'slide' | 'impact' | 'pebble' | 'creak';
+export type CueLayer = 'crack' | 'slide' | 'impact' | 'pebble' | 'creak' | 'knock';
 /** One sound event: start t and length dur (s), gain (0, 1], and a pitch or filter centre hz. */
 export interface Cue { t: number; dur: number; gain: number; layer: CueLayer; hz?: number }
 
@@ -35,7 +37,7 @@ export const CUE_MAX_SECONDS = 3.5;
 export const CUE_MAX_VOICES = 16;
 /** The limiter before the speakers (a DynamicsCompressorNode): dB, dB, ratio, s, s. */
 export const LIMITER = { threshold: -6, knee: 0, ratio: 20, attack: 0.003, release: 0.1 } as const;
-const LAYER_ORDER: Record<CueLayer, number> = { creak: 0, crack: 1, slide: 2, impact: 3, pebble: 4 };
+const LAYER_ORDER: Record<CueLayer, number> = { knock: 0, creak: 1, crack: 2, slide: 3, impact: 4, pebble: 5 };
 
 /** mulberry32: a small seeded generator, so a seed always gives the same collapse. */
 function rng(seed: number): () => number {
@@ -103,4 +105,24 @@ export function strikeCue(held: boolean): Cue[] {
     ? { t: 0.5, dur: 0.3, gain: 0.25, layer: 'impact', hz: 85 }
     : { t: 0.48, dur: 0.06, gain: 0.45, layer: 'crack', hz: 3200 });
   return finish(e);
+}
+
+/** The knock's centre (Hz) for each stone: the dense basalt lowest, the light tuff highest. */
+const KNOCK_HZ: Record<Material, number> = { basalt: 320, sandstone: 520, tuff: 760 };
+
+/**
+ * A hand takes a stone (a pinch, a click): a short, dry knock with no note, so it never mixes with
+ * the arch's scale. A body at the stone's knock and a faint click above it; 0.06 s in all.
+ */
+export function grabCue(material: Material): Cue[] {
+  const hz = KNOCK_HZ[material];
+  return finish([
+    { t: 0, dur: 0.06, gain: 0.26, layer: 'knock', hz },
+    { t: 0, dur: 0.02, gain: 0.08, layer: 'crack', hz: hz * 5 },
+  ]);
+}
+
+/** A stone slides back to its tray spot: one soft, falling scrape, 0.28 s. */
+export function homeCue(): Cue[] {
+  return finish([{ t: 0, dur: 0.28, gain: 0.12, layer: 'slide', hz: 650 }]);
 }

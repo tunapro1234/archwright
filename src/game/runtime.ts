@@ -28,8 +28,8 @@ import type { EmulatorHook } from '../emulator/emulator.js';
 import type { GazeLook } from '../systems/grab-snap.js';
 import type { XRButton } from './xr-entry.js';
 import type { CollapseRest, DeskTop } from './rest.js';
-import { playReject, playStone } from '../audio/synth.js';
-import { stoneNote } from '../audio/music.js';
+import { playCue, playReject, playStone } from '../audio/synth.js';
+import { homeCue, stoneNote } from '../audio/music.js';
 import { monumentOf, plaqueText } from '../levels/monuments.js';
 
 export type HookState = 'loading' | 'ready' | 'building' | 'held' | 'collapsed';
@@ -426,8 +426,8 @@ export class ArchRuntime {
     const pose = this.state.phase === 'building' && !whyNot(this.state, v.def, side) ? facePose(this.state, v.def, side) : undefined;
     const next = placeStone(this.state, v.def.id, side);
     if (next.error || !pose) {
-      playReject();
-      this.sendHome(v);
+      playReject(); // the refusal is the sound: the stone goes home quietly
+      this.sendHome(v, 0.45, false);
       return next.error ?? 'no face';
     }
     this.state = next;
@@ -448,7 +448,9 @@ export class ArchRuntime {
     return true;
   }
 
-  sendHome(v: StoneView, duration = 0.45): void {
+  /** The stone glides back to its tray spot, with a soft slide (music.homeCue) unless `sound` is false. */
+  sendHome(v: StoneView, duration = 0.45, sound = true): void {
+    if (sound) playCue(homeCue());
     v.heldBy = undefined;
     this.tweenTo(v, v.home, duration, 0.04, 'tray');
   }

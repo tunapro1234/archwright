@@ -148,7 +148,7 @@ export function playChord(notes: readonly number[]): void {
   });
 }
 
-/** A score from music.collapseCue or music.strikeCue, scheduled from now. */
+/** A score from music.collapseCue, strikeCue, grabCue or homeCue, scheduled from now. */
 export function playCue(cue: readonly Cue[]): void {
   const c = ready(); if (!c) return;
   const t0 = c.currentTime;
@@ -162,6 +162,11 @@ export function playCue(cue: readonly Cue[]): void {
         burst(c, at, e.dur * 0.6, e.gain * 0.5, 'lowpass', hz * 5, 0.7);
         break;
       case 'pebble': tone(c, at, hz, e.dur, e.gain, 0.001, 'triangle', 0.9); break;
+      case 'knock':
+        // A stone taken in the hand: a narrow band of noise and a quick sine that drops, no ring.
+        burst(c, at, e.dur, e.gain, 'bandpass', hz, 3);
+        tone(c, at, hz, e.dur * 0.8, e.gain * 0.6, 0.002, 'sine', 0.8);
+        break;
       case 'creak': {
         // Timber under load: a buzzy tone through a narrow band, sliding up a little.
         if (!voice(c, at, e.dur)) break;

@@ -269,6 +269,9 @@ in whatever order, they never clash. When the centering comes out, its timber cr
 load. A held arch rings every one of its stones, low to high, as one chord. A failing one cracks first, then the stones grind on
 their joints, each one thuds as it lands, and pebbles skitter after them; this score lasts at most 3.5 s and never has more
 than 16 sounds at once. The same arch always falls with the same sound: the score is drawn from a seed (the level's id) and the number of stones.
+Taking a stone, by pinch or click, gives a short dry knock with no note (under 0.08 s): lowest for basalt, then sandstone,
+highest for tuff. A stone sent back to the tray slides home with a soft scrape, except after a refused placement, which only
+plays its dull knock. These are checked in unit tests, with no recording.
 
 What to play is plain data (`src/audio/music.ts`, with unit tests); `src/audio/synth.ts` only plays it with the Web Audio API.
 Every sound is synthesised in code: a stone is a sine with the two overtones of a struck bar (2.76 and 5.40 times the

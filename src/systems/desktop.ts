@@ -30,6 +30,8 @@ import { LEVELS } from '../levels/index.js';
 import type { LoopPicker } from './loop.js';
 import { SelectPlace } from './select.js';
 import { A11Y_TARGETS, type A11yKey, type A11yPanel } from './a11y.js';
+import { playCue } from '../audio/synth.js';
+import { grabCue } from '../audio/music.js';
 
 const SIDES = ['left', 'right'] as const;
 
@@ -207,7 +209,9 @@ export class DesktopSystem extends createSystem({}) {
 
   private pick(arch: ArchRuntime, v: StoneView): void {
     if (!this.active) return;
-    if (this.select.pick(arch, v)) this.refreshFaces(arch);
+    if (!this.select.pick(arch, v)) return;
+    if (this.select.selected === v) playCue(grabCue(v.def.material)); // lifted (a second click puts it back)
+    this.refreshFaces(arch);
   }
 
   private seat(side: Side): void {
