@@ -13,6 +13,8 @@ import { playCue, playReject, playStone } from '../src/audio/synth.js';
 import { CUE_MAX_VOICES, grabCue, homeCue } from '../src/audio/music.js';
 import { ArchRuntime, type StoneView } from '../src/game/runtime.js';
 import { GrabSnapSystem } from '../src/systems/grab-snap.js';
+import { GazeSystem } from '../src/systems/gaze.js';
+import { SelectPlace } from '../src/systems/select.js';
 import { createLevel, type Material, type Side } from '../src/game/arch-state.js';
 import type { HandState } from '../src/systems/hands.js';
 import { LEVELS } from '../src/levels/index.js';
@@ -101,5 +103,26 @@ describe('where the sounds play', () => {
     expect(v.mode).toBe('held');
     expect(playCue).toHaveBeenCalledTimes(1);
     expect(vi.mocked(playCue).mock.calls[0][0]).toEqual(grabCue(v.def.material));
+  });
+
+  it('a look and a pinch that lifts a stone knocks as a click does; picking it again slides it home', () => {
+    const { arch, stones } = runtime();
+    Object.assign(arch, { shown: true });
+    const sys = Object.create(GazeSystem.prototype) as GazeSystem;
+    const select = new SelectPlace();
+    Object.assign(sys, { select });
+    Object.defineProperty(sys, 'globals', { value: {} }); // a getter on the prototype
+    const confirm = (v: StoneView) =>
+      (sys as unknown as { confirm(a: ArchRuntime, p: unknown, t: unknown, s: Side): void }).confirm(arch, {}, { kind: 'stone', stone: v }, 'right');
+    const v = stones[0];
+    confirm(v);
+    expect(select.selected).toBe(v);
+    expect(playCue).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(playCue).mock.calls[0][0]).toEqual(grabCue(v.def.material));
+    confirm(v);
+    expect(select.selected).toBeUndefined();
+    expect(playCue).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(playCue).mock.calls[1][0]).toEqual(homeCue());
+    expect(v.tween?.then).toBe('tray');
   });
 });

@@ -171,7 +171,7 @@ export class GazeSystem extends createSystem({}) {
 
   private confirm(arch: ArchRuntime, panel: A11yPanel, t: Target, side: Side): void {
     if (t.kind === 'stone' && t.stone) {
-      // Lifted: the same knock as a click in desktop mode (a second pick puts it back, silently).
+      // Lifted: the same knock as a click in desktop mode (a second pick puts it back, sliding home: ArchRuntime.sendHome).
       if (this.select.pick(arch, t.stone) && this.select.selected === t.stone) playCue(grabCue(t.stone.def.material));
     } else if (t.kind === 'face' && t.side) this.select.seat(arch, t.side);
     else if (t.kind === 'icon' && t.icon) panel.toggle(t.icon);
