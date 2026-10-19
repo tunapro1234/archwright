@@ -4,8 +4,8 @@
 // point is its pinch point, as for the stones (grab-snap.ts). A stone comes first: a hand that has the stone mark,
 // is pinching, has its palm up (its pinch is the system gesture) or is not tracked marks no spot, and in gaze mode
 // no hand does, since there a pinch confirms what the eyes are on (src/game/a11y.ts handSpot, nearestSpot).
-// A spot's reach is its pick radius (loop.ts PICK_RADIUS, a11y.ts ICON_PICK, the tablet's), so the ring only marks
-// what a pinch there takes, plus nearestSpot's SPOT_HOLD while it stays marked. __archwright.handHover reports it.
+// A spot's reach is its pick radius (loop.ts PICK_RADIUS, a11y.ts ICON_PICK, the tablet's) and the mark is let go past
+// it (handSpot), so the ring only ever marks what a pinch there takes. __archwright.handHover reports it.
 import { createSystem, Mesh, Vector3 } from '@iwsdk/core';
 import type { ArchRuntime } from '../game/runtime.js';
 import type { Side } from '../game/arch-state.js';

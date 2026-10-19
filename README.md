@@ -35,8 +35,9 @@ the arch carries itself or collapses across your desk. No controllers are needed
   a little lighter (in high contrast it also gets an outline), so among close stones you know which one you will get; the
   pinch takes that same stone. A hand with its palm up marks nothing, since its pinch takes nothing (see below). In desktop
   mode the stone under the mouse that a click would take does the same, and in gaze mode the stone you look at, since there
-  the pinch confirms what you look at. In XR a hand over no stone but within a pinch's reach of a level marker, the rebuild
-  stone, the share tablet or an accessibility icon puts a thin ring on it (checked in the emulator; not in gaze mode).
+  the pinch confirms what you look at. In XR the smaller targets get a thin ring the same way: a level marker, the rebuild
+  stone, the share tablet or an accessibility icon within a pinch's reach of a hand that is over no stone. The ring shows what
+  a pinch would take, and nothing past that reach (checked in the emulator; not in gaze mode).
 - A pinch with the palm facing up is Quest's own system gesture, so it never takes a stone. If the headset loses the hand
   that holds a stone for more than 0.3 s, the stone floats back to the tray; a shorter gap, such as one hand passing behind
   the other, keeps it in hand. The centering's handle is kept the same way (it does not move while the hand is gone).

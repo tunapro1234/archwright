@@ -122,15 +122,20 @@ export interface SpotHand { tracked: boolean; pinching: boolean; palmUp: boolean
 
 /**
  * The spot to mark for the hands in an XR session: of the hands that are tracked, not pinching, palm down and over
- * no stone, the nearer one's nearestSpot. Null in gaze mode, where a pinch confirms what the eyes are on instead.
+ * no stone, the nearer one's nearestSpot. A spot's reach (twice its radius) is the reach of the pinch that takes it,
+ * and `prev` is only kept for a hand still within that reach, so SPOT_HOLD keeps a mark between two spots but never
+ * past where a pinch would take it. Null in gaze mode, where a pinch confirms what the eyes are on instead.
  */
 export function handSpot(hands: readonly SpotHand[], spots: readonly GazeTarget[], prev: string | null, gaze: boolean): string | null {
   if (gaze) return null;
+  let held: GazeTarget | null = null;
+  for (const s of spots) if (s.id === prev) { held = s; break; }
   let best: string | null = null;
   let bestD = Infinity;
   for (const h of hands) {
     if (!h.tracked || h.pinching || h.palmUp || h.stone) continue;
-    const s = spotAt(h.point, spots, prev);
+    const keep = held && dist(h.point, held.center) < 2 * held.radius ? prev : null;
+    const s = spotAt(h.point, spots, keep);
     if (!s) continue;
     const d = dist(h.point, s.center);
     if (d < bestD) { bestD = d; best = s.id; }

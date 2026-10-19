@@ -62,6 +62,16 @@ describe('handSpot', () => {
     expect(handSpot([hand(0)], [A, B], 'marker:a', true)).toBeNull();
   });
 
+  it('the old spot is kept between two spots, but not past the reach a pinch takes it', () => {
+    // 5 cm apart, reach 2r = 6 cm: halfway the hand keeps what it had, either way.
+    expect(handSpot([hand(0.026)], [A, B], 'marker:a', false)).toBe('marker:a');
+    expect(handSpot([hand(0.024)], [A, B], 'marker:b', false)).toBe('marker:b');
+    // Pick reach + 2 mm from the old spot, with no other near: nothing, though nearestSpot alone would keep it.
+    const far = { x: 0, y: 2 * r + 0.002, z: 0 };
+    expect(nearestSpot(far, [A], 'marker:a')).toBe('marker:a');
+    expect(handSpot([{ ...hand(0), point: far }], [A], 'marker:a', false)).toBeNull();
+  });
+
   it('two hands: the one nearer its spot; a palm-up hand leaves it to the other', () => {
     expect(handSpot([hand(0.012), hand(0.051)], [A, B], null, false)).toBe('marker:b');
     expect(handSpot([hand(0.012), hand(0.051, { palmUp: true })], [A, B], null, false)).toBe('marker:a');
@@ -112,9 +122,13 @@ describe('SpotHoverSystem', () => {
     expect(at(marker, 0.3)).toBeNull();
     expect(at(marker, PICK_RADIUS + 0.001)).toBeNull(); // a pinch here takes nothing (loop.ts PICK_RADIUS)
     expect(at(icon, 0.01)).toBe('a11y:gaze');
-    expect(at(icon, ICON_PICK + 0.001)).toBe('a11y:gaze'); // kept: within SPOT_HOLD past its reach
-    expect(at(marker, 0.3)).toBeNull();
     expect(at(icon, ICON_PICK + 0.001)).toBeNull();
+    // Even when it was marked a frame before, a spot is let go just past the pick's reach: the ring never shows what a
+    // pinch would not take (nearestSpot's SPOT_HOLD would keep it, handSpot does not hand it the old spot there).
+    expect(at(marker, 0.01)).toBe('marker:today');
+    expect(at(marker, PICK_RADIUS + 0.002)).toBeNull();
+    expect(at(icon, 0.005)).toBe('a11y:gaze');
+    expect(at(icon, ICON_PICK + 0.002)).toBeNull();
   });
 
   it('nothing while the hand marks a stone, has its palm up, in gaze mode or outside XR', () => {
