@@ -1,16 +1,16 @@
 {
   "budgetBytes": 8000000,
   "firstLoad": {
-    "bytes": 7504450,
-    "gzip": 2009547,
+    "bytes": 7525137,
+    "gzip": 2017275,
     "files": [
       {
         "path": "assets/_virtual_iwsdk-disabled-bundled-fonts-CyX98Mcx.js",
         "bytes": 776
       },
       {
-        "path": "assets/index-CYJy1Ckd.js",
-        "bytes": 6753602
+        "path": "assets/index-Co5AoUNo.js",
+        "bytes": 6774287
       },
       {
         "path": "assets/index-xH9AEZ44.js",
@@ -29,8 +29,8 @@
         "bytes": 41907
       },
       {
-        "path": "assets/world-initializer-CX8XgUAw.js",
-        "bytes": 45385
+        "path": "assets/world-initializer-6DKClKWB.js",
+        "bytes": 45387
       },
       {
         "path": "index.html",
@@ -43,37 +43,37 @@
     ]
   },
   "onDemand": {
-    "bytes": 12378342,
+    "bytes": 12381631,
     "files": [
       {
         "path": "assets/HavokPhysics-BqNY-4N9.wasm",
         "bytes": 2094563,
-        "why": "physics (first stone)"
+        "why": "physics (idle after the board shows, or first stone)"
       },
       {
-        "path": "assets/emulator-SgcvKKeQ.js",
-        "bytes": 193523,
+        "path": "assets/emulator-B3oarLMO.js",
+        "bytes": 196812,
         "why": "emulator"
       },
       {
-        "path": "assets/handplay-CXzZS4Gt.js",
+        "path": "assets/handplay-CJGAkTjB.js",
         "bytes": 4966,
         "why": "emulated hand"
       },
       {
-        "path": "assets/index-DIHg-68h.js",
+        "path": "assets/index-mT471hdB.js",
         "bytes": 45471,
         "why": "emulator room module"
       },
       {
-        "path": "assets/physics-runtime-B0VAgyl0.js",
+        "path": "assets/physics-runtime-C1N3e3ji.js",
         "bytes": 39863,
-        "why": "physics (first stone)"
+        "why": "physics (idle after the board shows, or first stone)"
       },
       {
         "path": "assets/physics-worker-hLJf7LUZ.js",
         "bytes": 40724,
-        "why": "physics (first stone)"
+        "why": "physics (idle after the board shows, or first stone)"
       },
       {
         "path": "emulator/rooms/LICENSE.md",
