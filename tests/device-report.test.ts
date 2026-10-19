@@ -55,6 +55,10 @@ describe('reportBody', () => {
     // Fields of the info that are not in KEYS (the level, the state, anchors, visibility ...) are not written.
     expect(b).not.toMatch(/w1-1|visible|anchors|level/);
   });
+
+  it('a version ending in a dot (the emulator\'s user agent) is written without it', () => {
+    expect(reportBody(info({ ua: 'Mozilla/5.0 (Linux; Android 10; Quest 3) OculusBrowser/33.0.0. Chrome/126.0' }))).toMatch(/^ua: OculusBrowser\/33\.0\.0$/m);
+  });
 });
 
 describe('reportUrl', () => {

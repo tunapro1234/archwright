@@ -115,15 +115,18 @@ export function installXREntry(world: World, arch: ArchRuntime): void {
       buttons[k] = b;
       bar.appendChild(b);
     }
+    document.body.appendChild(bar);
+  };
+
+  // The link is made with the first report: before any session there is none on the page.
+  const makeLink = () => {
     link = document.createElement('a');
     link.id = 'archwright-device-report';
     link.target = '_blank';
     link.rel = 'noopener';
     link.textContent = 'Send device report';
     link.setAttribute('aria-label', 'Send device report: opens a GitHub issue filled in with the last session\'s numbers; nothing is sent until you submit it');
-    link.hidden = true;
-    bar.appendChild(link);
-    document.body.appendChild(bar);
+    bar!.appendChild(link);
   };
 
   const show = () => {
@@ -133,7 +136,8 @@ export function installXREntry(world: World, arch: ArchRuntime): void {
     if (!bar) build();
     bar!.hidden = !entry.shown.length && !offer;
     for (const k of ['ar', 'vr'] as const) buttons[k].hidden = !entry.shown.includes(k);
-    link!.hidden = !offer;
+    if (offer && !link) makeLink();
+    if (link) link.hidden = !offer;
     if (offer && linked !== report) {
       link!.href = reportUrl(report!);
       linked = report;

@@ -43,10 +43,10 @@ export function debugEnabled(search: string): boolean {
  *  Safari with its version; failing those the start of the string. */
 export function shortUA(ua: string): string {
   for (const name of ['OculusBrowser', 'Firefox', 'Edg', 'HeadlessChrome', 'Chrome']) {
-    const m = new RegExp(`\\b${name}/([\\d.]+)`).exec(ua);
+    const m = new RegExp(`\\b${name}/(\\d+(?:\\.\\d+)*)`).exec(ua);
     if (m) return `${name}/${m[1]}`;
   }
-  const safari = /\bVersion\/([\d.]+).*\bSafari\//.exec(ua);
+  const safari = /\bVersion\/(\d+(?:\.\d+)*).*\bSafari\//.exec(ua);
   if (safari) return `Safari/${safari[1]}`;
   return ua.slice(0, 24) || '?';
 }
