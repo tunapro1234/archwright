@@ -174,8 +174,8 @@ of silence after the strike, as a dashed orange line (amber in high contrast), t
 with a small ring at each joint edge it passes and a thin crack along each joint the arch breaks at. Once the stones start to
 fall it fades within 0.5 s to a faint 35% and stays there over the fallen stones, so the reason is still there to look at
 until you rebuild or move to another level. Rebuild the same level and the joints it broke at stay marked, each with a small
-faint ring in the same colour where the arch will stand, without saying which stone to change; the next strike or another
-level clears them. In a frame paused 0.37 s after the strike on w1-1's trap (server, SwiftShader) the line, five
+ring in the same colour where the arch will stand (70% opaque, so it reads against the centering), without saying which stone
+to change; the next strike or another level clears them. In a frame paused 0.37 s after the strike on w1-1's trap (server, SwiftShader) the line, five
 rings and four cracks are drawn in front of the centering. On the tempting wrong arrangement of every one of the 17 levels that line leaves the stones at 4 to
 8 joints, and every one of those traps fails by hinging (`tests/failure-view.test.ts`, `src/statics/failure-view.ts`).
 

@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { semicircularArch, solveArch, type Arch, type SolveResult } from '../src/statics/index.js';
 import {
-  carryJoints, crackPath, DASH, failureMarks, failureStrokes, hingeEdge, inMasonry, jointMid, jointOffset, MEMORY_RING, memoryStrokes,
+  carryJoints, crackPath, DASH, failureMarks, failureStrokes, hingeEdge, inMasonry, jointMid, jointOffset, MEMORY_RING, MEMORY_RING_OPACITY, memoryStrokes,
   rememberFall, STROKE,
 } from '../src/statics/failure-view.js';
 import { createLevel, placeStone, strike, buildArch } from '../src/game/arch-state.js';
@@ -260,16 +260,17 @@ describe('the last collapse, on the same level built again (carryJoints, remembe
     expect(prev.joints).toEqual([2, 5]);
   });
 
-  it('small rings (under 14 mm across), one mesh at half the resting opacity, in the failure colour', () => {
+  it('small rings (under 14 mm across), one mesh at MEMORY_RING_OPACITY (≥ 0.6, to read on the centering), in the failure colour', () => {
     expect(2 * (MEMORY_RING.radius + MEMORY_RING.tube)).toBeLessThanOrEqual(0.014);
     const { def, arch, marks } = falls[0];
     const mem = rememberFall(def.id, marks, arch)!;
-    const m = memoryMesh(memoryStrokes(mem.at), 0.05, 0.175);
+    expect(MEMORY_RING_OPACITY).toBeGreaterThanOrEqual(0.6);
+    const m = memoryMesh(memoryStrokes(mem.at), 0.05, MEMORY_RING_OPACITY);
     expect(m.name).toBe('failure-memory');
     expect(m.children).toHaveLength(0);
     const mat = m.material as { color: { getHex(): number }; opacity: number; transparent: boolean; depthWrite: boolean };
     expect(mat.color.getHex()).toBe(PALETTE.thrustFail);
-    expect(mat.opacity).toBe(0.175);
+    expect(mat.opacity).toBe(MEMORY_RING_OPACITY);
     expect(mat.depthWrite).toBe(false);
     const pos = m.geometry.getAttribute('position');
     for (let i = 0; i < pos.count; i++) {

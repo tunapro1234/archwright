@@ -428,7 +428,7 @@ export function failureMesh(strokes: Stroke[], z: number): Mesh {
 }
 
 /** The last collapse's broken joints on the same level built again (src/statics/failure-view.ts memoryStrokes): small
- *  rings, one mesh, in the failure colour at half the marks' resting opacity, drawn over the snap ghosts. */
+ *  rings, one mesh, in the failure colour at MEMORY_RING_OPACITY, drawn over the snap ghosts. */
 export function memoryMesh(strokes: Stroke[], z: number, opacity: number): Mesh {
   const m = failureMesh(strokes, z);
   m.name = 'failure-memory';

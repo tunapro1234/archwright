@@ -167,6 +167,9 @@ export function rememberFall(level: string, marks: FailureMarks, arch: Arch | nu
 /** A remembered joint's ring (m): centre-line radius and tube radius, under 14 mm across (2 · (radius + tube)). */
 export const MEMORY_RING = { radius: 0.005, tube: 0.0012 } as const;
 
+/** The remembered joints' rings' opacity: firm enough to read against the centering, unlike the fallen marks' FAIL_REST. */
+export const MEMORY_RING_OPACITY = 0.7;
+
 /** One small ring round each remembered joint middle. */
 export function memoryStrokes(at: readonly Vec2[]): Stroke[] {
   return at.map(c => {

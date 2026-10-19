@@ -8,7 +8,7 @@ import {
   createLevel, placeStone, takeBack, whyNot, type GameState, type LevelDef, type Load, type Side, type Step, type StoneDef,
 } from './arch-state.js';
 import type { SolveResult } from '../statics/index.js';
-import { carryJoints, memoryStrokes, MEMORY_RING, type FailureKind, type FallMemory } from '../statics/failure-view.js';
+import { carryJoints, memoryStrokes, MEMORY_RING, MEMORY_RING_OPACITY, type FailureKind, type FallMemory } from '../statics/failure-view.js';
 import { LEVELS } from '../levels/index.js';
 import { dailyDate, dailyLevel, localDateISO } from './daily.js';
 import type { A11ySettings } from './a11y.js';
@@ -24,7 +24,6 @@ import { MATERIAL_COLOR } from '../scene/meshes.js';
 import { COLORS, onRepaint } from '../scene/palette.js';
 import type { SurfaceKind } from '../scene/surface-chain.js';
 import type { HandplayHook } from '../systems/handplay.js';
-import { FAIL_REST } from '../systems/statics.js';
 import type { EmulatorHook } from '../emulator/emulator.js';
 import type { GazeLook } from '../systems/grab-snap.js';
 import type { XRButton } from './xr-entry.js';
@@ -321,7 +320,7 @@ export class ArchRuntime {
     if (!carried.length) this.fall = null;
     this.hook.failureMemory = carried.length ? { level: def.id, joints: carried } : null;
     if (this.fall && carried.length) {
-      this.memoryRings = memoryMesh(memoryStrokes(this.fall.at), (def.depth + PIER_EXTRA) / 2 + MEMORY_RING.tube + 0.001, FAIL_REST / 2);
+      this.memoryRings = memoryMesh(memoryStrokes(this.fall.at), (def.depth + PIER_EXTRA) / 2 + MEMORY_RING.tube + 0.001, MEMORY_RING_OPACITY);
       this.memoryRings.position.y = ABUTMENT_HEIGHT;
       this.site.add(this.memoryRings);
     }
