@@ -20,6 +20,7 @@ import {
 import { playReject, playTick, unlockAudio } from '../audio/synth.js';
 import { BOARD } from '../scene/layout.js';
 import { parseBoardParam } from '../scene/board-style.js';
+import { cancelHitSources, pickingAllowed, safeCancel, sessionCycleAction } from '../game/session-cycle.js';
 
 export const DESK_HEIGHT = 0.75;
 const MAX_CANDIDATES = 24;
@@ -119,7 +120,8 @@ export class SurfaceSystem extends createSystem({
     i.force = this.force;
     i.picked = this.hasPicked ? this.picked : undefined;
 
-    const picking = this.placed === null && arch.state.placed.length === 0 && (this.force === 'pick' || chooseSurface(i).kind === 'pick');
+    // A level under way picks its spot too: it goes there with its stones.
+    const picking = pickingAllowed({ placed: this.placed, force: this.force, choice: chooseSurface(i).kind });
     if (picking) this.updateHits(session); else this.hideRings();
     if (picking) {
       const hands = this.globals.hands as Record<Side, HandState> | undefined;
@@ -142,6 +144,13 @@ export class SurfaceSystem extends createSystem({
 
   private startSession(arch: ArchRuntime, session: XRSession | null): void {
     this.dropHitSources();
+    // Not the page's first call: an arch falling or fallen when the last session ended is built again, as the
+    // rebuild stone does (same level, progress untouched); one under way goes on to the next surface.
+    if (this.session !== undefined) {
+      let dynamic = 0;
+      for (const st of arch.stones) if (st.mode === 'dynamic') dynamic++;
+      if (sessionCycleAction({ phase: arch.state.phase, dynamic, collapseRequested: arch.collapseRequested }) === 'rebuild') arch.load(arch.def);
+    }
     this.session = session;
     this.elapsed = 0;
     this.placed = null;
@@ -166,6 +175,8 @@ export class SurfaceSystem extends createSystem({
 
   /** Carry out a non-waiting choice: background, furniture, and the board on its surface. */
   private place(arch: ArchRuntime, c: SurfaceChoice): void {
+    // Hit-test is only for finding a place: its sources go once there is one.
+    if (this.session) cancelHitSources(this.hitSources);
     this.placed = c.kind;
     this.hideRings();
     this.desk.visible = c.kind === 'desk';
@@ -344,15 +355,12 @@ export class SurfaceSystem extends createSystem({
     const lost = () => { if (this.session === session) this.hitTest = false; }; // no hit-test after all: the chain moves on to lap
     const req = session.requestHitTestSource?.({ space });
     if (!req) { lost(); return; }
-    req.then(s => { if (this.session === session) this.hitSources[side] = s; else s.cancel(); }, lost);
+    req.then(s => { if (this.session === session && this.placed === null) this.hitSources[side] = s; else safeCancel(s); }, lost);
   }
 
+  /** A source of a session that has ended may throw on cancel; cancelHitSources lets it go (src/game/session-cycle.ts). */
   private dropHitSources(): void {
-    for (const side of SIDES) {
-      const s = this.hitSources[side];
-      if (s && s !== 'pending') s.cancel();
-      this.hitSources[side] = null;
-    }
+    cancelHitSources(this.hitSources);
   }
 
   private hideRings(): void {
