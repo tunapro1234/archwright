@@ -97,7 +97,7 @@ async function main(): Promise<void> {
     world.globals.emulator = emulator;
     arch.hook.emulator = emu!.emulatorHook(emulator, world);
   }
-  arch.hook.xr = { mode: null, features: [], inputs: [], room, head: null };
+  arch.hook.xr = { mode: null, features: [], inputs: [], room, head: null, frames: 0 };
   passthrough = () => {
     const s = world.renderer.xr.getSession();
     return !!s && s.environmentBlendMode !== 'opaque';
@@ -111,10 +111,13 @@ async function main(): Promise<void> {
     const inputs = () => [...s.inputSources].map(i => i.profiles[0] ?? 'unknown');
     // The head from the first XR frame on (SurfaceSystem); until then the emulated headset's own pose, if any.
     const head = emulator ? emu!.headPose(emulator) : null;
-    arch.hook.xr = { mode: mode === 'inline' ? null : mode, features: [...(s.enabledFeatures ?? [])], inputs: inputs(), room, head };
+    arch.hook.xr = { mode: mode === 'inline' ? null : mode, features: [...(s.enabledFeatures ?? [])], inputs: inputs(), room, head, frames: 0 };
     s.addEventListener('inputsourceschange', () => { if (arch.hook.xr) arch.hook.xr.inputs = inputs(); });
   });
-  world.renderer.xr.addEventListener('sessionend', () => { arch.hook.xr = { mode: null, features: [], inputs: [], room, head: null }; });
+  // The ended session's XR frame count stays until the next one starts.
+  world.renderer.xr.addEventListener('sessionend', () => {
+    arch.hook.xr = { mode: null, features: [], inputs: [], room, head: null, frames: arch.hook.xr?.frames ?? 0 };
+  });
   // Every system that runs game time; drawing (StoneRenderSystem), the performance numbers and the overlay go on through a pause.
   const game: unknown[] = [
     HandSystem, AutotestSystem, SurfaceSystem, A11ySystem, DesktopSystem, GazeSystem, GrabSnapSystem, SpotHoverSystem, CenteringSystem,

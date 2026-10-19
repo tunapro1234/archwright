@@ -5,12 +5,14 @@
 // clashes with the pending offer, say) does not reach the console: its message goes to __archwright.xrEntry.error.
 // When a session that drew at least one XR frame ends, a "Send device report" link joins the buttons: a new GitHub issue
 // filled in with that session's last numbers (src/game/debug.ts reportBody: build, browser, mode, surface, frame rates ...).
+// The frame rates are the session's own: its XR frames' times (the last FRAME_WINDOW of them; the first frame's time,
+// which spans the way in, is left out), not the page's 2D frames before it. __archwright.xr.frames counts its XR frames.
 // Nothing is sent by the page: the link opens the issue form and the player decides. One link, renewed by each session.
 import { createSystem, SessionMode, type World } from '@iwsdk/core';
 import type { ArchRuntime, Hook } from '../game/runtime.js';
 import { reportAfter, reportShown, xrButtons, type XRButton } from '../game/xr-entry.js';
 import { reportBody, reportUrl, shortUA, type ReportInfo } from '../game/debug.js';
-import type { FrameSummary } from '../game/frame-stats.js';
+import { FrameStats } from '../game/frame-stats.js';
 
 let hook: Hook | null = null;
 let early: string | null = null;
@@ -46,6 +48,7 @@ const CSS = `
 /** The session now running, as the device report will tell it: its XR frames so far and its last numbers. */
 const session = {
   frames: 0,
+  times: new FrameStats(),
   inputs: [] as readonly string[],
   info: {
     fps: 0, frameMs: 0, drawCalls: 0, triangles: 0, bodies: 0, collapsing: false, level: '', state: '',
@@ -54,15 +57,31 @@ const session = {
   } as ReportInfo,
 };
 
+/** A session begins: no frames yet, none of the last session's frame times. */
+export function startSession(): void {
+  session.frames = 0;
+  session.times.clear();
+}
+
+/** The session has ended: its report body, or null when it drew no XR frame (then the last report stays). */
+export function endSession(): string | null {
+  if (session.frames === 0) return null;
+  const i = session.info, t = session.times.stats();
+  i.input = [...new Set(session.inputs)].join(', ') || null;
+  i.p50 = t.p50; i.p5 = t.p5; i.n = t.n;
+  return reportBody(i);
+}
+
 /** Each XR frame, the numbers a report would carry if the session ended now (no allocation: values and references only). */
-class DeviceReportSystem extends createSystem({}) {
-  update(): void {
+export class DeviceReportSystem extends createSystem({}) {
+  update(delta: number): void {
     const arch = this.globals.arch as ArchRuntime | undefined;
     const s = this.renderer.xr.isPresenting ? this.renderer.xr.getSession() : null;
     if (!arch || !s) return;
     const h = arch.hook, i = session.info, p = h.perf;
-    const t = this.globals.frameStats as FrameSummary | undefined;
+    if (session.frames > 0) session.times.push(delta);
     session.frames++;
+    if (h.xr) h.xr.frames = session.frames;
     i.fps = p.fps; i.frameMs = p.frameMs; i.drawCalls = p.drawCalls; i.triangles = p.triangles; i.bodies = p.bodies;
     i.level = h.level; i.state = h.state; i.build = h.build;
     i.mode = i.xrMode = h.xr?.mode ?? null;
@@ -73,7 +92,6 @@ class DeviceReportSystem extends createSystem({}) {
     i.planes = h.detected?.planes ?? [];
     i.meshes = h.detected?.meshes ?? [];
     i.visibility = s.visibilityState;
-    i.p50 = t?.p50 ?? 0; i.p5 = t?.p5 ?? 0; i.n = t?.n ?? 0;
   }
 }
 
@@ -146,13 +164,13 @@ export function installXREntry(world: World, arch: ArchRuntime): void {
 
   world.renderer.xr.addEventListener('sessionstart', () => {
     presenting = true;
-    session.frames = 0;
+    startSession();
     show();
   });
   world.renderer.xr.addEventListener('sessionend', () => {
     presenting = false;
-    if (session.frames > 0) session.info.input = [...new Set(session.inputs)].join(', ') || null;
-    report = reportAfter(report, { frames: session.frames, body: session.frames > 0 ? reportBody(session.info) : '' });
+    const body = endSession();
+    report = reportAfter(report, { frames: session.frames, body: body ?? '' });
     show();
   });
 

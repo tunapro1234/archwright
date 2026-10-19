@@ -67,6 +67,8 @@ export interface Hook {
   xr?: {
     mode: 'immersive-ar' | 'immersive-vr' | null; features: string[]; inputs: string[]; room: string | null;
     head?: { x: number; y: number; z: number; yaw: number } | null;
+    /** XR frames drawn in this session, or in the last one once it has ended (0 from its start; src/systems/xr-entry.ts). */
+    frames?: number;
   };
   /** What the XR session reports of the room (SurfaceSystem): the semantic label of each detected plane and mesh. */
   detected?: { planes: string[]; meshes: string[] };

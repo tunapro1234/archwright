@@ -28,6 +28,12 @@ export class FrameStats {
     if (this.count < FRAME_WINDOW) this.count++;
   }
 
+  /** Forget every frame (a new XR session starts its own count). */
+  clear(): void {
+    this.next = 0;
+    this.count = 0;
+  }
+
   /** Median and slow-frame rates over the window (nearest-rank percentiles of the frame times). */
   stats(): FrameSummary {
     const n = this.count;

@@ -366,7 +366,8 @@ After a strike `failure` says why it fell (`kind`: `none`, `hinge`, `sliding` or
 leaves (`outside`) and the joints it breaks at (`joints`); it is null again on the next level.
 `marks` is the opacity of those failure marks now (0.35 once the stones have fallen), or null when there are none.
 `xr` gives the session mode (`immersive-ar`, `immersive-vr`, or null outside XR), its enabled WebXR features, its input
-profiles, the emulator room (`room`) and the head (`head`: where the eyes are and the yaw they face, in degrees, every XR frame).
+profiles, the emulator room (`room`), the head (`head`: where the eyes are and the yaw they face, in degrees, every XR frame) and
+`frames`, the XR frames drawn in the session (or in the last one, once it has ended).
 `detected` lists the semantic label of every plane and mesh the session reports, `board` where the board went (surface kind, its
 top, how far below the eyes, the board's centre and, on a detected desk, that desk's top: its own rectangle as `cx`, `cz`,
 `width`, `depth` and `yaw`, and the world box round it as `minX` to `maxZ`), and `museum` the
@@ -413,10 +414,11 @@ numbers are in `window.__archwright.perf` every frame, in XR as well (`p50` and 
 When an XR session that drew at least one frame ends, a **Send device report** link appears next to the Enter AR / Enter VR
 buttons. It is a link to a new GitHub issue with the same numbers as of the session's last frame, one `key: value` per line:
 build, browser (`ua`: the short form of the `?debug` slate, e.g. `OculusBrowser/<version>`), the session mode and its environment blend mode, where the board went (`surface`),
-the detected planes and meshes with their labels, the input profiles, the median and slow-frame rates over the last frames, and
-the session's enabled features (`src/game/debug.ts` `reportBody`; `.github/ISSUE_TEMPLATE/quest-report.md` has the same fields to
+the detected planes and meshes with their labels, the input profiles, the session's own median and slow-frame rates and how many
+frames they are taken over (`frames n`: the session's XR frames, its last 600 at most, without the first one, whose time spans
+the way in; none of the page's frames before the session), and the session's enabled features (`src/game/debug.ts` `reportBody`; `.github/ISSUE_TEMPLATE/quest-report.md` has the same fields to
 fill by hand). The page makes no request for it: the link opens the issue form, and only the player sends it. Each session
-renews the one link.
+renews the one link. `window.__archwright.xr.frames` counts the XR frames of the session, or of the last one once it has ended.
 
 What has been checked, and where: draw calls, triangles and bodies do not depend on the device, so they are counted in headless
 Chromium with the XR emulator for four desktop cases (w1-1 ready, w3-5 standing, w3-5 collapsing, a full museum) and one
