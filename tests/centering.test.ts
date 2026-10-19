@@ -1,6 +1,7 @@
 // The centering as an open timber frame (centeringMesh, src/scene/models.ts): on every level it is one
 // geometry, its laths carry the stones on the intrados, it stands on the board, and from the front most
-// of what used to be a solid board is now open: ribs carry the look, the laths are sparse slats.
+// of what used to be a solid board is now open: ribs carry the look, the laths are sparse slats
+// (their tops cover under 30% of the intrados; a counter-test shows the old 12 mm laths 8 mm apart would not).
 import { describe, expect, it } from 'vitest';
 import { MeshStandardMaterial, Vector3 } from '@iwsdk/core';
 import { CENTERING_FRAME, centeringMesh, offsetInward } from '../src/scene/models.js';
@@ -61,6 +62,22 @@ function toCurve(pts: Vec2[], p: Vec2): number {
     best = Math.min(best, Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy));
   }
   return best;
+}
+
+/** Share of the intrados the laths' top faces cover: their area (faces within 3 mm of the curve; the ribs run
+ *  4 mm lower) over the curve's length times the frame's depth. Measures the laths alone, whatever the ribs do. */
+function lathTopShare(top: Vec2[], geo: ReturnType<typeof centeringMesh>['geometry'], depth: number): number {
+  const pos = geo.getAttribute('position');
+  const a = new Vector3(), b = new Vector3(), c = new Vector3(), n = new Vector3(), e = new Vector3();
+  const near = (p: Vector3) => toCurve(top, { x: p.x, y: p.y }) < 0.003;
+  let area = 0;
+  for (let i = 0; i < pos.count; i += 3) {
+    a.fromBufferAttribute(pos, i); b.fromBufferAttribute(pos, i + 1); c.fromBufferAttribute(pos, i + 2);
+    if (near(a) && near(b) && near(c)) area += n.subVectors(b, a).cross(e.subVectors(c, a)).length() / 2;
+  }
+  let L = 0;
+  for (let i = 1; i < top.length; i++) L += Math.hypot(top[i].x - top[i - 1].x, top[i].y - top[i - 1].y);
+  return area / (L * depth);
 }
 
 describe('centeringMesh: an open frame on every level', () => {
@@ -155,4 +172,31 @@ describe('centering ribs: the offset lines under the laths', () => {
       }
     });
   }
+});
+
+describe('centering laths: sparse slats, not a row of blocks', () => {
+  const mat = new MeshStandardMaterial();
+  const share = (def: (typeof LEVELS)[number]) => {
+    const top = centeringTop(createLevel(def).geometry, 32);
+    return lathTopShare(top, centeringMesh(top, def.depth, mat).geometry, def.depth * 0.92);
+  };
+  for (const def of LEVELS) {
+    it(`${def.id}: the laths' tops cover at most 30% of the intrados (26-27% on every level)`, () => {
+      const s = share(def);
+      expect(s).toBeGreaterThan(0.1);
+      expect(s).toBeLessThanOrEqual(0.3);
+    });
+  }
+
+  it('the same measure fails the old laths (12 mm wide, 8 mm apart) on every level', () => {
+    const F = CENTERING_FRAME as { -readonly [K in keyof typeof CENTERING_FRAME]: number };
+    const was = { lath: F.lath, lathGap: F.lathGap };
+    F.lath = 0.012; F.lathGap = 0.008;
+    try {
+      for (const def of LEVELS) expect(share(def), def.id).toBeGreaterThan(0.3); // 58-60% (26-27% today)
+    } finally {
+      Object.assign(F, was);
+    }
+    expect(CENTERING_FRAME.lath).toBe(was.lath);
+  });
 });
