@@ -22,3 +22,17 @@ export function xrButtons(s: XREntryInput): XRButton[] {
   if (s.vr) out.push('vr');
   return out;
 }
+
+/** One XR session as the device report sees it when it ends: the XR frames it drew and its report (src/game/debug.ts). */
+export interface EndedSession { frames: number; body: string }
+
+/** The report the page offers after a session ends: that session's if it drew at least one XR frame, else the one it
+ *  offered before (null: none yet). A session that never showed a frame has nothing to report. */
+export function reportAfter(prev: string | null, ended: EndedSession): string | null {
+  return ended.frames > 0 ? ended.body : prev;
+}
+
+/** Whether the "Send device report" link shows: there is a report and no session is running. */
+export function reportShown(s: { presenting: boolean; report: string | null }): boolean {
+  return !s.presenting && s.report !== null;
+}

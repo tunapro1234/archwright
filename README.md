@@ -17,8 +17,10 @@ the arch carries itself or collapses across your desk. No controllers are needed
   builds w3-1 twice with the same five stones, one sandstone and one tuff swapped: the first falls, the second holds.
 - **Watch an emulated hand play:** [`?emulator=1&autoxr=vr&level=w1-1&handplay=trap`](https://tunapro1234.github.io/archwright/?emulator=1&autoxr=vr&level=w1-1&handplay=trap)
   (IWER, Meta's WebXR emulator, in the browser: a hand pinches the stones by their joints and pulls the centering).
-- **On a Quest:** open the link in the Quest Browser and accept its offer to enter AR (or press **Enter AR**). A photo of the
-  `?debug=1` slate in an [issue](https://github.com/tunapro1234/archwright/issues) tells us the build and the frame rate.
+- **On a Quest:** open the link in the Quest Browser and accept its offer to enter AR (or press **Enter AR**). After you exit,
+  tap **Send device report**: it opens a GitHub issue already filled in with the build, the browser, the session and its frame
+  rates, and nothing is sent unless you submit it (a photo of the `?debug=1` slate in an
+  [issue](https://github.com/tunapro1234/archwright/issues) works too).
 
 <table><tr>
 <td><img src="docs/img/held.jpg" width="400" alt="w1-1 held, its line of thrust lit inside the stones"><br><sub>Desktop browser: w1-1 holds, its line of thrust lit</sub></td>
@@ -407,6 +409,14 @@ desktop it is a text box in the page corner; in an XR session, where a page cann
 standing on the desk behind the board's right corner (part of the room, not fixed to your head; it adds one draw call). The same
 numbers are in `window.__archwright.perf` every frame, in XR as well (`p50` and `p5`, the two frame rates, are refreshed four times a second), and the build in
 `window.__archwright.build`.
+
+When an XR session that drew at least one frame ends, a **Send device report** link appears next to the Enter AR / Enter VR
+buttons. It is a link to a new GitHub issue with the same numbers as of the session's last frame, one `key: value` per line:
+build, browser (`ua`, name and version only), the session mode and its environment blend mode, where the board went (`surface`),
+the detected planes and meshes with their labels, the input profiles, the median and slow-frame rates over the last frames, and
+the session's enabled features (`src/game/debug.ts` `reportBody`; `.github/ISSUE_TEMPLATE/quest-report.md` has the same fields to
+fill by hand). The page makes no request for it: the link opens the issue form, and only the player sends it. Each session
+renews the one link.
 
 What has been checked, and where: draw calls, triangles and bodies do not depend on the device, so they are counted in headless
 Chromium with the XR emulator for four desktop cases (w1-1 ready, w3-5 standing, w3-5 collapsing, a full museum) and one
