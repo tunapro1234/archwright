@@ -250,7 +250,7 @@ export function flatMaterial(color: number | PaletteKey): MeshStandardMaterial {
  * deep laid across them, `lathGap` apart, their tops on the intrados; and three posts `post` wide down to
  * the board, one under each springing and one under the crown.
  */
-export const CENTERING_FRAME = { rib: 0.012, ribThick: 0.008, lath: 0.012, lathThick: 0.004, lathGap: 0.008, post: 0.01 } as const;
+export const CENTERING_FRAME = { rib: 0.012, ribThick: 0.008, lath: 0.008, lathThick: 0.004, lathGap: 0.022, post: 0.01 } as const;
 
 /** A flat outline (x-y) as a slab from z0 to z1, no bevel. */
 function slab(outline: Vec2[], z0: number, z1: number): BufferGeometry {

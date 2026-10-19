@@ -1,6 +1,6 @@
 // The centering as an open timber frame (centeringMesh, src/scene/models.ts): on every level it is one
 // geometry, its laths carry the stones on the intrados, it stands on the board, and from the front most
-// of what used to be a solid board is now open.
+// of what used to be a solid board is now open: ribs carry the look, the laths are sparse slats.
 import { describe, expect, it } from 'vitest';
 import { MeshStandardMaterial, Vector3 } from '@iwsdk/core';
 import { CENTERING_FRAME, centeringMesh, offsetInward } from '../src/scene/models.js';
@@ -24,6 +24,31 @@ function frontFill(top: Vec2[], geo: ReturnType<typeof centeringMesh>['geometry'
   let solid = 0;
   for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; solid += p.x * q.y - q.x * p.y; }
   return { front, solid: Math.abs(solid) / 2 };
+}
+
+/** Share of the solid board's outline the frame covers seen from the front: its faces looking at +z drawn onto a grid
+ *  of `cell` (m) and counted once, so a face behind another (the back rib behind the front one) adds nothing. */
+function frontCover(top: Vec2[], geo: ReturnType<typeof centeringMesh>['geometry'], cell = 0.0005): number {
+  const half = top[top.length - 1].x, yTop = Math.max(...top.map(p => p.y));
+  const nx = Math.ceil((2 * half) / cell), ny = Math.ceil((yTop + ABUTMENT_HEIGHT) / cell);
+  const hit = new Uint8Array(nx * ny);
+  const pos = geo.getAttribute('position');
+  const a = new Vector3(), b = new Vector3(), c = new Vector3(), n = new Vector3(), e = new Vector3();
+  const side = (p: Vector3, q: Vector3, x: number, y: number) => (q.x - p.x) * (y - p.y) - (q.y - p.y) * (x - p.x);
+  for (let i = 0; i < pos.count; i += 3) {
+    a.fromBufferAttribute(pos, i); b.fromBufferAttribute(pos, i + 1); c.fromBufferAttribute(pos, i + 2);
+    n.subVectors(b, a).cross(e.subVectors(c, a));
+    if (!(n.z > 0 && n.z / n.length() > 0.9)) continue;
+    const i0 = Math.max(0, Math.floor((Math.min(a.x, b.x, c.x) + half) / cell)), i1 = Math.min(nx - 1, Math.floor((Math.max(a.x, b.x, c.x) + half) / cell));
+    const j0 = Math.max(0, Math.floor((Math.min(a.y, b.y, c.y) + ABUTMENT_HEIGHT) / cell)), j1 = Math.min(ny - 1, Math.floor((Math.max(a.y, b.y, c.y) + ABUTMENT_HEIGHT) / cell));
+    for (let j = j0; j <= j1; j++) for (let k = i0; k <= i1; k++) {
+      const x = -half + (k + 0.5) * cell, y = -ABUTMENT_HEIGHT + (j + 0.5) * cell;
+      if (side(a, b, x, y) >= 0 && side(b, c, x, y) >= 0 && side(c, a, x, y) >= 0) hit[j * nx + k] = 1;
+    }
+  }
+  let covered = 0;
+  for (const h of hit) covered += h;
+  return (covered * cell * cell) / frontFill(top, geo).solid;
 }
 
 /** Distance from `p` to the polyline `pts`. */
@@ -55,9 +80,12 @@ describe('centeringMesh: an open frame on every level', () => {
       expect(h.position.toArray()).toEqual([0, -ABUTMENT_HEIGHT + 0.022, d / 2 + CENTERING.handleDepth / 2]);
     });
 
-    it(`${def.id}: from the front it fills 8 to 40% of the solid board, and stays within its outline`, () => {
+    it(`${def.id}: seen from the front it covers 8 to 20% of the solid board, and stays within its outline`, () => {
+      const cover = frontCover(top, geo);
+      expect(cover).toBeGreaterThanOrEqual(0.08);
+      expect(cover).toBeLessThanOrEqual(0.2);
+      // Every face looking forward, the hidden back rib's too: still under 40% (the measure of the frame's first test).
       const { front, solid } = frontFill(top, geo);
-      expect(front / solid).toBeGreaterThanOrEqual(0.08);
       expect(front / solid).toBeLessThanOrEqual(0.4);
       geo.computeBoundingBox();
       const bb = geo.boundingBox!;
