@@ -463,10 +463,10 @@ headset: no Quest frame rate is claimed here, and none has been measured.
 
 First load: `npm run build` prints the size of everything a visit can download up front, before anything loads on demand, and writes it to
 `dist/first-load.json` (`scripts/first-load.mjs`). It counts every chunk and worker of the build (an upper bound) except what only
-loads on demand: Havok's physics (about 2 MB, fetched after the board first shows, once the page is idle), the emulator (`?emulator=1` only), its
-synthetic room module and room files (`?emulator=1&room=` only), code that only those import, and the controller and hand
-profiles (XR input only). Budget 8 MB. The build of 15 October 2026: 7.50 MB (7,496,504 bytes; 2.01 MB gzip) in 9 files,
-of which the main chunk is 6.75 MB.
+loads on demand: Havok's physics (about 2 MB, fetched once the page is idle after the board first shows, or at the first stone if
+that comes sooner), the emulator (`?emulator=1` only), its synthetic room module and room files (`?emulator=1&room=` only), code that only those import, and the controller and hand
+profiles (XR input only). Budget 8 MB. The build of 20 October 2026 (commit 1140a81): 7.53 MB (7,530,392 bytes; 2.02 MB
+gzip) in 9 files, of which the main chunk is 6.78 MB.
 
 ## How the solver works
 
