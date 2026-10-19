@@ -15,7 +15,8 @@ import type { HandState } from './hands.js';
 import { atelier, ATELIER_DESK, flatMaterial, pickRing } from '../scene/models.js';
 import { paint } from '../scene/palette.js';
 import {
-  ATELIER_BELOW_EYES, ATELIER_FORWARD, chooseSurface, DESK_BELOW_EYES, deskRect, placeOnDesk, type SurfaceCandidate, type SurfaceChoice, type SurfaceInput, type SurfaceKind,
+  ATELIER_BELOW_EYES, ATELIER_FORWARD, chooseSurface, DESK_BELOW_EYES, deskRect, mayPlace, placeOnDesk, seatLatch, stonesBusy,
+  type SeatLatch, type SurfaceCandidate, type SurfaceChoice, type SurfaceInput, type SurfaceKind,
 } from '../scene/surface-chain.js';
 import { playReject, playTick, unlockAudio } from '../audio/synth.js';
 import { BOARD } from '../scene/layout.js';
@@ -38,6 +39,12 @@ export class SurfaceSystem extends createSystem({
   private elapsed = 0;
   /** The kind the board was placed for in this session, null while still looking. */
   private placed: SurfaceKind | null = null;
+  /** Whether a stone has gone down on the board of this generation (src/scene/surface-chain.ts seatLatch). */
+  private latch: SeatLatch = { gen: -1, seated: false };
+  /** Moves in this session from a lap tray or picked spot to a desk found later (mayPlace). */
+  private moves = 0;
+  /** The stones' modes this frame, for stonesBusy (pooled). */
+  private modes: string[] = [];
   private force: SurfaceInput['force'];
   private boardParam: 'solid' | null = null;
   private desk!: Mesh;
@@ -106,9 +113,12 @@ export class SurfaceSystem extends createSystem({
     if (this.head.lengthSq() === 0) return; // no viewer pose yet
     this.facing();
     this.reportHead(arch);
-    // Once placed in this session, the board only moves before the first stone goes down. A level
+    const on = arch.state.placed.length;
+    if (arch.generation !== this.latch.gen || (!this.latch.seated && on > 0)) this.latch = seatLatch(this.latch, arch.generation, on);
+    if (arch.hook.board) arch.hook.board.seated = this.latch.seated;
+    // Once placed in this session, the board only moves before the first stone goes down on it. A level
     // already under way when the session starts still needs a place: it moves with all its stones.
-    if (this.placed !== null && arch.state.placed.length > 0) { this.hideRings(); return; }
+    if (this.placed !== null && (on > 0 || this.latch.seated)) { this.hideRings(); return; }
 
     const i = this.input_;
     i.passthrough = session.environmentBlendMode !== 'opaque';
@@ -135,10 +145,13 @@ export class SurfaceSystem extends createSystem({
     }
 
     const c = chooseSurface(i);
-    if (this.placed === null || (upgradable(this.placed) && (c.kind === 'mesh' || c.kind === 'plane'))) {
-      if (!c.waiting) this.place(arch, c);
-      else arch.setShown(false);
-    }
+    this.modes.length = 0;
+    for (const st of arch.stones) this.modes.push(st.mode);
+    if (mayPlace({ placed: this.placed, next: c, stonesOn: on, busy: stonesBusy(this.modes), seated: this.latch.seated })) {
+      const moving = this.placed !== null;
+      this.place(arch, c);
+      if (moving) { this.moves++; arch.hook.board!.moves = this.moves; playTick(); }
+    } else if (this.placed === null && c.waiting) arch.setShown(false); // once placed, never hidden again
     arch.hook.surface = this.placed ?? c.kind;
   }
 
@@ -154,6 +167,8 @@ export class SurfaceSystem extends createSystem({
     this.session = session;
     this.elapsed = 0;
     this.placed = null;
+    this.latch = { gen: this.latch.gen, seated: false };
+    this.moves = 0;
     this.hasPicked = false;
     this.hitTest = !!session?.enabledFeatures?.includes('hit-test') && typeof session.requestHitTestSource === 'function';
     this.input_.inXR = !!session;
@@ -224,6 +239,7 @@ export class SurfaceSystem extends createSystem({
       belowEyes: c.kind === 'desk' ? null : this.head.y - at.y,
       centre: { x: at.x + Math.sin(yaw) * mid, z: at.z + Math.cos(yaw) * mid },
       desk: d ? deskHook(d) : null,
+      moves: this.moves, seated: this.latch.seated,
     };
   }
 
@@ -377,6 +393,3 @@ function deskHook(d: SurfaceCandidate) {
     cx: d.x, cz: d.z, width: d.width, depth: d.depth, yaw,
   };
 }
-
-/** A lap tray or a picked spot gives way when a real desk turns up before the first stone. */
-const upgradable = (k: SurfaceKind) => k === 'lap' || k === 'pick';

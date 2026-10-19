@@ -77,10 +77,12 @@ export interface Hook {
    *  (null outside XR), the board's centre (world x, z) and, on a detected desk (mesh, plane), that desk's top (null
    *  otherwise): its own rectangle (centre cx, cz, width, depth, turned by yaw radians as rotationY) and the world
    *  x/z box round it; and how the board is drawn there now (src/scene/board-style.ts: 'frame' on a detected desk in
-   *  passthrough, else 'solid'). */
+   *  passthrough, else 'solid'). `moves`: how often in this session the board went from a lap tray or picked spot to a
+   *  desk found later; `seated`: a stone has gone down on this board since it was built (after that it stays put). */
   board?: {
     kind: SurfaceKind; at: { x: number; y: number; z: number }; belowEyes: number | null;
     style: BoardStyle;
+    moves: number; seated: boolean;
     centre: { x: number; z: number } | null;
     desk: {
       minX: number; maxX: number; minZ: number; maxZ: number; y: number;

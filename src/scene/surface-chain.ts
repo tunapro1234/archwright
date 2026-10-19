@@ -10,6 +10,8 @@
 //   first 1.5 s                          → wait for the room data to arrive
 //   hit-test, up to 9.5 s                → pick: the player pinches a spot on their desk
 //   otherwise                            → lap: the site (where the arch stands) 40 cm ahead, 42 cm below the eyes
+// Once placed, a lap tray or picked spot gives way to a desk found later, only before the first stone of this board and
+// with no stone in hand or moving; never back (mayPlace).
 
 import { BOARD } from './layout.js';
 
@@ -295,4 +297,35 @@ export function chooseSurface(i: SurfaceInput): SurfaceChoice {
   if (i.elapsed < ROOM_WAIT) return wait(i.hitTest ? 'pick' : 'lap');
   if (i.hitTest && i.elapsed < PICK_UNTIL) return pick(i);
   return at('lap', lapPosition(i.head, i.fwd));
+}
+
+/** What SurfaceSystem knows when the chain's choice could move the board: where it is now (null: nowhere yet in this
+ *  session), the chain's choice, the stones on the arch, whether a stone is in a hand or moving, and whether a stone
+ *  has gone down on this board since it was built (seatLatch). */
+export interface MoveGuard { placed: SurfaceKind | null; next: SurfaceChoice; stonesOn: number; busy: boolean; seated: boolean }
+
+/**
+ * Put the board where the chain says? With no place yet, as soon as the choice is not waiting (a level under way at the
+ * session's start is placed once, stones and all). Once placed, only from a lap tray or a picked spot to a detected
+ * desk (mesh or plane), and only with no stone on the arch, none in a hand or moving, and none ever seated on this
+ * board: never back, never between two desks, never lap and pick.
+ */
+export function mayPlace(g: MoveGuard): boolean {
+  if (g.placed === null) return !g.next.waiting;
+  const from = g.placed === 'lap' || g.placed === 'pick', to = g.next.kind === 'mesh' || g.next.kind === 'plane';
+  return from && to && !g.next.waiting && g.stonesOn === 0 && !g.busy && !g.seated;
+}
+
+/** A stone in a hand ('held'), on its way somewhere ('tween') or falling ('dynamic'). */
+export function stonesBusy(modes: readonly string[]): boolean {
+  return modes.some(m => m === 'held' || m === 'tween' || m === 'dynamic');
+}
+
+/** Has a stone gone down on this board (generation `gen`)? */
+export interface SeatLatch { gen: number; seated: boolean }
+
+/** The latch after a frame: a new board (generation) starts unseated; any stone on the arch seats it, and it stays. */
+export function seatLatch(prev: SeatLatch, gen: number, stonesOn: number): SeatLatch {
+  const seated = gen === prev.gen ? prev.seated : false;
+  return { gen, seated: seated || stonesOn > 0 };
 }
