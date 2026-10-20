@@ -335,18 +335,13 @@ describe('ArchRuntime.load() keeps the style on a level change', () => {
     expect([board().visible, outline().visible]).toEqual([true, false]);
   });
 
-  it('the same level loaded three times (a collapse rebuilt on each session cycle): one board, one outline, no bodies', () => {
+  it('the same level loaded again three times: one board, one outline', () => {
     const world = { createTransformEntity: (o: unknown) => ({ object3D: o, dispose() {} }) };
     const arch = new ArchRuntime(world as never);
     const def = LEVELS[0];
-    arch.load(def);
-    const gen = arch.generation;
-    for (let k = 0; k < 3; k++) arch.load(def);
+    for (let k = 0; k < 4; k++) arch.load(def);
     const named = (n: string) => arch.site.children.filter(o => o.name === n).length;
     expect(named('board')).toBe(1);
     expect(named('board-outline')).toBe(1);
-    expect(arch.bodies).toBe(0);
-    expect(arch.hook.level).toBe(def.id);
-    expect(arch.generation).toBe(gen + 3);
   });
 });

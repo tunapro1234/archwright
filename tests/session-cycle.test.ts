@@ -1,6 +1,9 @@
 // One page through several XR sessions (src/game/session-cycle.ts): hit-test sources of an ended session that throw on
-// cancel, the rule that builds a falling or fallen arch again on the next session, and when the hit-test rings are up.
-import { describe, expect, it } from 'vitest';
+// cancel, the rule that builds a falling or fallen arch again on the next session, and when the hit-test rings are up;
+// then SurfaceSystem's own startSession (src/systems/surface.ts) applying that rule at each session start and end.
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Object3D } from '@iwsdk/core';
+import { SurfaceSystem } from '../src/systems/surface.js';
 import { cancelHitSources, pickingAllowed, safeCancel, sessionCycleAction } from '../src/game/session-cycle.js';
 import type { Phase } from '../src/game/arch-state.js';
 import type { SurfaceInput, SurfaceKind } from '../src/scene/surface-chain.js';
@@ -82,5 +85,73 @@ describe('pickingAllowed', () => {
     ['mesh', undefined, 'mesh', false],
   ])('placed %s, force %s, choice %s → %s', (placed, force, choice, allowed) => {
     expect(pickingAllowed({ placed, force, choice })).toBe(allowed);
+  });
+});
+
+describe('SurfaceSystem.startSession', () => {
+  // No AudioContext in node: unlockAudio, on entering a session, finds none and does nothing.
+  beforeEach(() => { vi.stubGlobal('window', {}); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  /** The real startSession on a SurfaceSystem with only the fields it reads, an ArchRuntime stand-in counting its loads,
+   *  and place() (the board's placing, covered elsewhere) left out. */
+  function setup() {
+    const arch = {
+      state: { phase: 'building' as Phase }, stones: [] as { mode: string }[], collapseRequested: false,
+      def: { id: 'w1-1' }, loads: 0, desk: null as unknown, shown: true, hook: {} as Record<string, unknown>,
+      load(def: unknown) { expect(def).toBe(arch.def); arch.loads++; },
+      setShown(v: boolean) { arch.shown = v; },
+    };
+    const sys = Object.create(SurfaceSystem.prototype) as SurfaceSystem;
+    Object.assign(sys, {
+      session: undefined, elapsed: 0, placed: null, latch: { gen: -1, seated: false }, moves: 0, hasPicked: false,
+      hitSources: { left: null, right: null }, hitTest: false,
+      input_: { inXR: false, passthrough: false, head: { x: 0, y: 1.15, z: 0 }, fwd: { x: 0, z: -1 }, candidates: [], hitTest: false, elapsed: 0 },
+      desk: new Object3D(), atelier: new Object3D(), scene: { background: null }, background: null,
+      place() {},
+    });
+    const start = (session: object | null) =>
+      (sys as unknown as { startSession(a: unknown, s: unknown): void }).startSession(arch, session);
+    const xr = { environmentBlendMode: 'alpha-blend', enabledFeatures: [] };
+    return { arch, start, xr };
+  }
+
+  it('the page\'s first call does not rebuild, even with the arch fallen', () => {
+    const { arch, start } = setup();
+    arch.state.phase = 'collapsed';
+    start(null);
+    expect(arch.loads).toBe(0);
+  });
+
+  it('fallen, falling or with a collapse asked for: built again at every later start or end of a session', () => {
+    const { arch, start, xr } = setup();
+    start(null); // the page opens
+    arch.state.phase = 'collapsed';
+    start(null);
+    expect(arch.loads).toBe(1);
+    arch.state.phase = 'building';
+    arch.stones = [{ mode: 'placed' }, { mode: 'dynamic' }];
+    start(xr);
+    expect(arch.loads).toBe(2);
+    arch.stones = [];
+    arch.state.phase = 'ready';
+    arch.collapseRequested = true;
+    start(null);
+    expect(arch.loads).toBe(3);
+  });
+
+  it('building or held, stones placed or one in hand: kept as it is', () => {
+    const { arch, start, xr } = setup();
+    start(null);
+    arch.stones = [{ mode: 'placed' }, { mode: 'tray' }];
+    for (const phase of ['building', 'held'] as Phase[]) {
+      arch.state.phase = phase;
+      start(xr);
+      start(null);
+    }
+    arch.stones = [{ mode: 'placed' }, { mode: 'held' }];
+    start(xr);
+    start(null);
+    expect(arch.loads).toBe(0);
   });
 });
