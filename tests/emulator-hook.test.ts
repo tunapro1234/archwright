@@ -4,7 +4,8 @@
 // itself runs on stubs for IWER's frame and HandSystem: the hand's pinch point sits a fixed way off the hand.
 import { describe, expect, it } from 'vitest';
 import { Object3D, Quaternion, Vector3, type World } from '@iwsdk/core';
-import type { XRDevice } from 'iwer';
+import { XRDevice } from 'iwer';
+import { P_DEVICE } from 'iwer/lib/private.js';
 import { relaxedHandPose } from 'iwer/lib/device/configs/hand/relaxed.js';
 import { emulatorHook, ReachSystem } from '../src/emulator/emulator.js';
 import { isPalmUp } from '../src/game/palm.js';
@@ -198,16 +199,51 @@ describe('emulator.room', () => {
 });
 
 describe('emulator.setVisibility', () => {
-  it('holds for one session: once it ends, the next one starts visible (IWER keeps it on the device)', () => {
-    const set: string[] = [];
+  /** IWER's own device methods (its constructor needs a DOM) on just the state they keep, with the renderer's sessionend
+   *  listeners collected; `frame` applies a queued visibility as IWER's next session frame does
+   *  (node_modules/iwer/lib/device/XRDevice.js:292-297). */
+  function setup() {
+    const device = Object.assign(Object.create(XRDevice.prototype), {
+      [P_DEVICE]: { visibilityState: 'visible', pendingVisibilityState: null },
+    }) as XRDevice;
     const ends: (() => void)[] = [];
     const xr = { addEventListener: (type: string, f: () => void) => { if (type === 'sessionend') ends.push(f); } };
     const world = { player: new Object3D(), globals: {}, renderer: { xr } } as unknown as World;
-    const hook = emulatorHook({ updateVisibilityState: (v: string) => set.push(v) } as unknown as XRDevice, world);
+    const hook = emulatorHook(device, world);
+    const d = device[P_DEVICE];
+    const frame = () => {
+      if (d.pendingVisibilityState) { d.visibilityState = d.pendingVisibilityState; d.pendingVisibilityState = null; }
+    };
+    const end = () => { for (const f of ends) f(); };
+    return { device, d, hook, frame, end };
+  }
+
+  it('a blur applied in a session: once the session ends, the next one starts visible', () => {
+    const { device, d, hook, frame, end } = setup();
     hook.setVisibility('visible-blurred');
-    expect(set).toEqual(['visible-blurred']);
-    expect(ends).toHaveLength(1);
-    ends[0]();
-    expect(set).toEqual(['visible-blurred', 'visible']);
+    frame();
+    expect(device.visibilityState).toBe('visible-blurred');
+    end();
+    frame(); // the next session's first frame
+    expect(device.visibilityState).toBe('visible');
+    expect(d.pendingVisibilityState).toBeNull();
+  });
+
+  it('a blur asked for and not yet applied when the session ends: dropped, the next one starts visible', () => {
+    const { device, d, hook, frame, end } = setup();
+    hook.setVisibility('visible-blurred');
+    expect(d.pendingVisibilityState).toBe('visible-blurred');
+    end();
+    expect(d.pendingVisibilityState).toBeNull();
+    frame();
+    expect(device.visibilityState).toBe('visible');
+  });
+
+  it('a session that ends visible stays so', () => {
+    const { device, d, frame, end } = setup();
+    end();
+    frame();
+    expect(device.visibilityState).toBe('visible');
+    expect(d.pendingVisibilityState).toBeNull();
   });
 });

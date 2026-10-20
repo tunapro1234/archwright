@@ -14,6 +14,8 @@
 // loading or clearing the room.
 import { createSystem, Matrix4, Quaternion, Vector3, type World } from '@iwsdk/core';
 import { XRDevice, metaQuest3 } from 'iwer';
+// The device's own state (its queued visibility); the package has no exports map, and its entry imports this same module.
+import { P_DEVICE } from 'iwer/lib/private.js';
 import type { HandState } from '../systems/hands.js';
 import { emulatorRoom, ROOMS_DIR } from '../net/local-assets.js';
 import { xrError } from '../systems/xr-entry.js';
@@ -98,10 +100,15 @@ export function emulatorHook(device: XRDevice, world: World, roomJson: unknown |
   const input = (hand: Hand) => (device.primaryInputMode === 'hand' ? device.hands[hand] : device.controllers[hand]);
   const reached: Reach = { at: { left: null, right: null }, offset: { left: null, right: null } };
   world.globals.reach = reached;
-  // A headset starts every session visible, but IWER keeps the visibility on its device: a session ended while blurred
-  // would start the next one blurred, and so paused. Once a session ends it is set back (IWER applies it on the next
-  // session's first frame).
-  world.renderer?.xr?.addEventListener?.('sessionend', () => device.updateVisibilityState('visible'));
+  // A headset starts every session visible, but IWER keeps the visibility on its device, and queues a change until the
+  // session's next frame: a session ended while blurred, or with a blur asked for and not yet applied, would start the
+  // next one blurred, and so paused. Once a session ends, a change still queued is dropped and a blur applied is set
+  // back (IWER applies that on the next session's first frame).
+  world.renderer?.xr?.addEventListener?.('sessionend', () => {
+    const d = device[P_DEVICE] as { pendingVisibilityState: XRVisibilityState | null } | undefined;
+    if (d) d.pendingVisibilityState = null;
+    device.updateVisibilityState('visible');
+  });
   const m = new Matrix4(), q = new Quaternion(), r = new Quaternion(), v = new Vector3(), w = new Vector3();
   return {
     setVisibility: state => device.updateVisibilityState(state),
