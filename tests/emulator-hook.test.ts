@@ -196,3 +196,18 @@ describe('emulator.room', () => {
     expect(calls).toHaveLength(2);
   });
 });
+
+describe('emulator.setVisibility', () => {
+  it('holds for one session: once it ends, the next one starts visible (IWER keeps it on the device)', () => {
+    const set: string[] = [];
+    const ends: (() => void)[] = [];
+    const xr = { addEventListener: (type: string, f: () => void) => { if (type === 'sessionend') ends.push(f); } };
+    const world = { player: new Object3D(), globals: {}, renderer: { xr } } as unknown as World;
+    const hook = emulatorHook({ updateVisibilityState: (v: string) => set.push(v) } as unknown as XRDevice, world);
+    hook.setVisibility('visible-blurred');
+    expect(set).toEqual(['visible-blurred']);
+    expect(ends).toHaveLength(1);
+    ends[0]();
+    expect(set).toEqual(['visible-blurred', 'visible']);
+  });
+});

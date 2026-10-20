@@ -23,7 +23,8 @@ type Hand = 'left' | 'right';
 type Point = { x: number; y: number; z: number };
 
 export interface EmulatorHook {
-  /** The session's visibility as a system menu or the headset coming off would set it. */
+  /** The session's visibility as a system menu or the headset coming off would set it (for this session only: the
+   *  next one starts visible, as on a headset). */
   setVisibility(state: XRVisibilityState): void;
   /** Turn that side's input (the hand in hand mode, else the controller) so its ray points at a world point. */
   aim(hand: Hand, at: Point): void;
@@ -97,6 +98,10 @@ export function emulatorHook(device: XRDevice, world: World, roomJson: unknown |
   const input = (hand: Hand) => (device.primaryInputMode === 'hand' ? device.hands[hand] : device.controllers[hand]);
   const reached: Reach = { at: { left: null, right: null }, offset: { left: null, right: null } };
   world.globals.reach = reached;
+  // A headset starts every session visible, but IWER keeps the visibility on its device: a session ended while blurred
+  // would start the next one blurred, and so paused. Once a session ends it is set back (IWER applies it on the next
+  // session's first frame).
+  world.renderer?.xr?.addEventListener?.('sessionend', () => device.updateVisibilityState('visible'));
   const m = new Matrix4(), q = new Quaternion(), r = new Quaternion(), v = new Vector3(), w = new Vector3();
   return {
     setVisibility: state => device.updateVisibilityState(state),
