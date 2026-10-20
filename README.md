@@ -197,7 +197,7 @@ When the solver says no, the arch shows why before it moves: the code shows the 
 of silence after the strike, as a dashed orange line (amber in high contrast), twice as thick where it runs outside the stones,
 with a small ring at each joint edge it passes and a thin crack along each joint the arch breaks at. Once the stones start to
 fall it fades within 0.5 s to a faint 35% and stays there over the fallen stones, so the reason is still there to look at
-until you rebuild or move to another level. Rebuild the same level and the joints it broke at stay marked, each with a small
+until you rebuild, move to another level, or enter or leave XR. Rebuild the same level and the joints it broke at stay marked, each with a small
 ring in the same colour where the arch will stand (70% opaque, so it reads against the centering), without saying which stone
 to change; the next strike or another level clears them. In a frame paused 0.37 s after the strike on w1-1's trap (server, SwiftShader) the line, five
 rings and four cracks are drawn in front of the centering. On the tempting wrong arrangement of every one of the 17 levels that line leaves the stones at 4 to
@@ -365,10 +365,10 @@ first-minute lesson and the performance budget, each also failing on any console
 On a Quest, open the hosted page in the Quest Browser and accept its offer to enter AR. If the offer does not show, or you close
 it, the page has its own **Enter AR** and **Enter VR** buttons at the bottom, drawn only for the session modes the browser says it
 supports; they hide while a session runs and come back when it ends (checked in IWER: Enter AR opened an AR session, the buttons
-came back when it ended and Enter VR opened a VR session; a desktop browser without a headset shows none). Leaving XR and going
-back in (AR or VR) builds a collapse still under way again, as the rebuild stone does, and keeps the level and your progress; a
-level half built goes to the new surface with its stones, and the hit-test ring comes up for it too
-(checked over three IWER session cycles on one page). Hand tracking, plane detection, anchors, hit-test and mesh detection are
+came back when it ended and Enter VR opened a VR session; a desktop browser without a headset shows none). Entering or leaving
+XR (AR or VR) builds an arch that is falling or has fallen again, as the rebuild stone does, and keeps the level and your
+progress; a level half built goes to the new surface with its stones (checked over three IWER session cycles on one page), and
+the hit-test ring comes up for it too. The rebuild was seen in IWER over one exit and one VR entry. Hand tracking, plane detection, anchors, hit-test and mesh detection are
 all requested as optional features, so the session starts on any setup.
 
 URL parameters, for development and tests:
