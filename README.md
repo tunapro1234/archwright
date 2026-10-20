@@ -6,9 +6,9 @@ the wooden centering out from under it by hand. The verdict is not scripted: a s
 the arch carries itself or collapses across your desk. No controllers are needed at any point.
 
 > Status: work in progress, playable end to end in a desktop browser and in IWER, Meta's WebXR emulator: three worlds of five
-> levels, two monument levels, Today's Span and the museum. **Archwright has not been tried on a real headset.** Everything
-> described here was tested with the emulator or with a desktop browser; hand tracking, passthrough, plane detection and
-> anchors on an actual Quest are untested.
+> levels, two monument levels, Today's Span and the museum. **Archwright has not been tried on a real headset.**
+> Everything described here was checked with the emulator, a desktop browser or unit tests (the table below says which);
+> hand tracking, passthrough, mesh and plane detection, hit-test and anchors on an actual Quest are unchecked.
 
 ## For judges, 60 seconds
 
@@ -16,7 +16,8 @@ the arch carries itself or collapses across your desk. No controllers are needed
 - **See the verdict without playing:** [`?autotest=w3-1:collapse;w3-1:hold`](https://tunapro1234.github.io/archwright/?autotest=w3-1:collapse;w3-1:hold)
   builds w3-1 twice with the same five stones, one sandstone and one tuff swapped: the first falls, the second holds.
 - **Watch an emulated hand play:** [`?emulator=1&autoxr=vr&level=w1-1&handplay=trap`](https://tunapro1234.github.io/archwright/?emulator=1&autoxr=vr&level=w1-1&handplay=trap)
-  (IWER, Meta's WebXR emulator, in the browser: a hand pinches the stones by their joints and pulls the centering).
+  (IWER, Meta's WebXR emulator, in the browser: an emulated hand, read by its joints like any hand, pinches the stones and pulls
+  the centering).
 - **On a Quest:** open the link in the Quest Browser and accept its offer to enter AR (or press **Enter AR**). After you exit,
   tap **Send device report**: it opens a GitHub issue already filled in with the build, the browser, the session and its frame
   rates, and nothing is sent unless you submit it (a photo of the `?debug=1` slate in an
@@ -34,7 +35,7 @@ the arch carries itself or collapses across your desk. No controllers are needed
 | Feature | How Archwright uses it | Code | Seen in |
 |---|---|---|---|
 | Mesh and plane detection | a desk 25–85 cm below the eyes and in reach takes the board | `src/scene/surface-chain.ts` | IWER, synthetic rooms (the desk as a mesh); a desk plane in unit tests only |
-| Hit-test | no desk after 1.5 s: a ring on real surfaces, pinch to pick the spot | `src/systems/surface.ts` | IWER, controller ray |
+| Hit-test | while no desk is found: a ring on real surfaces, pinch to pick the spot (the board goes there from 1.5 s) | `src/systems/surface.ts` | IWER, controller ray |
 | Lap tray | no desk and no pick by 9.5 s (by 1.5 s without hit-test): the arch 40 cm ahead (the board's centre about 29 cm), 42 cm below the eyes | `src/scene/surface-chain.ts` | IWER |
 | Passthrough board | on a detected desk, a stone frame and a felt under the tray, so the table shows through | `src/scene/board-style.ts` | IWER, synthetic office |
 | Persistent anchors | each museum plinth tied to an anchor and restored next session | `src/systems/museum.ts` | IWER, after a reload |
@@ -50,12 +51,14 @@ the arch carries itself or collapses across your desk. No controllers are needed
   of the arch. As it nears an end, a see-through ghost of the stone shows where it will sit; let go there and it seats with a
   click. Stones turn to the right angle by themselves. Before you pinch, the stone your fingers would take rises 4 mm and turns
   a little lighter (in high contrast it also gets an outline), so among close stones you know which one you will get; the
-  pinch takes that same stone. A hand with its palm up marks nothing, since its pinch takes nothing (see below). In desktop
+  pinch takes that same stone. With both hands over stones, only the one nearer its hand is marked. A hand with its palm up marks nothing, since its pinch takes nothing (see below). In desktop
   mode the stone under the mouse that a click would take does the same, and in gaze mode the stone you look at, since there
   the pinch confirms what you look at. In XR the smaller targets get a thin ring the same way: a level marker, the rebuild
   stone, the share tablet or an accessibility icon within a pinch's reach of a hand that is over no stone. The ring shows what
-  a pinch would take, and nothing past that reach (checked in the emulator; not in gaze mode). The pinch takes the spot the
-  ring is on, the nearest one where two are in reach, and a pinch with no ring takes no spot (`tests/spot-hover.test.ts`).
+  a pinch would take, and nothing past that reach (checked in the emulator on the level markers, Today's Span and an
+  accessibility icon; not on the rebuild stone or the share tablet, and not in gaze mode). A hand's pinch takes the spot that
+  hand is over (the nearest in reach; between two, it keeps the one it had), and a hand over no spot takes none; with both
+  hands over spots, only the nearer hand's spot has a ring (`tests/spot-hover.test.ts`).
 - A pinch with the palm facing up is Quest's own system gesture, so it never takes a stone. If the headset loses the hand
   that holds a stone for more than 0.3 s, the stone floats back to the tray; a shorter gap, such as one hand passing behind
   the other, keeps it in hand. The centering's handle is kept the same way (it does not move while the hand is gone).
@@ -72,11 +75,12 @@ the arch carries itself or collapses across your desk. No controllers are needed
   was the last level, its stones fade and the next level is set up. After a collapse a rebuild stone appears above the board,
   in front of the arch: pinch it and the same level starts again with the same tray. Small stones beside the board open any
   level you have reached (solid: solved, hollow: open, lifted and lit: the one on the board). Progress is saved in this
-  browser (`archwright.progress.v1`), and the game reopens on the level where you left off.
+  browser (`archwright.progress.v1`), and the game reopens on the level after the last one you solved (levels opened from a
+  marker and Today's Span are not remembered).
 
 **The first minute has no text.** On the first level a pale ghost hand pinches the first stone of the solution out of the
 tray and seats a see-through copy of it on its open end, with a soft touch sound as the fingers meet (the real stones do not
-move). If your hands are in view and you have not picked anything up 12 s later, it shows the move again, three times at most;
+move). If your hands are in view and you have not picked anything up 12 s later, it shows the move again, up to three times in all;
 your first grab ends it for good, and hands resting out of view do not count as waiting. Once an arch is closed, bringing a hand
 near the centering's handle makes the centering glow warm, until you strike your first arch. The desktop mode shows the same
 hand, and the glow follows the mouse. The lesson's progress is kept in this browser (`archwright.onboard.v1`); the rules are
@@ -104,7 +108,7 @@ Archwright · Today's Span #13
 One square per stone from the left springing to the right one (🟧 sandstone, ⬜ tuff, ⬛ basalt), the stones used against par,
 and whether it held. No link and no name. Where the browser does not let the page write to the clipboard, the tablet shakes
 instead. A daily level is not part of the campaign: it unlocks nothing and is not saved as solved; the round marker
-turns solid once today's arch has held on this device.
+turns from pale tuff to sandstone once today's arch has held on this device.
 
 Controllers work as a fallback (trigger or grip in place of the pinch).
 
@@ -118,7 +122,8 @@ view, so a tall pointed arch pulls it back (`frameView`, src/game/desktop.ts).
 Where the board goes (`src/scene/surface-chain.ts`, pure functions with their own tests): if the headset's scene data has a
 table mesh or a horizontal plane at desk height within reach (25 to 85 cm below the eyes, the nearest point where the board's
 centre can land at most 75 cm away, at least 30 × 20 cm) and not behind you (its centre within 100° of the way you face, or under your head), the board goes on it, scene
-meshes first. On that desk the board stands 50 cm ahead of your eyes, facing the way you face, as long as its centre is then at
+meshes first. On that desk the arch stands 50 cm ahead of your eyes (the board's centre 39 cm), the board facing the way you face, as long
+as the board's centre is then at
 least 10 cm in from every edge of the desk (on its middle line, if the desk is only 20 cm deep). If not, the centre moves to the
 nearest point that is, and the board turns to face you from there: a desk off to one side gets the board on it, square to you,
 rather than in the air in front of you. A real table is rarely square to the headset's floor axes, so the desk's top is the
@@ -139,8 +144,9 @@ Anywhere else, in high contrast and with `?board=solid` it is the solid board (`
 is the same either way).
 The frame has been seen only in IWER's synthetic rooms, not on a headset.
 The table in the emulator's synthetic office stands half a degree off square to the room's axes, so the turned case is covered
-by those tests alone. If no desk turns up within 1.5 s and hit-test is available, a ring follows
-your hand's ray over real surfaces and you pinch to pick a spot on your desk; a spot at floor or shelf height is refused. After
+by those tests alone. If hit-test is available, a ring follows your hand's ray
+over real surfaces from the start of the session and you pinch to pick a spot on your desk; the spot is used if no desk turns
+up within 1.5 s, and a spot at floor or shelf height is refused. After
 9.5 s with no pick, or without hit-test, the board sits on a lap tray, the arch 40 cm in front of you (the board's centre about
 29 cm), 42 cm below the eyes. A lap tray or a picked spot gives way if a real desk is detected before the first stone goes
 down (and not while a stone is in your hand or on its way;
@@ -159,7 +165,7 @@ behind was skipped and, with no pick, the board went to the lap tray. `?autotest
 error and no request to another origin.
 
 All five of Meta's synthetic rooms (`office_small`, `office_large`, `living_room`, `meeting_room`, `music_room`; 17 October 2026,
-the emulated headset at the room's origin facing its −z axis, eyes at 1.15 m): in `office_small` the board went onto the table
+the emulated headset 5 cm behind the room's origin facing its −z axis, eyes at 1.15 m): in `office_small` the board went onto the table
 mesh, 40 cm below the eyes. The other four rooms report 15 to 24 planes and 3 to 14 meshes, tables among them; in that run
 none counted as a desk and, with no pick, the board went to the lap tray. Standing (eyes at 1.6 m), the board went to the lap
 tray in both rooms tried (`office_small`, where the table top was 85.5 cm below the eyes, just past the 85 cm limit, and
@@ -168,11 +174,11 @@ table with its centre inside the 10 cm margin. `?autotest=w1-1:hold` held in all
 request to another origin. Picking with an emulated controller ray (`?surface=pick`: aimed at the table's centre, trigger
 pulled) put the board 0.3 cm from the aimed point, 40 cm below the eyes. Since those runs a desk is in reach when the nearest
 point where the board's centre can land on it is within 75 cm (see Where the board goes), and `&seat=table` can sit the emulated
-headset at a room's table. Where the board goes in each room, from the room's origin and seated at its table, is in the
+headset at a room's table. Where the board goes in each room, from just behind the room's origin and seated at its table, is in the
 table below. Measured on 684d8c7 and again on 9be8ecd (19 October 2026, server, SwiftShader, IWER; eyes at 1.15 m, `?autotest=w1-1:hold` held in
 all ten runs, no console error, no request to another origin):
 
-| Room | From the room's origin, facing −z | Seated at its table (`&seat=table`) |
+| Room | From 5 cm behind the room's origin, facing −z | Seated at its table (`&seat=table`) |
 |---|---|---|
 | `office_small` | table mesh, centre 43 cm from the head | table mesh, centre 55 cm from the head |
 | `office_large` | lap tray | table mesh, centre 55 cm from the head |
@@ -193,7 +199,8 @@ both runs; in the browser, with no desk collider, 3 to 4 of 5 stayed on the boar
 
 ## What happens when it falls
 
-When the solver says no, the arch shows why before it moves: the code shows the solver's least-bad line of thrust in the 0.6 s
+When the solver says no to a closed arch, the arch shows why before it moves: unless a joint would have to pull (then only
+the cracks are drawn), the code shows the solver's least-bad line of thrust in the 0.6 s
 of silence after the strike, as a dashed orange line (amber in high contrast), twice as thick where it runs outside the stones,
 with a small ring at each joint edge it passes and a thin crack along each joint the arch breaks at. Once the stones start to
 fall it fades within 0.5 s to a faint 35% and stays there over the fallen stones, so the reason is still there to look at
@@ -237,7 +244,7 @@ The copy is your own arch: the save keeps, with your best stone count on each le
 stone's place in the tray and its side, a few bytes). A save from before that was kept, or one that no longer fits the
 level, shows the level's reference solution instead. Plinths stand in a row 7 cm behind the board, from its back corners outwards, left
 and right in turn, 10 cm apart; a new one never moves the others. Each plinth is one mesh (block, piers and stones welded
-together, colours per vertex), so a full museum of eight costs eight draw calls. A solved monument level (below) gets its own
+together, colours per vertex), so it costs one draw call; the full museum (three worlds and two monuments) is five plinths. A solved monument level (below) gets its own
 plinth, in level order right after its world's, with its plaque cut into the block's front (one more draw call).
 
 In a mixed reality session where the headset grants anchors (an optional WebXR feature; Archwright never requires it), each
@@ -260,8 +267,9 @@ and the monument's museum plinth carries the same two lines:
 | after w2-5 | Malabadi Bridge · Silvan, Diyarbakır · c. 1147–1154<br>pointed arch · span ≈ 38.6 m | pointed, rise/span 0.67, 11 courses | [TDV İslâm Ansiklopedisi: Köprü](https://islamansiklopedisi.org.tr/kopru), [Wikipedia: Malabadi Bridge](https://en.wikipedia.org/wiki/Malabadi_Bridge) |
 
 The spans are approx. values taken from the sources above (the Tiberio figure is its longest of five arches). Nothing else
-about either bridge is claimed: no height, and the game scale is not the real scale. Each level keeps the board's size, about
-a third of a metre across, and only the arch's shape follows the bridge. Malabadi's rise-to-span ratio in the game is a design
+about either bridge is claimed: no height, and the game scale is not the real scale. Each level keeps the game's desk scale, with the
+arch's opening about a third of a metre across (0.34 m for Tiberio, 0.36 m for Malabadi), and only the arch's shape follows
+the bridge. Malabadi's rise-to-span ratio in the game is a design
 choice, not the bridge's real proportion. Both levels are solver-checked like the others: the reference solution holds, the
 trap closes the arch and falls. The data and plaque text live in `src/levels/monuments.ts`.
 
@@ -285,7 +293,7 @@ the address.
   hand: taking a stone from the tray, carrying it and letting go at an open end, taking the outermost stone back off,
   pulling the centering, the rebuild stone, the level markers, the share tablet, the panel icons, and picking a spot on the
   desk when no table is detected. The setting adds one thing: pinch the centering's handle and hold it for 0.8 s and it pulls
-  itself out, so the strike does not need a 10 cm pull towards you. There is no time limit anywhere in the game.
+  itself out, so the strike does not need a 7 cm pull towards you. There is no time limit anywhere in the game.
 - **High contrast.** The scene is repainted at once with a second palette (`HIGH_CONTRAST` in `src/scene/palette.ts`):
   near-white tuff, orange sandstone and near-black basalt, violet timber, a navy desk and a sky-blue line of thrust. It looks
   unnatural on purpose. Stones keep their chisel marks and chamfered edges, the centering its planks, so colour is never the
@@ -326,7 +334,8 @@ mirrors, so the same course on the left and on the right is the same note. The n
 (C3 to C6, equal temperament, A4 = 440 Hz). A pentatonic scale has no semitone and no tritone, so whichever stones you place,
 in whatever order, they never clash. When the centering comes out, its timber creaks and the creak rises as the stones take the
 load. A held arch rings every one of its stones, low to high, as one chord. A failing one cracks first, then the stones grind on
-their joints, each one thuds as it lands, and pebbles skitter after them; this score lasts at most 3.5 s and never has more
+their joints, a thud for each stone (ten at most) follows over the next two seconds (set in the score, not timed to the
+physics), and pebbles skitter after them; this score lasts at most 3.5 s and never has more
 than 16 sounds at once. The same arch always falls with the same sound: the score is drawn from a seed (the level's id) and the number of stones.
 Taking a stone, by pinch, click or a look and a pinch, gives a short dry knock (under 0.08 s) pitched by the stone: lowest for
 basalt, then sandstone, highest for tuff. A stone sent back to the tray slides home with a soft scrape (so does a lifted stone
@@ -343,7 +352,8 @@ attack, 100 ms release), so a pile of collapse voices cannot clip.
 
 ## How to run
 
-Requirements: Node.js 22.12+ (see `.nvmrc`).
+Requirements: Node.js 20.19+ in the 20 line, 22.12+ in the 22 line, or 24 and later (`engines` in `package.json`);
+`.nvmrc` pins 22.12.0.
 
 ```bash
 npm install
@@ -369,16 +379,17 @@ came back when it ended and Enter VR opened a VR session; a desktop browser with
 XR (AR or VR) builds an arch that is falling or has fallen again, as the rebuild stone does, and keeps the level and your
 progress; a level half built goes to the new surface with its stones (checked over three IWER session cycles on one page), and
 the hit-test ring comes up for it too. The rebuild was seen in IWER over one exit and one VR entry. Hand tracking, plane detection, anchors, hit-test and mesh detection are
-all requested as optional features, so the session starts on any setup.
+all requested as optional features (and local-floor falls back to local), so a headset or browser that lacks one of them
+still gets the session.
 
 URL parameters, for development and tests:
 
 | Parameter | Effect |
 |---|---|
-| `?level=w1-2` | start on another level (`w1-1` to `w1-5`, pointed arches `w2-1` to `w2-5`, loads `w3-1` to `w3-5`) |
+| `?level=w1-2` | start on another level (`w1-1` to `w1-5`, pointed arches `w2-1` to `w2-5`, loads `w3-1` to `w3-5`, monuments `m-tiberio` and `m-malabadi`) |
 | `?level=today` | Today's Span for the local date; `?level=daily-2026-11-05` opens another day's (also `?autotest=today:hold`) |
 | `?emulator=1` | install IWER, Meta's WebXR emulator, so a desktop browser can run an XR session |
-| `?emulator=1&autoxr=ar` | with the emulator only: the page requests the XR session itself (`ar` or `vr`), no click; ignored on a real headset |
+| `?emulator=1&autoxr=ar` | with the emulator only: the page requests the XR session itself (`ar` or `vr`), no click; does nothing without `?emulator=1` |
 | `?emulator=1&room=office_small` | with the emulator only: load one of Meta's synthetic rooms (`@iwer/sem`: `office_small`, `office_large`, `living_room`, `meeting_room`, `music_room`), so an AR session sees its walls, floor, tables and furniture as planes and meshes; the room file comes from this site |
 | `?emulator=1&head=90,1.6` | with the emulator only: the emulated headset starts turned by that many degrees (positive turns left) with its eyes that many metres above the floor (default 0°, 1.15 m) |
 | `?emulator=1&room=office_small&seat=table` | with the emulator and a room only: the emulated headset sits at the room's table nearest to where it would start, 45 cm out from the middle of the table's long edge, facing the table, with its eyes at the height from `&head=` (default 1.15 m) |
@@ -426,11 +437,11 @@ turns the emulated head where it stands to look at a point, and `reach(hand, poi
 tracked hands and controllers, `point(hand)` gives that side's point as the game sees it (null while it is not tracked), and
 `palm(hand, 'up' | 'down')` turns a hand about its forearm where it stands so its palm faces up or down; `end()` ends the
 running session. The XR smoke
-test opens `?emulator=1&autoxr=ar&autotest=w1-1:hold` and `?emulator=1&autoxr=vr`: a real (emulated) session, the surface
+test opens `?emulator=1&autoxr=ar&autotest=w1-1:hold` and `?emulator=1&autoxr=vr&level=w1-1`: a real (emulated) session, the surface
 chain inside it, and in AR the autotest, which waits for the board to find its surface before the first stone goes down.
 
 `node scripts/key-frames.mjs <dir>` opens the emulator page with `&shots=1`, which makes the autotest hold at seven moments
-(tray, keystone held over its gap with the snap ghost, keystone seated, centering pulled, arch held, collapse half way, collapse at rest) and saves a screenshot of each.
+(tray, keystone held over its gap with the snap ghost, keystone seated, centering mid-pull, arch held, collapse half way, collapse at rest) and saves a screenshot of each.
 
 ## Performance
 
@@ -448,7 +459,7 @@ lines say what is running and how it ran lately: the commit the page was built f
 (`src/game/frame-stats.ts`; about 8 s at 72 Hz). So a photo of it taken in a headset is a report we can read: which build, which
 browser, and how smooth it was. On the
 desktop it is a text box in the page corner; in an XR session, where a page cannot be seen, the same lines are on a small slate
-standing on the desk behind the board's right corner (part of the room, not fixed to your head; it adds one draw call). The same
+hanging about 7 cm above the desk, to the right of the board's far right corner (part of the room, not fixed to your head; it adds one draw call). The same
 numbers are in `window.__archwright.perf` every frame, in XR as well (`p50` and `p5`, the two frame rates, are refreshed four times a second), and the build in
 `window.__archwright.build`.
 
@@ -486,7 +497,8 @@ classic result that a semicircular arch needs a ring at least about 0.107 of its
 
 Levels are checked the same way. A level is a centering, a number of courses and a tray of stones (sandstone, light tuff,
 heavy basalt; thick, thin or wide). `npm run level-check` closes the arch in every way the tray allows, solves each one, and
-confirms that the intended solution holds, that a tempting wrong arrangement falls, and that most arrangements fall.
+confirms that the intended solution holds and that a tempting wrong arrangement falls (and that the par is the true fewest
+stones), and prints how many arrangements hold; the test suite also requires that most of them fall.
 
 World 3 adds loads: a tower, a bell or a cart standing on the arch. Each one goes to the solver as a vertical point load
 (its mass times g) at the middle of the back of the stone that covers its course, and the scene puts the model on exactly that
@@ -501,7 +513,8 @@ loads), solves every way to close each one, and keeps a level only if it passes 
 fewest-stone solution holds with a margin of at least 0.06, a tempting arrangement falls (with a load, preferably one that would
 hold without it), and 2 to 45 % of the closed arrangements hold. It keeps 48 levels, 16 each of semicircular, pointed and
 loaded, dealt in turn, and writes them to `src/levels/daily-pool.ts`. Day *N* takes entry (*N* − 1) mod 48, so no level comes
-back within 48 days, and the date is the only input: no random numbers and no clock in `src/game/daily.ts`. The tests solve
+back within 48 days, and the date is the only input: the level for a date uses no random numbers and no clock (in `src/game/daily.ts`, only
+`localDateISO` reads the clock, to find today's date). The tests solve
 the whole pool again.
 
 Source: J. Heyman, *The Stone Skeleton: Structural Engineering of Masonry Architecture*, Cambridge University Press, 1995.
@@ -512,7 +525,8 @@ Source: J. Heyman, *The Stone Skeleton: Structural Engineering of Masonry Archit
 - `src/game/arch-state.ts`: the rules (which stone may go where, when the arch is closed, the strike). No three.js.
 - `src/levels/`: level definitions, each generated from geometry and checked with the solver.
 - `src/scene/`, `src/audio/`: procedural meshes and synthesised sounds (`music.ts` decides the notes and the collapse score,
-  `synth.ts` plays them). There are no model, texture or sound files.
+  `synth.ts` plays them). The stones, board and sounds use no model, texture or sound files; the only model files are the
+  controller and hand profiles described below.
 - `src/systems/`: ECS systems (an ECS, entity-component system, keeps data in components and behaviour in systems that run every
   frame): hand tracking and pinch, grab and snap, the centering, the strike, the collapse, the surface finder, the desktop mouse
   mode, the accessibility panel and gaze mode, the desk museum, rendering. The mouse mode picks through IWSDK's canvas pointer events on `RayInteractable` entities, not a raycaster of
@@ -533,7 +547,7 @@ Nothing is fetched from another origin. Four defaults in the libraries would do 
   decoder is shipped and the decoder path points into this site.
 - The UI kit's Avatar picture (from DiceBear): no avatar is ever drawn, and the default is blanked.
 - The emulator's synthetic rooms (development only, `?emulator=1&room=`; the room module would take them from unpkg or bundle
-  all five, 4.5 MB, into the code): the five room files are copied into `public/emulator/rooms/`, and only the one named by
+  all five, 4.7 MB, into the code): the five room files are copied into `public/emulator/rooms/`, and only the one named by
   `?room=` is fetched and handed to the module; the build empties the module's table of built-in rooms and points its own
   loader's address into this site.
 
