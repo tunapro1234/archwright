@@ -24,10 +24,14 @@ function rig(presenting = true) {
   }])) as Record<Side, HandState>;
   const settings = { gaze: false, oneHand: false, highContrast: false };
   const toggled: A11yKey[] = [];
+  const asked: A11yKey[] = []; // every icon the system asks the panel for
   const panel = {
     settings,
     toggle: (k: A11yKey) => { toggled.push(k); settings[k] = !settings[k]; },
-    iconAt: (k: A11yKey, out: Vector3) => (k === 'gaze' ? out.copy(ICON) : k === 'oneHand' ? out.copy(STONE) : null),
+    iconAt: (k: A11yKey, out: Vector3) => {
+      asked.push(k);
+      return k === 'gaze' ? out.copy(ICON) : k === 'oneHand' ? out.copy(STONE) : null;
+    },
   } as unknown as A11yPanel;
   const hook = { gaze: { on: false, target: null as string | null, stone: null as string | null, wake: 0 } };
   const arch = { state: { placed: [] }, generation: 0, shown: true, gaze: { on: false, stone: undefined }, hook } as unknown as ArchRuntime;
@@ -43,7 +47,7 @@ function rig(presenting = true) {
   });
   const frame = (dt = 0.1) => sys.update(dt);
   const look = (at: Vector3) => { head.lookAt(at); head.rotateY(Math.PI); head.updateMatrixWorld(true); };
-  return { sys, hands, settings, toggled, hook, ring, frame, look, head };
+  return { sys, hands, settings, toggled, asked, hook, ring, frame, look, head };
 }
 
 describe('gaze off: the gaze icon wakes gaze', () => {
@@ -94,13 +98,15 @@ describe('gaze off: the gaze icon wakes gaze', () => {
     expect(r.hook.gaze.wake).toBe(0);
   });
 
-  it('only the gaze icon counts: another icon on the same line, in front, neither blocks it nor is a target', () => {
+  it('only the gaze icon is asked for; the ring comes up on it and the pinch toggles gaze alone', () => {
     const r = rig();
-    r.look(ICON); // the one-hand icon (STONE) is on the way, 15 cm nearer
+    r.look(ICON); // the one-hand icon (STONE) would sit on the way, 15 cm nearer, if it were asked for
     for (let i = 0; i < 7; i++) r.frame(0.1);
+    expect(r.asked.length).toBeGreaterThan(0);
+    expect([...new Set(r.asked)]).toEqual(['gaze']);
     expect(r.hook.gaze.wake).toBeGreaterThanOrEqual(GAZE_WAKE_DWELL);
-    expect(r.hook.gaze.on).toBe(false);
-    expect(r.hook.gaze.target).toBeNull();
+    expect(r.ring.visible).toBe(true);
+    expect(r.ring.position.distanceTo(ICON)).toBeLessThanOrEqual(0.001);
     r.hands.left.pinchStarted = true;
     r.frame(0.1);
     expect(r.toggled).toEqual(['gaze']);
