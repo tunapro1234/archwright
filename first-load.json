@@ -1,16 +1,16 @@
 {
   "budgetBytes": 8000000,
   "firstLoad": {
-    "bytes": 7530392,
-    "gzip": 2019231,
+    "bytes": 7531884,
+    "gzip": 2019791,
     "files": [
       {
         "path": "assets/_virtual_iwsdk-disabled-bundled-fonts-CyX98Mcx.js",
         "bytes": 776
       },
       {
-        "path": "assets/index-B-WC6waD.js",
-        "bytes": 6777781
+        "path": "assets/index-R1jmVFoD.js",
+        "bytes": 6779273
       },
       {
         "path": "assets/index-xH9AEZ44.js",
@@ -29,7 +29,7 @@
         "bytes": 41907
       },
       {
-        "path": "assets/world-initializer-BMIaQsci.js",
+        "path": "assets/world-initializer-CkpDLs8X.js",
         "bytes": 45387
       },
       {
@@ -43,7 +43,7 @@
     ]
   },
   "onDemand": {
-    "bytes": 12381631,
+    "bytes": 12381924,
     "files": [
       {
         "path": "assets/HavokPhysics-BqNY-4N9.wasm",
@@ -51,22 +51,22 @@
         "why": "physics (idle after the board shows, or first stone)"
       },
       {
-        "path": "assets/emulator-CY8K0R2d.js",
-        "bytes": 196812,
+        "path": "assets/emulator-CNKauZ5t.js",
+        "bytes": 197105,
         "why": "emulator"
       },
       {
-        "path": "assets/handplay-B0Z_RU8Y.js",
+        "path": "assets/handplay-Ch8BtN78.js",
         "bytes": 4966,
         "why": "emulated hand"
       },
       {
-        "path": "assets/index-By9541OI.js",
+        "path": "assets/index-1uhGOnsh.js",
         "bytes": 45471,
         "why": "emulator room module"
       },
       {
-        "path": "assets/physics-runtime-BgEpKI_H.js",
+        "path": "assets/physics-runtime-Ds8gnMqs.js",
         "bytes": 39863,
         "why": "physics (idle after the board shows, or first stone)"
       },
