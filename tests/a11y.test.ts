@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  A11Y_KEY, activePalette, defaultA11y, gazePick, HOLD_TO_STRIKE, holdPull, loadA11y, parseA11yParam, saveA11y,
+  A11Y_KEY, activePalette, defaultA11y, GAZE_WAKE_DWELL, gazePick, gazeWake, HOLD_TO_STRIKE, holdPull, loadA11y,
+  parseA11yParam, saveA11y,
 } from '../src/game/a11y.js';
 import { COLORS, HIGH_CONTRAST, onRepaint, paint, PALETTE, usePalette } from '../src/scene/palette.js';
 import { MATERIAL_COLOR } from '../src/scene/meshes.js';
@@ -75,6 +76,32 @@ describe('gaze and hold', () => {
     // A big sphere just behind a small one is entered first: its surface is nearer.
     const bigger = { ...big, radius: 0.13 };
     expect(gazePick(O, { x: 0, y: 0, z: -1 }, [near, bigger])).toBe('big');
+  });
+
+  it('with `only`, the targets left out neither block the ray nor are hit; [] hits nothing; without it, as before', () => {
+    const near = { id: 'near', center: { x: 0.1, y: 1.1, z: -0.1 }, radius: 0.05 };
+    const icon = { id: 'a11y:gaze', center: { x: 0.1, y: 1.1, z: -0.4 }, radius: 0.011 };
+    const D = { x: 0, y: 0, z: -1 };
+    expect(gazePick(O, D, [near, icon])).toBe('near');
+    expect(gazePick(O, D, [near, icon], 1.5, ['a11y:gaze'])).toBe('a11y:gaze');
+    expect(gazePick(O, D, [near, icon], 1.5, [])).toBeNull();
+    expect(gazePick(O, D, [near, icon], 1.5, ['near', 'a11y:gaze'])).toBe('near');
+    expect(gazePick(O, D, [near, icon], 0.3, ['a11y:gaze'])).toBeNull();
+    expect(gazePick(O, { x: 0, y: 1, z: 0 }, [near, icon], 1.5, ['a11y:gaze'])).toBeNull();
+  });
+
+  it('gazeWake: the dwell grows while looked at and drops to 0 when not; a pinch counts from GAZE_WAKE_DWELL', () => {
+    expect(GAZE_WAKE_DWELL).toBe(0.6);
+    const a = gazeWake(0.5, true, true, 0.09);
+    expect(a.dwell).toBeCloseTo(0.59, 9);
+    expect(a.on).toBe(false);
+    expect(gazeWake(0.5, true, true, 0.1)).toEqual({ dwell: 0.6, on: true });
+    expect(gazeWake(2, false, true, 0.1)).toEqual({ dwell: 0, on: false });
+    const b = gazeWake(1, true, false, 0.1);
+    expect(b.dwell).toBeCloseTo(1.1, 9);
+    expect(b.on).toBe(false);
+    expect(gazeWake(0, true, true, 0)).toEqual({ dwell: 0, on: false });
+    expect(gazeWake(0.3, true, false, -1).dwell).toBe(0.3);
   });
 
   it('holding the handle HOLD_TO_STRIKE pulls exactly to the strike; less, part of the way', () => {

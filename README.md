@@ -289,6 +289,8 @@ the address.
   picked stone rises off the tray with a ghost at each open end, and looking at an end and pinching seats it there. To strike,
   look at the centering's handle and keep the pinch for 0.8 s; the centering slides out while you hold. This is head gaze
   (where the head points), not eye tracking. A pinch made while looking at nothing still works as a normal hand pinch.
+  With gaze off, the head's ray still watches the gaze icon alone: look at it until its ring appears (0.6 s) and pinch
+  either hand or pull a trigger, wherever the hand is, to turn gaze on (seen in IWER).
 - **One hand.** Nothing in Archwright needs two hands, with or without this setting. Each of these takes one pinch of one
   hand: taking a stone from the tray, carrying it and letting go at an open end, taking the outermost stone back off,
   pulling the centering, the rebuild stone, the level markers, the share tablet, the panel icons, and picking a spot on the

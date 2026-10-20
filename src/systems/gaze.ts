@@ -6,6 +6,9 @@
 // desktop mouse mode. The centering: look at its handle, pinch and keep the pinch for HOLD_TO_STRIKE;
 // it slides out as the hold goes on (the ring stays on the handle, wherever the eyes go) and strikes
 // at the end. Let go early and it stays where it got to.
+// With gaze off, in an XR session, the ray watches the gaze icon alone: looked at for GAZE_WAKE_DWELL, the ring comes
+// up on it and a pinch of either hand (or a trigger) turns gaze on, for a player who cannot reach the panel. A pinch
+// before that is left to the hands.
 // A pinch with nothing looked at is left to the hands, so direct play still works. What is looked at goes to
 // runtime.gaze, so the hover mark (grab-snap.ts hoverStone) shows the stone a pinch would confirm, and to
 // __archwright.gaze for the emulator test.
@@ -18,7 +21,7 @@ import { A11Y_TARGETS, type A11yKey, type A11yPanel } from './a11y.js';
 import { SelectPlace } from './select.js';
 import { playCue } from '../audio/synth.js';
 import { grabCue } from '../audio/music.js';
-import { gazePick, holdPull, HOLD_TO_STRIKE, type GazeTarget } from '../game/a11y.js';
+import { GAZE_WAKE_DWELL, gazePick, gazeWake, holdPull, HOLD_TO_STRIKE, type GazeTarget } from '../game/a11y.js';
 import { A11Y_ICONS, CENTERING, strikePull } from '../scene/layout.js';
 import { paint } from '../scene/palette.js';
 
@@ -28,6 +31,8 @@ const LEVER_R = 0.035;           // ... of the centering's handle
 const STONE_R = [0.016, 0.03];   // a stone's pick radius: 70 % of its bounding sphere, within this
 const ICON_R = 0.011;
 const MAX_TARGETS = 64;
+const WAKE_STEP = 0.25;            // s: the most one frame adds to the dwell on the gaze icon
+const WAKE_ONLY = [A11Y_TARGETS.gaze];
 
 let ringParts: { geo: RingGeometry; mat: MeshBasicMaterial } | undefined;
 
@@ -48,6 +53,8 @@ export function targetRing(name: string): Mesh {
   return ring;
 }
 
+const pinchedNow = (h: HandState) => h.tracked && h.pinchStarted;
+
 type Kind = 'stone' | 'face' | 'lever' | 'spot' | 'icon';
 interface Target extends GazeTarget { center: Vector3; kind: Kind; stone?: StoneView; side?: Side; icon?: A11yKey }
 
@@ -61,6 +68,7 @@ export class GazeSystem extends createSystem({}) {
   private lit: Side | undefined;
   private shownFor: StoneView | undefined;
   private hold: { side: Side; t: number; pull0: number } | undefined;
+  private dwell = 0;
   private ring!: Mesh;
   private origin = new Vector3();
   private dir = new Vector3();
@@ -87,12 +95,16 @@ export class GazeSystem extends createSystem({}) {
       this.generation = arch.generation;
       this.hold = undefined;
       this.hit = this.lit = this.shownFor = undefined;
+      this.dwell = 0;
       this.ring.visible = false;
     }
     arch.gaze.on = false;
     arch.gaze.stone = undefined;
     this.publish(arch);
-    if (!active) return;
+    if (!active) {
+      this.wake(arch, hands, panel, delta);
+      return;
+    }
 
     this.select.update(arch, delta);
     this.collect(arch, panel!);
@@ -123,6 +135,39 @@ export class GazeSystem extends createSystem({}) {
     g.on = arch.gaze.on;
     g.target = arch.gaze.on ? this.hit?.id ?? null : null;
     g.stone = arch.gaze.stone?.def.id ?? null;
+    g.wake = this.dwell;
+  }
+
+  /**
+   * Gaze off: the head's ray against the gaze icon alone (nothing in front of it blocks the look). Once it has rested
+   * there GAZE_WAKE_DWELL the ring shows on the icon, and a pinch then turns gaze on and is taken; until then a pinch
+   * is left to the hands. Outside XR, or with no panel on view, nothing is watched.
+   */
+  private wake(arch: ArchRuntime, hands: Record<Side, HandState>, panel: A11yPanel | undefined, delta: number): void {
+    this.live.length = 0;
+    let looking = false;
+    if (panel && this.renderer.xr.isPresenting) {
+      const at = panel.iconAt('gaze', this.v);
+      if (at) this.add('icon', A11Y_TARGETS.gaze, at, ICON_R);
+      if (this.live.length) {
+        this.player.head.getWorldPosition(this.origin);
+        this.player.head.getWorldDirection(this.dir).negate();
+        looking = gazePick(this.origin, this.dir, this.live, GAZE_RANGE, WAKE_ONLY) !== null;
+      }
+    }
+    const side: Side | undefined = pinchedNow(hands.left) ? 'left' : pinchedNow(hands.right) ? 'right' : undefined;
+    const w = gazeWake(this.dwell, looking, side !== undefined, Math.min(delta, WAKE_STEP));
+    this.dwell = w.dwell;
+    this.hit = looking && w.dwell >= GAZE_WAKE_DWELL ? this.live[0] : undefined;
+    this.showRing();
+    if (w.on && side) {
+      hands[side].pinchStarted = false; // taken: the hands' own picks do not see it
+      this.dwell = 0;
+      this.hit = undefined;
+      this.ring.visible = false;
+      panel!.toggle('gaze');
+    }
+    arch.hook.gaze.wake = this.dwell;
   }
 
   /** What may be looked at now, into this.live (no allocation once the pool is warm). */

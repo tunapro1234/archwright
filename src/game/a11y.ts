@@ -2,7 +2,8 @@
 // from ?a11y= and saved, which palette they paint with, and the head-gaze pick.
 //   gaze:         the head's ray picks the target (a stone, an open end, the centering's handle, a
 //                 marker); a pinch of either hand, or a controller trigger, confirms it. The same
-//                 select-then-seat steps as the desktop mouse mode (src/systems/select.ts).
+//                 select-then-seat steps as the desktop mouse mode (src/systems/select.ts). With it off,
+//                 the ray watches the gaze icon alone, so gaze can be turned on without reaching (gazeWake).
 //   oneHand:      every action already takes one hand; this adds hold-to-strike on the centering's
 //                 handle (pinch it and hold still for HOLD_TO_STRIKE), so no pulling is needed.
 //   highContrast: HIGH_CONTRAST in place of PALETTE (src/scene/palette.ts).
@@ -68,14 +69,18 @@ export interface GazeTarget { id: string; center: V3; radius: number }
 /**
  * The target the ray from `origin` along `dir` (any length) meets first: the nearest entry into a
  * target's sphere, within `maxDist` metres. Targets behind the origin or out of range are not hit.
+ * With `only`, the targets whose id is not in it are left out (one in front does not block the ray).
  */
-export function gazePick(origin: V3, dir: V3, targets: readonly GazeTarget[], maxDist = 1.5): string | null {
+export function gazePick(
+  origin: V3, dir: V3, targets: readonly GazeTarget[], maxDist = 1.5, only?: readonly string[],
+): string | null {
   const len = Math.hypot(dir.x, dir.y, dir.z);
   if (!(len > 0)) return null;
   const dx = dir.x / len, dy = dir.y / len, dz = dir.z / len;
   let best: string | null = null;
   let bestT = Infinity;
   for (const t of targets) {
+    if (only && !only.includes(t.id)) continue;
     const ox = t.center.x - origin.x, oy = t.center.y - origin.y, oz = t.center.z - origin.z;
     const along = ox * dx + oy * dy + oz * dz;
     if (along < 0) continue;
@@ -88,6 +93,19 @@ export function gazePick(origin: V3, dir: V3, targets: readonly GazeTarget[], ma
     best = t.id;
   }
   return best;
+}
+
+/** Seconds the head's ray rests on the gaze icon, with gaze off, before a pinch turns gaze on. */
+export const GAZE_WAKE_DWELL = 0.6;
+
+/**
+ * Gaze off: the dwell on the gaze icon after a frame of `delta` s, and whether a pinch this frame turns gaze on.
+ * The dwell grows while the icon is looked at and is 0 once it is not; a pinch counts only once it reaches
+ * GAZE_WAKE_DWELL, so a glance that crosses the icon does not take a pinch meant for something else.
+ */
+export function gazeWake(dwell: number, looking: boolean, pinched: boolean, delta: number): { dwell: number; on: boolean } {
+  const d = looking ? dwell + Math.max(0, delta) : 0;
+  return { dwell: d, on: looking && pinched && d >= GAZE_WAKE_DWELL };
 }
 
 /** A hand's spot stays marked while it is this much (m) past the spot's reach, unless another is this much nearer. */

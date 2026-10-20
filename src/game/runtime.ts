@@ -117,8 +117,9 @@ export interface Hook {
   hover: string | null;
   /** Gaze mode this frame (src/systems/gaze.ts): `on` while the eyes are on a target, `target` its name (a stone id,
    *  'face:left', 'lever', 'a11y:gaze', ... as for project()) and `stone` that stone's id when it is a stone a pinch
-   *  would take; all off outside gaze mode. */
-  gaze: { on: boolean; target: string | null; stone: string | null };
+   *  would take; all off outside gaze mode. `wake`: with gaze off in XR, the seconds the head's ray has rested on the
+   *  gaze icon (a pinch turns gaze on from GAZE_WAKE_DWELL); 0 in gaze mode or while the icon is not looked at. */
+  gaze: { on: boolean; target: string | null; stone: string | null; wake: number };
   /** The spot a hand is over in an XR session (src/systems/spot-hover.ts), marked with a ring: a level marker, the rebuild
    *  stone, the share tablet or an icon, by its project() name; null outside XR, in gaze mode, or when no spot is near. */
   handHover: string | null;
@@ -263,7 +264,7 @@ export class ArchRuntime {
       perf: { fps: 0, frameMs: 0, drawCalls: 0, triangles: 0, bodies: 0, p50: 0, p5: 0 },
       build: typeof __BUILD__ === 'string' ? __BUILD__ : 'dev',
       hover: null,
-      gaze: { on: false, target: null, stone: null },
+      gaze: { on: false, target: null, stone: null, wake: 0 },
       handHover: null,
       pinchTarget: { left: null, right: null },
       failure: null,
