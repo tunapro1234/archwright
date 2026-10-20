@@ -479,6 +479,17 @@ Chromium with the XR emulator for four desktop cases (w1-1 ready, w3-5 standing,
 emulated VR collapse. The same run was done twice, with software WebGL on a server and on a desktop RTX 3060. Neither is a
 headset: no Quest frame rate is claimed here, and none has been measured.
 
+The largest counts in each sampling window, from the server run on commit 8e3b517 (20 October 2026); that run's frame times are
+left out, since a software renderer says nothing about a headset:
+
+| Case | Draw calls | Triangles | Physics bodies |
+|---|---|---|---|
+| w1-1 ready, desktop | 20 | 3,512 | 0 |
+| w3-5 standing, desktop | 18 | 3,684 | 0 |
+| w3-5 collapsing, desktop | 19 | 7,500 | 13 |
+| Full museum, desktop | 20 | 3,804 | 0 |
+| w3-5 collapsing, emulated VR (both eyes drawn) | 48 | 32,576 | 14 |
+
 First load: `npm run build` prints the size of everything a visit can download up front, before anything loads on demand, and writes it to
 `dist/first-load.json` (`scripts/first-load.mjs`). It counts every chunk and worker of the build (an upper bound) except what only
 loads on demand: Havok's physics (about 2 MB, fetched once the page is idle after the board first shows, or at the first stone if
